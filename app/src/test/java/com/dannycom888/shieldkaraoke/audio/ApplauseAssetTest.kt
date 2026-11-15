@@ -10,11 +10,14 @@ import kotlin.math.log10
 import kotlin.math.sqrt
 
 /**
- * Guards the applause sound (v1.0.14): the asset must exist, decode as
- * the 44.1 kHz / 16-bit / mono WAV the generator script
- * (audio/make_applause.py) produces, run 3.5-4.0 s so it lines up
- * with APPLAUSE_MS on the TV, sit at a song-like level, and end with
- * its thinning tail faded to near silence — never guillotined.
+ * Guards the applause sound (v1.0.16): a real crowd recording, not a
+ * synthesis — public-domain "Slow starting applause" (pdsounds, via
+ * Wikimedia Commons), cut at 12 s for 3.8 s with fade-in/out and
+ * loudness aligned to song level, picked by the user by ear over the
+ * v1.0.14 synthetic version. The asset must exist, decode as
+ * 44.1 kHz / 16-bit / mono WAV, run ~3.8 s so it lines up with
+ * APPLAUSE_MS on the TV, sit at a song-like level, and end with its
+ * tail faded to near silence — never guillotined.
  */
 class ApplauseAssetTest {
 
@@ -82,7 +85,7 @@ class ApplauseAssetTest {
         assertEquals(44100, wav.sampleRate)
         assertEquals(16, wav.bitsPerSample)
         val durationS = wav.samples.size.toDouble() / wav.sampleRate
-        assertTrue("duration $durationS s outside 3.5-4.0 s", durationS in 3.5..4.0)
+        assertTrue("duration $durationS s outside 3.7-3.9 s", durationS in 3.7..3.9)
     }
 
     @Test
@@ -91,19 +94,26 @@ class ApplauseAssetTest {
         val s = wav.samples
         val rms = sqrt(s.sumOf { it * it } / s.size)
         val rmsDb = 20 * log10(rms)
-        assertTrue("RMS $rmsDb dBFS outside -24..-10", rmsDb in -24.0..-10.0)
+        // The delivered master measures -16.2 dBFS RMS / -1 dB peak;
+        // the bands below leave honest headroom either way while
+        // still catching a wrong or unlevelled file.
+        assertTrue("RMS $rmsDb dBFS outside -20..-13", rmsDb in -20.0..-13.0)
         val peak = s.maxOf { abs(it) }
-        assertTrue("peak $peak outside 0.5..1.0", peak in 0.5..1.0)
-        // The tail thins out: the last 0.8 s is much quieter on
-        // average than the full middle (individual late claps may
-        // still be loud — that's what a real room sounds like).
+        assertTrue("peak $peak outside 0.75..0.98", peak in 0.75..0.98)
+        // The applause dies away naturally: the last 0.8 s is much
+        // quieter on average than the full middle (individual late
+        // claps may still pop — that's what a real room sounds like).
         val tail = s.sliceArray(s.size - (0.8 * wav.sampleRate).toInt() until s.size)
         val mid = s.sliceArray(wav.sampleRate until 2 * wav.sampleRate)
         val tailRms = sqrt(tail.sumOf { it * it } / tail.size)
         val midRms = sqrt(mid.sumOf { it * it } / mid.size)
         assertTrue("tail RMS $tailRms not thinner than mid RMS $midRms", tailRms < midRms * 0.7)
-        // And it lands on silence: the final fade reaches ~zero, so
-        // the tail is never guillotined mid-clap.
+        // And it lands on near silence: the final 100 ms averages
+        // below -35 dBFS and the last 30 ms peaks under 0.02, so the
+        // fade-out is never guillotined mid-clap.
+        val end100 = s.sliceArray(s.size - (0.1 * wav.sampleRate).toInt() until s.size)
+        val end100Db = 20 * log10(sqrt(end100.sumOf { it * it } / end100.size))
+        assertTrue("final 100 ms RMS $end100Db dBFS not near silence", end100Db < -35.0)
         val endMax = s.sliceArray(s.size - (0.03 * wav.sampleRate).toInt() until s.size).maxOf { abs(it) }
         assertTrue("final 30 ms max $endMax not silent", endMax < 0.02)
     }

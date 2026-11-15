@@ -23,6 +23,15 @@ import kotlin.math.floor
  * The robot is exempt at the call site (its stepped, mechanical
  * hard cuts are its character), and the applause row never
  * blends (all six clap in lockstep).
+ *
+ * v1.0.17: the *order* the frames are visited in is no longer
+ * the sheet order — the user confirmed the poses themselves
+ * jumped ("姿势乱跳，前后接不上"), which no fade can fix. The
+ * [frameIndex] / [blend] overloads taking an `order` list map
+ * the beat step through [DancerPoseOrder]'s re-sequenced tour:
+ * beat step k shows frame `order[k mod N]`. The step timing,
+ * the fade, and the wrap behaviour are exactly the ones above;
+ * only which frame a step lands on changes.
  */
 object PoseCycle {
 
@@ -83,5 +92,42 @@ object PoseCycle {
         val previous = (((step - 1) % frameCount + frameCount) % frameCount).toInt()
         val alpha = (phase / FADE_FRACTION).coerceIn(0.0, 1.0).toFloat()
         return Blend(previous, current, alpha)
+    }
+
+    // --- v1.0.17: the same stepping, visited in dance order ---
+
+    /**
+     * The frame on screen at [positionMs] when the cycle visits
+     * frames in [order] (see [DancerPoseOrder]): the beat step is
+     * computed exactly as in the sheet-order [frameIndex], then
+     * mapped through the order — step k shows `order[k mod N]`.
+     */
+    fun frameIndex(
+        positionMs: Long,
+        bpm: Double,
+        order: List<Int>,
+        phaseOffsetBeats: Double = 0.0,
+    ): Int {
+        if (order.isEmpty()) return 0
+        val step = frameIndex(positionMs, bpm, order.size, phaseOffsetBeats)
+        return order[step]
+    }
+
+    /**
+     * The cross-fade pair for the ordered cycle: the sheet-order
+     * [blend] for the same position, with both indices mapped
+     * through [order] — the previous frame is the order's previous
+     * entry, so the fade melts between dance neighbours, and the
+     * wrap fades from the tour's last frame back into its first.
+     */
+    fun blend(
+        positionMs: Long,
+        bpm: Double,
+        order: List<Int>,
+        phaseOffsetBeats: Double = 0.0,
+    ): Blend {
+        if (order.isEmpty()) return Blend(0, 0, 1f)
+        val b = blend(positionMs, bpm, order.size, phaseOffsetBeats)
+        return Blend(order[b.previousIndex], order[b.currentIndex], b.currentAlpha)
     }
 }

@@ -630,8 +630,12 @@ class MainActivity : ComponentActivity() {
                                                 DancerActivity.breathPose(positionMs, dancer.profile)
                                         },
                                         frameIndex = if (dancerPhase == DancerActivity.Phase.DANCING) {
+                                            // v1.0.17: visit the frames in
+                                            // DancerPoseOrder's re-sequenced
+                                            // dance order, not sheet order.
                                             PoseCycle.frameIndex(
-                                                positionMs, currentBpm, dancer.frames.size,
+                                                positionMs, currentBpm,
+                                                DancerPoseOrder.orderFor(dancer.key),
                                                 phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
                                             )
                                         } else {
@@ -646,7 +650,8 @@ class MainActivity : ComponentActivity() {
                                             dancer.profile != DanceMotion.Profile.ROBOT
                                         ) {
                                             PoseCycle.blend(
-                                                positionMs, currentBpm, dancer.frames.size,
+                                                positionMs, currentBpm,
+                                                DancerPoseOrder.orderFor(dancer.key),
                                                 phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
                                             )
                                         } else {

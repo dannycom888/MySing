@@ -1,0 +1,497 @@
+package com.dannycom888.shieldkaraoke.ui
+
+import android.content.Intent
+import android.media.MediaPlayer
+import android.net.Uri
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
+import com.dannycom888.shieldkaraoke.KaraokeApp
+import com.dannycom888.shieldkaraoke.audio.AudioMath
+import com.dannycom888.shieldkaraoke.audio.LoudnessAnalyzer
+import com.dannycom888.shieldkaraoke.audio.PlayerController
+import com.dannycom888.shieldkaraoke.library.Catalog
+import com.dannycom888.shieldkaraoke.library.Gender
+import com.dannycom888.shieldkaraoke.library.Language
+import com.dannycom888.shieldkaraoke.library.LibraryScanner
+import com.dannycom888.shieldkaraoke.library.SafLibrarySource
+import com.dannycom888.shieldkaraoke.library.Song
+import com.dannycom888.shieldkaraoke.lyrics.LrcParser
+import com.dannycom888.shieldkaraoke.lyrics.LyricLine
+import com.dannycom888.shieldkaraoke.queue.QueueEntry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private enum class Screen { HOME, BROWSE, PLAYER }
+private enum class ListType { SONGS, SINGERS }
+private enum class Special { NONE, FAVORITES, RECENTS }
+
+private val bg = Color(0xFF0D1B3E)
+private val cardBg = Color(0xFF16295C)
+private val gold = Color(0xFFFFD54F)
+private val soft = Color(0xFF9DB4E8)
+
+class MainActivity : ComponentActivity() {
+
+    private lateinit var app: KaraokeApp
+    private lateinit var controller: PlayerController
+    private var applausePlayer: MediaPlayer? = null
+
+    private var screen by mutableStateOf(Screen.HOME)
+    private var lyrics by mutableStateOf<List<LyricLine>>(emptyList())
+    private var positionMs by mutableStateOf(0L)
+    private var showControls by mutableStateOf(true)
+    private var confirmQuit by mutableStateOf(false)
+    private var accompaniment by mutableStateOf(false)
+    private var semitoneLabel by mutableStateOf(0)
+    private var scanning by mutableStateOf(false)
+    private var quitting = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        app = application as KaraokeApp
+        controller = PlayerController(this)
+        controller.onEnded = { onSongEndedNaturally() }
+        app.state.onShouldStart = { entry ->
+            runOnUiThread { startSong(entry); screen = Screen.PLAYER }
+        }
+        app.prefs.libraryTreeUri?.let { rescan(Uri.parse(it)) }
+
+        setContent {
+            MaterialTheme {
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxSize().background(bg)
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown) {
+                                showControls = true
+                                if (event.key == Key.MediaPlayPause) controller.togglePlayPause()
+                            }
+                            false
+                        },
+                ) {
+                    val compact = maxHeight < 500.dp
+                    when (screen) {
+                        Screen.HOME -> HomeScreen(compact)
+                        Screen.BROWSE -> BrowseScreen(compact)
+                        Screen.PLAYER -> PlayerScreen(compact)
+                    }
+                    if (confirmQuit) {
+                        AlertDialog(
+                            onDismissRequest = { confirmQuit = false },
+                            title = { Text("不唱了？") },
+                            text = { Text("结束当前这首，接着唱下一首。") },
+                            confirmButton = {
+                                Button(onClick = { confirmQuit = false; quitCurrent() }) { Text("不唱了") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { confirmQuit = false }) { Text("继续唱") }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        applausePlayer?.release()
+        controller.release()
+        super.onDestroy()
+    }
+
+    // ---------- library ----------
+
+    private fun rescan(treeUri: Uri) {
+        scanning = true
+        lifecycleScope.launch {
+            val songs = withContext(Dispatchers.IO) {
+                LibraryScanner.scan(SafLibrarySource.listFiles(this@MainActivity, treeUri))
+            }
+            app.state.setCatalog(Catalog(songs))
+            scanning = false
+        }
+    }
+
+    // ---------- playback flow ----------
+
+    private fun startSong(entry: QueueEntry) {
+        app.state.nowPlaying = entry
+        app.prefs.pushRecent(entry.song.id)
+        lyrics = emptyList()
+        positionMs = 0
+        accompaniment = false
+        semitoneLabel = 0
+        val uri = Uri.parse(entry.song.audioRef)
+        val cachedGain = app.prefs.loudnessDb(entry.song.id)
+        controller.load(uri, AudioMath.normalizationGainDb(cachedGain))
+        entry.song.lyricsRef?.let { ref ->
+            lifecycleScope.launch {
+                val parsed = withContext(Dispatchers.IO) {
+                    try {
+                        contentResolver.openInputStream(Uri.parse(ref))?.bufferedReader()?.readText()
+                            ?.let { LrcParser.parse(it) } ?: emptyList()
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                }
+                if (app.state.nowPlaying?.song?.id == entry.song.id) lyrics = parsed
+            }
+        }
+        if (cachedGain == null) {
+            lifecycleScope.launch {
+                val measured = withContext(Dispatchers.IO) { LoudnessAnalyzer.measureRmsDbfs(this@MainActivity, uri) }
+                if (measured != null) {
+                    app.prefs.setLoudnessDb(entry.song.id, measured)
+                    if (app.state.nowPlaying?.song?.id == entry.song.id) {
+                        controller.applyGainDb(AudioMath.normalizationGainDb(measured))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun onSongEndedNaturally() {
+        if (quitting) return
+        runOnUiThread {
+            val next = app.state.advanceAfterFinish()
+            if (next == null) {
+                app.state.nowPlaying = null
+                playApplause()
+                screen = Screen.HOME
+            } else {
+                // Applause + a few seconds for the next singer to get ready.
+                playApplause()
+                app.state.interludeSeconds = 5
+                lifecycleScope.launch {
+                    while (app.state.interludeSeconds > 0) {
+                        delay(1000)
+                        app.state.interludeSeconds -= 1
+                    }
+                    startSong(next)
+                }
+            }
+        }
+    }
+
+    private fun quitCurrent() {
+        quitting = true
+        controller.stop()
+        quitting = false
+        val next = app.state.advanceAfterQuit()
+        if (next == null) {
+            app.state.nowPlaying = null
+            screen = Screen.HOME
+        } else {
+            startSong(next)
+        }
+    }
+
+    private fun playApplause() {
+        try {
+            applausePlayer?.release()
+            applausePlayer = MediaPlayer().apply {
+                assets.openFd("applause.wav").use { fd ->
+                    setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+                }
+                prepare()
+                start()
+            }
+        } catch (e: Exception) {
+            // Applause is garnish; never let it break the flow.
+        }
+    }
+
+    private fun orderFromTv(song: Song) {
+        app.state.order(song, "电视")
+        if (app.state.queue.current != null) screen = Screen.PLAYER
+    }
+
+    // ---------- screens ----------
+
+    @Composable
+    private fun HomeScreen(compact: Boolean) {
+        val state = app.state
+        val ip = remember(state.version) { Qr.lanIpAddress() }
+        val port = app.localServerPort()
+        Column(modifier = Modifier.fillMaxSize().padding(if (compact) 14.dp else 28.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("MySing", color = gold, fontSize = (if (compact) 24 else 36).sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        when {
+                            scanning -> "正在扫描歌库…"
+                            state.catalog.songs.isEmpty() -> "先选歌库文件夹（里面有四个分类文件夹）"
+                            else -> "歌库共 ${state.catalog.songs.size} 首"
+                        },
+                        color = soft, fontSize = (if (compact) 13 else 17).sp,
+                    )
+                }
+                if (ip != null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val qr = remember(ip, port) { Qr.encode("http://$ip:$port/", if (compact) 110 else 170) }
+                        Image(bitmap = qr.asImageBitmap(), contentDescription = "手机点歌二维码",
+                            modifier = Modifier.height(if (compact) 62.dp else 110.dp).width(if (compact) 62.dp else 110.dp))
+                        Text("手机扫码点歌", color = Color.White, fontSize = (if (compact) 11 else 14).sp)
+                    }
+                }
+            }
+            Spacer(Modifier.height(if (compact) 10.dp else 20.dp))
+            val entries = listOf(
+                "🎤 按歌手" to { openBrowse(ListType.SINGERS, null, null, Special.NONE) },
+                "🎵 按歌名" to { openBrowse(ListType.SONGS, null, null, Special.NONE) },
+                "🇨🇳 中文" to { openBrowse(ListType.SONGS, Language.CHINESE, null, Special.NONE) },
+                "🇬🇧 英文" to { openBrowse(ListType.SONGS, Language.ENGLISH, null, Special.NONE) },
+                "❤ 收藏" to { openBrowse(ListType.SONGS, null, null, Special.FAVORITES) },
+                "🕘 最近唱过" to { openBrowse(ListType.SONGS, null, null, Special.RECENTS) },
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(entries) { (label, action) ->
+                    EntryCard(label, compact, action)
+                }
+            }
+            Spacer(Modifier.height(if (compact) 8.dp else 16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+                    if (uri != null) {
+                        try {
+                            contentResolver.takePersistableUriPermission(
+                                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                            )
+                        } catch (e: Exception) { /* still usable this session */ }
+                        app.prefs.libraryTreeUri = uri.toString()
+                        rescan(uri)
+                    }
+                }
+                EntryCard("📁 选择歌库文件夹", compact) { picker.launch(null) }
+                EntryCard("🔄 重新扫描", compact) {
+                    app.prefs.libraryTreeUri?.let { rescan(Uri.parse(it)) }
+                }
+                if (state.nowPlaying != null) {
+                    EntryCard("▶ 正在唱：${state.nowPlaying!!.song.displayName}", compact) { screen = Screen.PLAYER }
+                }
+            }
+            Spacer(Modifier.weight(1f))
+            Text("本软件由 Muse 协助制作", color = soft.copy(alpha = 0.6f), fontSize = 11.sp)
+        }
+    }
+
+    private var listType by mutableStateOf(ListType.SONGS)
+    private var filterLang by mutableStateOf<Language?>(null)
+    private var filterGender by mutableStateOf<Gender?>(null)
+    private var filterArtist by mutableStateOf<String?>(null)
+    private var special by mutableStateOf(Special.NONE)
+
+    private fun openBrowse(type: ListType, lang: Language?, gender: Gender?, sp: Special) {
+        listType = type; filterLang = lang; filterGender = gender; filterArtist = null; special = sp
+        screen = Screen.BROWSE
+    }
+
+    @Composable
+    private fun BrowseScreen(compact: Boolean) {
+        BackHandler { screen = Screen.HOME }
+        @Suppress("UNUSED_VARIABLE") val versionTick = app.state.version
+        val catalog = app.state.catalog
+        Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("歌曲", listType == ListType.SONGS) { listType = ListType.SONGS }
+                Chip("歌手", listType == ListType.SINGERS) { listType = ListType.SINGERS }
+                Chip("全部", filterLang == null && special == Special.NONE) {
+                    filterLang = null; special = Special.NONE
+                }
+                Chip("中文", filterLang == Language.CHINESE) { filterLang = Language.CHINESE; special = Special.NONE }
+                Chip("英文", filterLang == Language.ENGLISH) { filterLang = Language.ENGLISH; special = Special.NONE }
+                Chip("不限男女", filterGender == null) { filterGender = null }
+                Chip("男歌手", filterGender == Gender.MALE) { filterGender = Gender.MALE }
+                Chip("女歌手", filterGender == Gender.FEMALE) { filterGender = Gender.FEMALE }
+                if (filterArtist != null) {
+                    Chip("歌手：${filterArtist} ✕", true) { filterArtist = null }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            if (listType == ListType.SINGERS) {
+                val singers = catalog.singers(filterLang, filterGender)
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    items(singers) { singer ->
+                        ListRow("🎤 $singer", compact) {
+                            filterArtist = singer; listType = ListType.SONGS
+                        }
+                    }
+                }
+            } else {
+                val songs = when (special) {
+                    Special.FAVORITES -> catalog.songs.filter { it.id in app.prefs.favorites() }
+                    Special.RECENTS -> app.prefs.recents().mapNotNull { catalog.byId(it) }
+                    Special.NONE -> catalog.filtered(filterLang, filterGender)
+                        .filter { filterArtist == null || it.artist.equals(filterArtist, ignoreCase = true) }
+                }
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    items(songs) { song ->
+                        ListRow("🎵 ${song.displayName}", compact) { orderFromTv(song) }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun PlayerScreen(compact: Boolean) {
+        BackHandler { screen = Screen.HOME }
+        @Suppress("UNUSED_VARIABLE") val versionTick = app.state.version
+        val state = app.state
+        val entry = state.nowPlaying
+        LaunchedEffect(entry?.song?.id) {
+            while (true) {
+                positionMs = try { controller.player.currentPosition } catch (e: Exception) { 0L }
+                // ~30 fps so the karaoke sweep's gold boundary
+                // travels continuously through each character.
+                delay(33)
+            }
+        }
+        LaunchedEffect(showControls) {
+            if (showControls) { delay(4000); showControls = false }
+        }
+        Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
+            val nextUp = state.queue.nextUpText()
+            Box(modifier = Modifier.fillMaxWidth().height(if (compact) 26.dp else 36.dp)) {
+                if (nextUp != null) {
+                    Text(nextUp, color = gold, fontSize = (if (compact) 14 else 19).sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (state.interludeSeconds > 0) {
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text("👏", fontSize = (if (compact) 30 else 48).sp)
+                    Text(nextUp ?: "", color = Color.White, fontSize = (if (compact) 18 else 26).sp, fontWeight = FontWeight.Bold)
+                    Text("${state.interludeSeconds} 秒后开始", color = soft, fontSize = (if (compact) 14 else 18).sp)
+                }
+            } else {
+                Text(
+                    entry?.let { "正在唱：${it.song.displayName}（${it.orderedBy}点的）" } ?: "",
+                    color = soft, fontSize = (if (compact) 12 else 15).sp,
+                )
+                LyricsView(lyrics, positionMs, compact, modifier = Modifier.weight(1f))
+            }
+            if (showControls) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                ) {
+                    Chip(if (controller.player.isPlaying) "⏸ 暂停" else "▶ 继续", false) { controller.togglePlayPause(); showControls = true }
+                    Chip("↺ 重唱", false) { controller.replay(); showControls = true }
+                    Chip(if (accompaniment) "🎙 伴奏中" else "🎤 原唱", accompaniment) {
+                        accompaniment = !accompaniment; controller.setAccompaniment(accompaniment); showControls = true
+                    }
+                    Chip("降调 −", false) { controller.shiftPitch(-1); semitoneLabel = controller.semitones; showControls = true }
+                    Chip("调 $semitoneLabel", false) { }
+                    Chip("升调 ＋", false) { controller.shiftPitch(1); semitoneLabel = controller.semitones; showControls = true }
+                    Chip("🚪 不唱了", false) { confirmQuit = true }
+                    Chip("🎵 去点歌", false) { screen = Screen.BROWSE }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun EntryCard(label: String, compact: Boolean, onClick: () -> Unit) {
+        var focused by remember { mutableStateOf(false) }
+        Box(
+            modifier = Modifier
+                .height(if (compact) 54.dp else 84.dp)
+                .border(2.dp, if (focused) gold else Color.Transparent, RoundedCornerShape(12.dp))
+                .background(cardBg, RoundedCornerShape(12.dp))
+                .focusable()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { onClick() }
+                .padding(horizontal = 18.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(label, color = Color.White, fontSize = (if (compact) 15 else 20).sp, fontWeight = FontWeight.Bold)
+        }
+    }
+
+    @Composable
+    private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+        var focused by remember { mutableStateOf(false) }
+        Box(
+            modifier = Modifier
+                .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(16.dp))
+                .background(if (selected) gold else cardBg, RoundedCornerShape(16.dp))
+                .focusable()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { onClick() }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+        ) {
+            Text(label, color = if (selected) Color.Black else Color.White, fontSize = 13.sp)
+        }
+    }
+
+    @Composable
+    private fun ListRow(label: String, compact: Boolean, onClick: () -> Unit) {
+        var focused by remember { mutableStateOf(false) }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(2.dp, if (focused) gold else Color.Transparent, RoundedCornerShape(8.dp))
+                .background(if (focused) cardBg else Color.Transparent, RoundedCornerShape(8.dp))
+                .focusable()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { onClick() }
+                .padding(horizontal = 14.dp, vertical = if (compact) 6.dp else 10.dp),
+        ) {
+            Text(label, color = Color.White, fontSize = (if (compact) 14 else 18).sp, maxLines = 1)
+        }
+    }
+}

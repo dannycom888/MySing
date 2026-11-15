@@ -26,7 +26,7 @@ object DanceMotion {
         val sinkFraction: Float = 0f,
     )
 
-    enum class Profile { MODERN, ANCIENT, BABY, ROBOT }
+    enum class Profile { MODERN, ANCIENT, SUMO, BABY, ROBOT }
 
     /** Clap interval for the applause celebration, ms. */
     const val CLAP_INTERVAL_MS = 300L
@@ -39,7 +39,30 @@ object DanceMotion {
             Profile.BABY -> BabyFall.pose(beats, safeBpm)
             Profile.MODERN -> humanPose(beats, safeBpm, bounceHeavy = true)
             Profile.ANCIENT -> humanPose(beats, safeBpm, bounceHeavy = false)
+            Profile.SUMO -> sumoPose(beats, safeBpm)
         }
+    }
+
+    /**
+     * The sumo (v1.0.12): heavy and grounded. The weight shift is
+     * the dance — a slow side-to-side rock, one full sway cycle per
+     * two beats at ±4.5°, while the bounce stays low and blunt
+     * (flattened sine: he sinks rather than springs) with a small
+     * knee-bend sink landing on each beat. No falls, no jumps.
+     */
+    private fun sumoPose(beats: Double, bpm: Double): Pose {
+        val slow = if (bpm < 80.0) 0.7f else 1.0f
+        val rotation = sin(PI * beats) * 4.5 * slow
+        val bounce = Math.pow(abs(sin(PI * beats)), 0.6) * 0.30 * slow
+        val frac = beats - floor(beats)
+        val sink = exp(-frac * 6.0) * 0.10 * slow
+        val pulse = exp(-frac * 5.0) * 0.015
+        return Pose(
+            bounceFraction = bounce.toFloat(),
+            rotationDeg = rotation.toFloat(),
+            scale = (1.0 + pulse).toFloat(),
+            sinkFraction = sink.toFloat(),
+        )
     }
 
     private fun humanPose(beats: Double, bpm: Double, bounceHeavy: Boolean): Pose {

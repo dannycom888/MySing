@@ -33,7 +33,7 @@ OUT_DIR = PROJECT / "app/src/main/assets/dancer_anim"
 DANCERS = {
     "modern": "dancer_modern_woman",
     "ancient": "dancer_ancient_woman",
-    "girl": "dancer_modern_girl",
+    "sumo": "dancer_sumo",
     "ancient_girl": "dancer_ancient_girl",
     "baby": "dancer_baby",
     "robot": "dancer_robot",

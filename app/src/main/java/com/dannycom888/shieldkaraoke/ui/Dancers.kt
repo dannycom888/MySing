@@ -24,7 +24,7 @@ data class Dancer(
 object Dancers {
     val ALL: List<Dancer> = listOf(
         Dancer(
-            DancerKeys.MODERN, "现代女", R.drawable.dancer_modern_woman, R.drawable.dancer_modern_woman_invite,
+            DancerKeys.MODERN, "春丽", R.drawable.dancer_modern_woman, R.drawable.dancer_modern_woman_invite,
             listOf(
                 R.drawable.dancer_modern_woman_01, R.drawable.dancer_modern_woman_02,
                 R.drawable.dancer_modern_woman_03, R.drawable.dancer_modern_woman_04,
@@ -50,7 +50,7 @@ object Dancers {
             DanceMotion.Profile.MODERN,
         ),
         Dancer(
-            DancerKeys.ANCIENT, "古代女", R.drawable.dancer_ancient_woman, R.drawable.dancer_ancient_woman_invite,
+            DancerKeys.ANCIENT, "林语嫣", R.drawable.dancer_ancient_woman, R.drawable.dancer_ancient_woman_invite,
             listOf(
                 R.drawable.dancer_ancient_woman_01, R.drawable.dancer_ancient_woman_02,
                 R.drawable.dancer_ancient_woman_03, R.drawable.dancer_ancient_woman_04,
@@ -76,33 +76,33 @@ object Dancers {
             DanceMotion.Profile.ANCIENT,
         ),
         Dancer(
-            DancerKeys.GIRL, "现代女孩", R.drawable.dancer_modern_girl, R.drawable.dancer_modern_girl_invite,
+            DancerKeys.SUMO, "姿三四郎", R.drawable.dancer_sumo, R.drawable.dancer_sumo_invite,
             listOf(
-                R.drawable.dancer_modern_girl_01, R.drawable.dancer_modern_girl_02,
-                R.drawable.dancer_modern_girl_03, R.drawable.dancer_modern_girl_04,
-                R.drawable.dancer_modern_girl_05, R.drawable.dancer_modern_girl_06,
-                R.drawable.dancer_modern_girl_07, R.drawable.dancer_modern_girl_08,
-                R.drawable.dancer_modern_girl_09, R.drawable.dancer_modern_girl_10,
-                R.drawable.dancer_modern_girl_11, R.drawable.dancer_modern_girl_12,
-                R.drawable.dancer_modern_girl_13, R.drawable.dancer_modern_girl_14,
-                R.drawable.dancer_modern_girl_15, R.drawable.dancer_modern_girl_16,
-                R.drawable.dancer_modern_girl_17, R.drawable.dancer_modern_girl_18,
-                R.drawable.dancer_modern_girl_19, R.drawable.dancer_modern_girl_20,
-                R.drawable.dancer_modern_girl_21, R.drawable.dancer_modern_girl_22,
-                R.drawable.dancer_modern_girl_23, R.drawable.dancer_modern_girl_24,
-                R.drawable.dancer_modern_girl_25, R.drawable.dancer_modern_girl_26,
-                R.drawable.dancer_modern_girl_27, R.drawable.dancer_modern_girl_28,
-                R.drawable.dancer_modern_girl_29, R.drawable.dancer_modern_girl_30,
-                R.drawable.dancer_modern_girl_31, R.drawable.dancer_modern_girl_32,
-                R.drawable.dancer_modern_girl_33, R.drawable.dancer_modern_girl_34,
-                R.drawable.dancer_modern_girl_35, R.drawable.dancer_modern_girl_36,
-                R.drawable.dancer_modern_girl_37, R.drawable.dancer_modern_girl_38,
-                R.drawable.dancer_modern_girl_39, R.drawable.dancer_modern_girl_40,
+                R.drawable.dancer_sumo_01, R.drawable.dancer_sumo_02,
+                R.drawable.dancer_sumo_03, R.drawable.dancer_sumo_04,
+                R.drawable.dancer_sumo_05, R.drawable.dancer_sumo_06,
+                R.drawable.dancer_sumo_07, R.drawable.dancer_sumo_08,
+                R.drawable.dancer_sumo_09, R.drawable.dancer_sumo_10,
+                R.drawable.dancer_sumo_11, R.drawable.dancer_sumo_12,
+                R.drawable.dancer_sumo_13, R.drawable.dancer_sumo_14,
+                R.drawable.dancer_sumo_15, R.drawable.dancer_sumo_16,
+                R.drawable.dancer_sumo_17, R.drawable.dancer_sumo_18,
+                R.drawable.dancer_sumo_19, R.drawable.dancer_sumo_20,
+                R.drawable.dancer_sumo_21, R.drawable.dancer_sumo_22,
+                R.drawable.dancer_sumo_23, R.drawable.dancer_sumo_24,
+                R.drawable.dancer_sumo_25, R.drawable.dancer_sumo_26,
+                R.drawable.dancer_sumo_27, R.drawable.dancer_sumo_28,
+                R.drawable.dancer_sumo_29, R.drawable.dancer_sumo_30,
+                R.drawable.dancer_sumo_31, R.drawable.dancer_sumo_32,
+                R.drawable.dancer_sumo_33, R.drawable.dancer_sumo_34,
+                R.drawable.dancer_sumo_35, R.drawable.dancer_sumo_36,
+                R.drawable.dancer_sumo_37, R.drawable.dancer_sumo_38,
+                R.drawable.dancer_sumo_39, R.drawable.dancer_sumo_40,
             ),
-            DanceMotion.Profile.MODERN,
+            DanceMotion.Profile.SUMO,
         ),
         Dancer(
-            DancerKeys.ANCIENT_GIRL, "古代女童", R.drawable.dancer_ancient_girl, R.drawable.dancer_ancient_girl_invite,
+            DancerKeys.ANCIENT_GIRL, "小蛮", R.drawable.dancer_ancient_girl, R.drawable.dancer_ancient_girl_invite,
             listOf(
                 R.drawable.dancer_ancient_girl_01, R.drawable.dancer_ancient_girl_02,
                 R.drawable.dancer_ancient_girl_03, R.drawable.dancer_ancient_girl_04,
@@ -128,7 +128,7 @@ object Dancers {
             DanceMotion.Profile.ANCIENT,
         ),
         Dancer(
-            DancerKeys.BABY, "小婴儿", R.drawable.dancer_baby, R.drawable.dancer_baby_invite,
+            DancerKeys.BABY, "哪吒", R.drawable.dancer_baby, R.drawable.dancer_baby_invite,
             listOf(
                 R.drawable.dancer_baby_01, R.drawable.dancer_baby_02,
                 R.drawable.dancer_baby_03, R.drawable.dancer_baby_04,
@@ -154,7 +154,7 @@ object Dancers {
             DanceMotion.Profile.BABY,
         ),
         Dancer(
-            DancerKeys.ROBOT, "机器人", R.drawable.dancer_robot, R.drawable.dancer_robot_invite,
+            DancerKeys.ROBOT, "瓦力", R.drawable.dancer_robot, R.drawable.dancer_robot_invite,
             listOf(
                 R.drawable.dancer_robot_01, R.drawable.dancer_robot_02,
                 R.drawable.dancer_robot_03, R.drawable.dancer_robot_04,
@@ -181,7 +181,7 @@ object Dancers {
         ),
     )
 
-    /** Unknown / unset keys fall back to the default (modern woman). */
+    /** Unknown / unset keys fall back to the default (Chun-Li). */
     fun byKey(key: String?): Dancer = ALL.firstOrNull { it.key == key } ?: ALL[0]
 
     fun indexOf(dancer: Dancer): Int = ALL.indexOf(dancer).coerceAtLeast(0)

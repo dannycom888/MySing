@@ -5,28 +5,34 @@ package com.dannycom888.shieldkaraoke.state
  * the phone page, the HTTP server, [Prefs] and the TV UI (which maps
  * keys to drawables). The dancer is chosen per *orderer*: whoever
  * ordered the song picks the dancer that comes out for their song.
+ *
+ * v1.0.12: the modern girl was replaced by the sumo wrestler
+ * （姿三四郎） and every dancer got a stage name. Keys stay stable —
+ * only the sumo key is new; a stored "girl" selection (TV prefs or
+ * a phone's localStorage) is simply no longer valid and falls back
+ * to the default everywhere, exactly like any unknown key.
  */
 object DancerKeys {
     const val MODERN = "modern"
     const val ANCIENT = "ancient"
-    const val GIRL = "girl"
+    const val SUMO = "sumo"
     const val ANCIENT_GIRL = "ancient_girl"
     const val BABY = "baby"
     const val ROBOT = "robot"
 
     /** Selection cycle order on the phone page. */
-    val ALL = listOf(MODERN, ANCIENT, GIRL, ANCIENT_GIRL, BABY, ROBOT)
+    val ALL = listOf(MODERN, ANCIENT, SUMO, ANCIENT_GIRL, BABY, ROBOT)
 
     val LABELS = mapOf(
-        MODERN to "现代女",
-        ANCIENT to "古代女",
-        GIRL to "现代女孩",
-        ANCIENT_GIRL to "古代女童",
-        BABY to "小婴儿",
-        ROBOT to "机器人",
+        MODERN to "春丽",
+        ANCIENT to "林语嫣",
+        SUMO to "姿三四郎",
+        ANCIENT_GIRL to "小蛮",
+        BABY to "哪吒",
+        ROBOT to "瓦力",
     )
 
-    /** TV-ordered songs and unknown orderers get the modern woman. */
+    /** TV-ordered songs and unknown orderers get Chun-Li （春丽）. */
     const val DEFAULT = MODERN
 
     fun isValid(key: String): Boolean = key in ALL

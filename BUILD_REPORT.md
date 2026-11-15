@@ -469,3 +469,38 @@
 - GitHub 发布：提交 `ebfdb37` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.11 （附件 `MySing-1.0.11.apk`）。API 回读校验：asset size `18428561`、digest `sha256:c6340ea150dc1b0072350aa032ca0fe81f40f17c985722dd80fd6b3becf88fcb`，与本地逐字一致。
 
 待用户真机验：手机重新扫码打开点歌页，选伴舞六张卡应都在循环跳舞；点谁选谁与电视出场规则不变。
+
+## v1.0.12 相扑手换人 + 全员命名（2026-11-15）
+
+构建日期：2026-11-15（America/New_York）。两件事：①现代女孩下场，日本相扑手顶替她的阵容位置（全套素材新生产）；②六位伴舞全部改用艺名。其余功能一律未动。
+
+| 项 | 值 |
+|---|---|
+| 产物 | `~/workspace/shield-karaoke/MySing-1.0.12.apk` |
+| 大小 | 18,831,550 字节（较 v1.0.11 的 18,428,561 增 402,989 B：相扑帧/单帧/动画体量大于小女孩所致） |
+| SHA-256 | `f0e9e67cdb0552964b803d5254bd431b01af126091378ad909239b8df179ff2e`（前缀 `f0e9e67c`） |
+| versionName / versionCode | 1.0.12 / 13（aapt badging 实测） |
+| 签名 | 同一把共享 keystore，证书 SHA-256 `1336ee0aefc229c3f0e6c025060ec0267825dbfc83f8799c3981dd74ea2befcc`，与历版逐字一致，可覆盖安装 |
+| 单元测试 | `:app:testDebugUnitTest` **145 个，0 失败**（139 旧 + DancerKeys 阵容/命名 4 + DanceMotion 相扑律动 2；PhonePage 卡片断言同步更新） |
+| 资源校验 | aapt2 资源表实测舞者条目 **252**（与 v1.0.11 持平）= 240 姿势帧 + 6 单帧 + 6 邀请帧；其中 sumo 42 条、modern_girl 0 条 |
+
+### 相扑手全套生产（定版母版 v5：灰腰带 + 白前襟，用户 2026-11-15 12:57 定版）
+
+- **站立单帧**：从定版母版 rembg 抠图，内容高 500px、画布 305×600，即鼓掌排与手机静态图用的 `dancer_sumo.png`；500px 同时是姿势帧的缩放锚点（与各角色"单帧站姿高 = 姿势 target_h"的既有口径一致）。
+- **姿势表 8 张**（poses-sumo-a…h，每张 5 姿、横排、深藏青底，均以母版为参考图生成）：踏步/四股、沉晃、深蹲、拍手、推掌、转身、挥手、撒盐、拍肚皮、竖拇指、指天、V 字庆祝等，全是合大体型的沉稳动作，无腾空无劈叉。生成坏版修补：C 表初版第 3/4 姿重复、D 表初版第 5 姿只张一臂，各重生成 1 次后采用新版（旧版移入 `poses/rejected/`，不进管线）。
+- **抠图**（新脚本 `poses/cutout_sumo.py`，复用 v1.0.5 的 `cutout_poses` 分离管线）：40 帧共用同一缩放（最高帧内容高 → 500px，scale 0.5562）、同一画布 468×600、脚底基线距底 12；质量守卫通过（alpha 质量最小 180,994 / 中位 231,264，无近空帧），逐帧总览目检无缺肢、无邻座碎片。**一处镜像修补**：A 表两个四股抬腿生成成了同侧腿，帧 _02 做水平翻转成左右一对（角色正面左右对称，翻转不可见）。WebP q93 进资源，PNG 母版留 `poses/frames_png/`。
+- **邀请帧**：单人邀请图（一臂前伸掌心向上“请”+ 微鞠躬，灰带白襟与母版一致）rembg 抠图，内容高对齐 500、同画布。
+- **律动**：`DanceMotion.Profile.SUMO` 新档——沉、稳：左右沉晃为主（半频摇摆 ±4.5°、一周期两拍）、弹跳低而钝（压平正弦、峰值 0.30）、每拍落点带 0.10 膝沉（sinkFraction）；无摔倒。帧间交叉淡化照常（非机器人，v1.0.10 的调用点按 `profile != ROBOT` 天然生效）；鼓掌/喘气/邀请走通用真人分支。
+- **动画卡**：`dancers/make_anim.py` 生产范围 girl → sumo（参数不变：抽 10 帧、280ms、420px 高），产物 `assets/dancer_anim/sumo.webp` 120,432 B；其余五人重跑结果与 v1.0.11 逐字同大小（管线确定性）。
+
+### 阵容与命名落地
+
+- `DancerKeys` 新增 `SUMO="sumo"` 顶替 `GIRL`（`ALL` 顺序不变位：modern / ancient / **sumo** / ancient_girl / baby / robot）；现代女孩的 40 帧 + 单帧 + 邀请帧 + 动画资源全部移出 APK（工程 `dancers/` 源图保留）。服务端 `DancerImages`/`DancerAnims` 走 `DancerKeys.isValid` 校验，换人自动生效；鼓掌排由 `Dancers.ALL` 驱动，自动换成相扑站立帧。
+- **旧 "girl" 选择回落**：TV 侧 Prefs 写入时就校验 key、读取后经 `Dancers.byKey` 兜底；手机 localStorage 里的旧值在新页面上不再对应任何卡片、提交会被服务端 400 拒掉——两条路都回落默认春丽，不崩（DancerKeysTest 守住此口径）。
+- **全员艺名**（`Dancers.label` + `DancerKeys.LABELS` + 手机点歌页卡片文字三处同步）：现代女=**春丽**、古代女=**林语嫣**、相扑手=**姿三四郎**、古代女童=**小蛮**、小婴儿=**哪吒**、机器人=**瓦力**。key 不变，只换显示名。
+
+### 发布
+
+- GitHub 发布：代码提交与本报告提交已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.12 （附件 `MySing-1.0.12.apk`）。API 回读校验见发布后记录（asset size / digest 与本地逐字一致）。
+
+待用户真机验：手机点歌页选伴舞第三张卡应是姿三四郎在跳（动画卡）；点他的歌上电视，伴舞是相扑手沉晃踏步；唱完鼓掌排里站的是相扑手；其余五人卡片名字应分别是春丽、林语嫣、小蛮、哪吒、瓦力。

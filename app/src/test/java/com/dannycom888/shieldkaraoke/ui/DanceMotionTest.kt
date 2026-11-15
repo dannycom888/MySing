@@ -208,4 +208,49 @@ class BabyFallTest {
     fun babyPoseIsDeterministic() {
         assertEquals(BabyFall.pose(333.3, 96.0), BabyFall.pose(333.3, 96.0))
     }
+
+    // ---- v1.0.12: the sumo （姿三四郎） — sway-dominant, low blunt
+    // bounce, a knee-bend sink on the beat, and never a fall.
+
+    @Test
+    fun sumoSwaysWiderThanModernButBouncesLower() {
+        fun maxOver(profile: DanceMotion.Profile, pick: (DanceMotion.Pose) -> Float): Float {
+            var best = 0f
+            var pos = 0L
+            while (pos < 20_000L) {
+                best = maxOf(best, abs(pick(DanceMotion.pose(profile, pos, 120.0))))
+                pos += 37L
+            }
+            return best
+        }
+        assertTrue(
+            maxOver(DanceMotion.Profile.SUMO) { it.rotationDeg } >
+                maxOver(DanceMotion.Profile.MODERN) { it.rotationDeg },
+        )
+        assertTrue(
+            maxOver(DanceMotion.Profile.SUMO) { it.bounceFraction } <
+                maxOver(DanceMotion.Profile.MODERN) { it.bounceFraction },
+        )
+    }
+
+    @Test
+    fun sumoSinksOnTheBeatAndStaysInRange() {
+        var sawSink = false
+        var sawLeft = false
+        var sawRight = false
+        var pos = 0L
+        while (pos < 20_000L) {
+            val p = DanceMotion.pose(DanceMotion.Profile.SUMO, pos, 120.0)
+            assertTrue(p.bounceFraction in 0f..1f)
+            assertTrue(abs(p.rotationDeg) <= 4.51f)
+            assertTrue(p.scale in 1.0f..1.06f)
+            assertTrue(p.sinkFraction in 0f..0.11f)
+            if (p.sinkFraction > 0.05f) sawSink = true
+            if (p.rotationDeg > 3f) sawRight = true
+            if (p.rotationDeg < -3f) sawLeft = true
+            pos += 37L
+        }
+        assertTrue(sawSink)
+        assertTrue(sawLeft && sawRight) // the rock goes both ways
+    }
 }

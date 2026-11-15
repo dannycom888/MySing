@@ -86,12 +86,18 @@ class PhonePageTest {
         // fallback to the v1.0.7 static portrait route, so a
         // failed animation never leaves an empty card.
         assertTrue(html.contains("class=\"dcards\""))
-        for (key in listOf("modern", "ancient", "girl", "ancient_girl", "baby", "robot")) {
+        for (key in listOf("modern", "ancient", "sumo", "ancient_girl", "baby", "robot")) {
             assertTrue(html.contains("src=\"/dancer-anim/$key\""))
             assertTrue(html.contains("this.src='/dancer-img/$key'"))
             // Selection still rides on data-who, so the existing
             // paint/select/submit script keeps working untouched.
             assertTrue(html.contains("data-who=\"$key\""))
+        }
+        // v1.0.12: the retired modern girl is off the page entirely.
+        assertFalse(html.contains("data-who=\"girl\""))
+        // v1.0.12: cards carry the dancers' stage names.
+        for (name in listOf("春丽", "林语嫣", "姿三四郎", "小蛮", "哪吒", "瓦力")) {
+            assertTrue(html.contains("<span>$name</span>"))
         }
         assertTrue(html.contains("class=\"dcard\""))
         assertTrue(html.contains(".dcard.on"))

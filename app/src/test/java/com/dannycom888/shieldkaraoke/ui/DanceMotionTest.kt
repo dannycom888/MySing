@@ -37,7 +37,10 @@ class DanceMotionTest {
                 assertTrue(p.bounceFraction in 0f..1f)
                 assertTrue(abs(p.rotationDeg) <= 5.01f)
                 assertTrue(p.scale in 1.0f..1.06f)
-                assertEquals(0f, p.sinkFraction)
+                // v1.0.22: the sink is the beat accent now — no
+                // longer identically zero, but never past the
+                // modern peak (0.12) plus a rounding whisker.
+                assertTrue(p.sinkFraction in 0f..0.13f)
                 pos += 37
             }
         }
@@ -111,6 +114,91 @@ class DanceMotionTest {
             assertEquals(modern, baby)
             assertEquals(0f, baby.sinkFraction) // baby never falls while clapping
         }
+    }
+
+    // ---- v1.0.22: the beat accent — a dip that lands exactly on
+    // the beat and rebounds inside it, from the same beat phase
+    // as the frame stepping (no second clock).
+
+    @Test
+    fun accentPeaksExactlyOnTheBeat() {
+        // 120 BPM: one beat is 500 ms; position 0 is a beat line.
+        val onBeat = DanceMotion.pose(DanceMotion.Profile.MODERN, 0L, 120.0)
+        assertEquals(DanceMotion.ACCENT_MODERN.toFloat(), onBeat.sinkFraction, 0.001f)
+        // Half a beat later the accent has decayed to ~nothing.
+        val midBeat = DanceMotion.pose(DanceMotion.Profile.MODERN, 250L, 120.0)
+        assertTrue(midBeat.sinkFraction < 0.01f)
+        assertTrue(midBeat.sinkFraction < onBeat.sinkFraction)
+        // The next beat line peaks again — it is a grid, not a
+        // one-shot.
+        val nextBeat = DanceMotion.pose(DanceMotion.Profile.MODERN, 500L, 120.0)
+        assertEquals(onBeat.sinkFraction, nextBeat.sinkFraction, 0.001f)
+    }
+
+    @Test
+    fun accentEnvelopeDecaysWithinTheBeat() {
+        assertEquals(0.12, DanceMotion.beatAccent(3.0, 0.12), 1e-9)
+        assertTrue(DanceMotion.beatAccent(3.25, 0.12) < DanceMotion.beatAccent(3.0, 0.12))
+        assertTrue(DanceMotion.beatAccent(3.9, 0.12) < 0.01)
+        // Same phase next beat, same value: pure beat function.
+        assertEquals(
+            DanceMotion.beatAccent(3.3, 0.12),
+            DanceMotion.beatAccent(9.3, 0.12),
+            1e-9,
+        )
+    }
+
+    @Test
+    fun modernAccentHitsHarderThanAncient() {
+        val modern = DanceMotion.pose(DanceMotion.Profile.MODERN, 0L, 120.0)
+        val ancient = DanceMotion.pose(DanceMotion.Profile.ANCIENT, 0L, 120.0)
+        assertEquals(DanceMotion.ACCENT_ANCIENT.toFloat(), ancient.sinkFraction, 0.001f)
+        assertTrue(modern.sinkFraction > ancient.sinkFraction)
+    }
+
+    @Test
+    fun sumoAccentRunsAtHalfFrequency() {
+        // 120 BPM: beats at 0 / 500 / 1000 ms. The even beats get
+        // knee sink + accent stacked; the odd beat gets the knee
+        // sink with the accent almost fully decayed.
+        val down = DanceMotion.pose(DanceMotion.Profile.SUMO, 0L, 120.0)
+        val off = DanceMotion.pose(DanceMotion.Profile.SUMO, 500L, 120.0)
+        val downAgain = DanceMotion.pose(DanceMotion.Profile.SUMO, 1_000L, 120.0)
+        assertTrue(down.sinkFraction > off.sinkFraction + 0.04f)
+        assertEquals(down.sinkFraction, downAgain.sinkFraction, 0.001f)
+    }
+
+    @Test
+    fun robotAccentIsAHardStep() {
+        // 120 BPM (above the slow-song threshold, so no 0.7
+        // gentling): quarter-beat steps are 125 ms. The dip is
+        // fully on for the first step of the beat and fully off
+        // after — no decay curve anywhere.
+        val bpm = 120.0
+        assertEquals(
+            DanceMotion.ACCENT_ROBOT,
+            DanceMotion.pose(DanceMotion.Profile.ROBOT, 0L, bpm).sinkFraction,
+        )
+        assertEquals(
+            DanceMotion.ACCENT_ROBOT,
+            DanceMotion.pose(DanceMotion.Profile.ROBOT, 124L, bpm).sinkFraction,
+        )
+        assertEquals(0f, DanceMotion.pose(DanceMotion.Profile.ROBOT, 125L, bpm).sinkFraction)
+        assertEquals(0f, DanceMotion.pose(DanceMotion.Profile.ROBOT, 499L, bpm).sinkFraction)
+    }
+
+    @Test
+    fun slowSongsGetAGentlerAccent() {
+        fun maxSink(bpm: Double): Float {
+            var best = 0f
+            var pos = 0L
+            while (pos < 10_000L) {
+                best = maxOf(best, DanceMotion.pose(DanceMotion.Profile.MODERN, pos, bpm).sinkFraction)
+                pos += 5
+            }
+            return best
+        }
+        assertTrue(maxSink(70.0) < maxSink(120.0))
     }
 
     @Test
@@ -244,7 +332,9 @@ class BabyFallTest {
             assertTrue(p.bounceFraction in 0f..1f)
             assertTrue(abs(p.rotationDeg) <= 4.51f)
             assertTrue(p.scale in 1.0f..1.06f)
-            assertTrue(p.sinkFraction in 0f..0.11f)
+            // v1.0.22: knee sink (0.10) + half-frequency accent
+            // (0.08) can stack on a downbeat — bound is their sum.
+            assertTrue(p.sinkFraction in 0f..0.19f)
             if (p.sinkFraction > 0.05f) sawSink = true
             if (p.rotationDeg > 3f) sawRight = true
             if (p.rotationDeg < -3f) sawLeft = true

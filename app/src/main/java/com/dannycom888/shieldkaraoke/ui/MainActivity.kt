@@ -135,6 +135,7 @@ class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf(Screen.HOME)
     private var lyrics by mutableStateOf<List<LyricLine>>(emptyList())
     private var positionMs by mutableStateOf(0L)
+    private var durationMs by mutableStateOf(-1L)
     /** Red error banner text, refreshed by the player poll loop
      *  from [PlayerController.visibleError] (v1.0.15). */
     private var errorBanner by mutableStateOf<String?>(null)
@@ -836,6 +837,7 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(entry?.song?.id) {
             while (true) {
                 positionMs = try { controller.player.currentPosition } catch (e: Exception) { 0L }
+                durationMs = try { controller.player.duration } catch (e: Exception) { -1L }
                 errorBanner = controller.visibleError()
                 tickMs = SystemClock.elapsedRealtime()
                 // ~30 fps so the karaoke sweep's gold boundary
@@ -935,17 +937,21 @@ class MainActivity : ComponentActivity() {
                             Text(s(TvKey.INTERLUDE_COUNTDOWN, state.interludeSeconds), color = soft, fontSize = (if (compact) 14 else 18).sp)
                         }
                     } else {
-                        // Three dancer phases (DancerActivity): the
+                        // Dancer phases (DancerActivity): the
                         // intro invites (invite frame + slow bow),
-                        // the sung part dances, and once the last
-                        // lyric line has been sung only music
-                        // remains — the dancer stands in its neutral
-                        // frame, only breathing slowly. A song
-                        // without an LRC has neither boundary and
-                        // dances throughout.
+                        // the sung part dances; once the last lyric
+                        // line has been sung the dancer holds its
+                        // final pose for 2 s while settling to
+                        // neutral (v1.0.22), then melts into its
+                        // standing frame and only breathes slowly.
+                        // A song without an LRC has neither
+                        // boundary and dances throughout.
                         val lastLyricEnd = remember(lyrics) { DancerActivity.lastLyricEndMs(lyrics) }
                         val firstLyricStart = remember(lyrics) { DancerActivity.firstLyricStartMs(lyrics) }
-                        val dancerPhase = DancerActivity.phase(positionMs, firstLyricStart, lastLyricEnd)
+                        val dancerPhase = DancerActivity.phase(
+                            positionMs, firstLyricStart, lastLyricEnd,
+                            durationMs.takeIf { it > 0 },
+                        )
                         // --- dancer LEFT of the lyrics, lyrics column gives
                         //     up the left zone and takes the rest ---
                         Row(modifier = Modifier.fillMaxSize()) {
@@ -967,6 +973,21 @@ class MainActivity : ComponentActivity() {
                                             // a slow "please sing" bow.
                                             DancerActivity.Phase.INVITING ->
                                                 DancerActivity.invitePose(positionMs, dancer.profile)
+                                            // v1.0.22 outro hold: the
+                                            // last dance pose, frozen at
+                                            // the lyric end and easing
+                                            // back to neutral over 2 s.
+                                            DancerActivity.Phase.OUTRO_HOLD ->
+                                                DancerActivity.outroHoldPose(
+                                                    DanceMotion.pose(
+                                                        dancer.profile,
+                                                        lastLyricEnd ?: positionMs,
+                                                        currentBpm,
+                                                        phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                                                    ),
+                                                    positionMs,
+                                                    lastLyricEnd ?: positionMs,
+                                                )
                                             // Sung out: neutral stance, no
                                             // bounce/sway/fall — only a
                                             // slow breath (v1.0.7).
@@ -982,6 +1003,15 @@ class MainActivity : ComponentActivity() {
                                                 DancerPoseOrder.orderFor(dancer.key),
                                                 phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
                                             )
+                                        } else if (dancerPhase == DancerActivity.Phase.OUTRO_HOLD) {
+                                            // v1.0.22: freeze on the
+                                            // frame that was showing
+                                            // when the singing ended.
+                                            PoseCycle.frameIndex(
+                                                lastLyricEnd ?: positionMs, currentBpm,
+                                                DancerPoseOrder.orderFor(dancer.key),
+                                                phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                                            )
                                         } else {
                                             DancerActivity.STILL_FRAME
                                         },
@@ -990,14 +1020,36 @@ class MainActivity : ComponentActivity() {
                                         // — except the robot, whose
                                         // mechanical hard cuts are its
                                         // character and stay stepped.
-                                        blend = if (dancerPhase == DancerActivity.Phase.DANCING &&
-                                            dancer.profile != DanceMotion.Profile.ROBOT
-                                        ) {
+                                        blend = if (dancer.profile == DanceMotion.Profile.ROBOT) {
+                                            // The robot never blends —
+                                            // not between dance frames,
+                                            // and not into the standing
+                                            // frame either (v1.0.22
+                                            // settle included).
+                                            null
+                                        } else if (dancerPhase == DancerActivity.Phase.DANCING) {
                                             PoseCycle.blend(
                                                 positionMs, currentBpm,
                                                 DancerPoseOrder.orderFor(dancer.key),
                                                 phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
                                             )
+                                        } else if (dancerPhase == DancerActivity.Phase.STILL) {
+                                            // v1.0.22: for ~0.4 s after
+                                            // the outro hold, melt the
+                                            // frozen dance frame into
+                                            // the standing frame — the
+                                            // "hands coming down" relax.
+                                            DancerActivity.outroSettleAlpha(positionMs, lastLyricEnd)?.let { a ->
+                                                PoseCycle.Blend(
+                                                    previousIndex = PoseCycle.frameIndex(
+                                                        lastLyricEnd ?: positionMs, currentBpm,
+                                                        DancerPoseOrder.orderFor(dancer.key),
+                                                        phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                                                    ),
+                                                    currentIndex = DancerActivity.STILL_FRAME,
+                                                    currentAlpha = a,
+                                                )
+                                            }
                                         } else {
                                             null
                                         },
@@ -1168,6 +1220,7 @@ class MainActivity : ComponentActivity() {
                 val firstStart = DancerActivity.firstLyricStartMs(lyrics)
                 when (DancerActivity.phase(positionMs, firstStart, lastEnd)) {
                     DancerActivity.Phase.INVITING -> append(" · 伴舞：前奏邀请")
+                    DancerActivity.Phase.OUTRO_HOLD -> append(" · 伴舞：尾奏定格")
                     DancerActivity.Phase.STILL -> append(" · 伴舞：尾奏静止")
                     DancerActivity.Phase.DANCING -> {}
                 }

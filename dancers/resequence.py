@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Re-sequence the dancers' 40 pose frames into a smooth dance loop
-(v1.0.17).
+"""Re-sequence the dancers' pose frames into a smooth dance loop
+(v1.0.17; frame count raised 40 -> 60 in v1.0.22).
 
 Why: the forty pose frames per dancer were cut from pose sheets in
 sheet order (1, 2, 3, ... 40), which is NOT a dance order — frame
@@ -44,7 +44,7 @@ PROJECT = Path(__file__).resolve().parent.parent
 FRAMES_DIR = PROJECT / "app/src/main/res/drawable-nodpi"
 OUT_JSON = Path(__file__).resolve().parent / "resequence_orders.json"
 
-# Dancer key -> drawable prefix of its 40 pose frames.
+# Dancer key -> drawable prefix of its pose frames.
 DANCERS = {
     "modern": "dancer_modern_woman",
     "ancient": "dancer_ancient_woman",
@@ -54,7 +54,7 @@ DANCERS = {
     "robot": "dancer_robot",
 }
 
-FRAME_COUNT = 40
+FRAME_COUNT = 60
 THUMB_W, THUMB_H = 46, 60  # thumbnail the distance is measured on
 
 

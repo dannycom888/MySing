@@ -9,7 +9,7 @@ import org.junit.Test
  * v1.0.17: the dance order (see [DancerPoseOrder]). The tables are
  * generated offline by dancers/resequence.py; these tests pin the
  * invariants the player relies on — every table is a true
- * permutation of the 40 frames (no frame shown twice per loop, no
+ * permutation of the 60 frames (no frame shown twice per loop, no
  * frame dropped), every tour starts from the neutral standing
  * frame, and [PoseCycle]'s ordered overloads visit the frames in
  * exactly the table's order, one per beat.
@@ -17,11 +17,11 @@ import org.junit.Test
 class DancerPoseOrderTest {
 
     @Test
-    fun everyDancerOrderIsATruePermutationOfAllFortyFrames() {
+    fun everyDancerOrderIsATruePermutationOfAllSixtyFrames() {
         for (key in DancerKeys.ALL) {
             val order = DancerPoseOrder.orderFor(key)
-            assertEquals("size for $key", 40, order.size)
-            assertEquals("permutation for $key", (0 until 40).toList(), order.sorted())
+            assertEquals("size for $key", 60, order.size)
+            assertEquals("permutation for $key", (0 until 60).toList(), order.sorted())
         }
     }
 
@@ -41,18 +41,18 @@ class DancerPoseOrderTest {
         assertEquals(DancerPoseOrder.IDENTITY, DancerPoseOrder.orderFor(null))
         assertEquals(DancerPoseOrder.IDENTITY, DancerPoseOrder.orderFor("girl")) // retired v1.0.12 key
         assertEquals(DancerPoseOrder.IDENTITY, DancerPoseOrder.orderFor("nope"))
-        assertEquals((0 until 40).toList(), DancerPoseOrder.IDENTITY)
+        assertEquals((0 until 60).toList(), DancerPoseOrder.IDENTITY)
     }
 
     @Test
     fun orderedFrameIndexVisitsTheTourOneFramePerBeat() {
         val order = DancerPoseOrder.orderFor(DancerKeys.MODERN)
         // 120 BPM: beat k starts at k*500 ms and shows order[k].
-        val seen = (0 until 40).map { PoseCycle.frameIndex(it * 500L, 120.0, order) }
+        val seen = (0 until 60).map { PoseCycle.frameIndex(it * 500L, 120.0, order) }
         assertEquals(order, seen)
-        // Beat 40 wraps to the head of the tour.
-        assertEquals(order[0], PoseCycle.frameIndex(40 * 500L, 120.0, order))
-        assertEquals(order[1], PoseCycle.frameIndex(41 * 500L, 120.0, order))
+        // Beat 60 wraps to the head of the tour.
+        assertEquals(order[0], PoseCycle.frameIndex(60 * 500L, 120.0, order))
+        assertEquals(order[1], PoseCycle.frameIndex(61 * 500L, 120.0, order))
     }
 
     @Test
@@ -83,9 +83,9 @@ class DancerPoseOrderTest {
         assertEquals(order[sheet.currentIndex], mapped.currentIndex)
         assertEquals(order[sheet.previousIndex], mapped.previousIndex)
         // Across the wrap the previous frame is the tour's last one.
-        val wrap = PoseCycle.blend(40 * 500L, 120.0, order)
+        val wrap = PoseCycle.blend(60 * 500L, 120.0, order)
         assertEquals(order[0], wrap.currentIndex)
-        assertEquals(order[39], wrap.previousIndex)
+        assertEquals(order[59], wrap.previousIndex)
     }
 
     @Test
@@ -93,11 +93,11 @@ class DancerPoseOrderTest {
         var pos = -500L
         while (pos < 60_000L) {
             assertEquals(
-                PoseCycle.frameIndex(pos, 133.0, 40),
+                PoseCycle.frameIndex(pos, 133.0, 60),
                 PoseCycle.frameIndex(pos, 133.0, DancerPoseOrder.IDENTITY),
             )
             assertEquals(
-                PoseCycle.blend(pos, 133.0, 40),
+                PoseCycle.blend(pos, 133.0, 60),
                 PoseCycle.blend(pos, 133.0, DancerPoseOrder.IDENTITY),
             )
             pos += 37
@@ -126,6 +126,6 @@ class DancerPoseOrderTest {
                 PoseCycle.blend(12_345L, 96.0, order),
             )
         }
-        assertTrue(PoseCycle.frameIndex(12_345L, 96.0, order) in 0 until 40)
+        assertTrue(PoseCycle.frameIndex(12_345L, 96.0, order) in 0 until 60)
     }
 }

@@ -14,9 +14,14 @@ route). The HTTP server serves them at /dancer-anim/<key>; the
 page falls back to the static /dancer-img/<key> on error.
 
 Parameters (chosen against the size budget, see BUILD_REPORT
-v1.0.11): 10 frames sampled every 4th pose (1, 5, 9, …, 37),
-280 ms per frame, height 420 px (aspect + alpha preserved),
-lossy quality 80. Result: every file well under 600 KB.
+v1.0.11): 10 frames per card, 280 ms per frame, height 420 px
+(aspect + alpha preserved), lossy quality 80.
+
+v1.0.22: the library grew to 60 poses per dancer and the dance
+order was re-sequenced (see DancerPoseOrder / resequence.py);
+the cards now sample the NEW dance order evenly — tour positions
+0, 6, 12, …, 54 mapped through dancers/resequence_orders.json —
+so the picker previews the same sequence the TV dances.
 
 Run from the project root:  python3 dancers/make_anim.py
 """
@@ -29,7 +34,7 @@ PROJECT = Path(__file__).resolve().parent.parent
 FRAMES_DIR = PROJECT / "app/src/main/res/drawable-nodpi"
 OUT_DIR = PROJECT / "app/src/main/assets/dancer_anim"
 
-# Dancer key -> drawable prefix of its 40 pose frames.
+# Dancer key -> drawable prefix of its 60 pose frames.
 DANCERS = {
     "modern": "dancer_modern_woman",
     "ancient": "dancer_ancient_woman",
@@ -39,15 +44,19 @@ DANCERS = {
     "robot": "dancer_robot",
 }
 
-FRAME_INDICES = [1, 5, 9, 13, 17, 21, 25, 29, 33, 37]  # 10 of 40
+# Tour positions sampled from the 60-step dance order; build()
+# maps them through resequence_orders.json to file numbers.
+TOUR_POSITIONS = [0, 6, 12, 18, 24, 30, 36, 42, 48, 54]  # 10 of 60
+ORDERS_JSON = PROJECT / "dancers/resequence_orders.json"
 FRAME_DURATION_MS = 280
 TARGET_HEIGHT = 420
 QUALITY = 80
 
 
-def build(key: str, prefix: str) -> Path:
+def build(key: str, prefix: str, order: list) -> Path:
     resized = []
-    for i in FRAME_INDICES:
+    for pos in TOUR_POSITIONS:
+        i = order[pos] + 1  # tour value is 0-based; files are 1-based
         src = FRAMES_DIR / f"{prefix}_{i:02d}.webp"
         im = Image.open(src).convert("RGBA")
         w = max(1, round(im.width * TARGET_HEIGHT / im.height))
@@ -76,10 +85,14 @@ def build(key: str, prefix: str) -> Path:
 
 
 def main() -> None:
+    import json
+
+    orders = {k: v["order"] for k, v in
+              json.loads(ORDERS_JSON.read_text()).items()}
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     total = 0
     for key, prefix in DANCERS.items():
-        out = build(key, prefix)
+        out = build(key, prefix, orders[key])
         size = out.stat().st_size
         total += size
         print(f"{key:14s} {size:>8,} bytes  -> {out.relative_to(PROJECT)}")

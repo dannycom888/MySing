@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Preview of the v1.0.17 pose re-sequencing: Chun-Li's 40 frames in
+"""Preview of the v1.0.17 pose re-sequencing: Chun-Li's 60 frames in
 the NEW order from dancers/resequence.py, stitched into one looping
-animated WebP (all 40 frames, 280 ms each — the same cadence family
+animated WebP (all 60 frames, 280 ms each — the same cadence family
 as dancers/make_anim.py) so the user can eyeball whether the dance
 now flows instead of jumping between unrelated poses.
 

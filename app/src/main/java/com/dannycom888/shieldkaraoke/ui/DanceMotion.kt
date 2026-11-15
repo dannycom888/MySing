@@ -31,6 +31,53 @@ object DanceMotion {
     /** Clap interval for the applause celebration, ms. */
     const val CLAP_INTERVAL_MS = 300L
 
+    // ---- v1.0.22: the beat accent --------------------------------
+    //
+    // The user loves the dancing but asked for it to sit ON the
+    // beat harder ("跳舞跟着拍子"). The frame stepping and the
+    // bounce already derive from the beat grid; what was missing
+    // is a felt downbeat. Each profile now adds a short downward
+    // pulse — a dip that lands exactly on the beat and rebounds
+    // within the beat — as the pose's sinkFraction. The pulse is
+    // computed from the SAME `beats` value every other part of
+    // the pose uses (position ÷ the song's measured BPM), never
+    // from a second clock, so it cannot drift off the grid, and
+    // pausing freezes it like everything else. Amplitudes follow
+    // each profile's existing口径: modern hits hardest, ancient
+    // stays soft, the sumo's accent runs at half frequency (one
+    // per two beats) and heavy, the robot's is a hard step with
+    // no decay curve, the baby's is a small extra wobble-dip.
+    // Slow songs (< 80 BPM) scale the accent by the same 0.7
+    // factor the bounce already uses.
+
+    /** Envelope decay of the beat accent within one beat. */
+    const val ACCENT_DECAY = 7.0
+
+    /** Peak accent dip, modern profile (bounce-heavy). */
+    const val ACCENT_MODERN = 0.12
+
+    /** Peak accent dip, ancient profile (sway-heavy, soft). */
+    const val ACCENT_ANCIENT = 0.06
+
+    /** Peak accent dip, sumo — lands every second beat. */
+    const val ACCENT_SUMO = 0.08
+
+    /** Peak accent dip, baby (dancing phase only, never mid-fall). */
+    const val ACCENT_BABY = 0.05
+
+    /** Accent dip, robot — a hard step, held for one quarter beat. */
+    const val ACCENT_ROBOT = 0.10f
+
+    /**
+     * The accent envelope at [beats]: [strength] exactly on the
+     * beat, decaying exponentially across the beat that follows.
+     * Pure function of the beat count, like everything here.
+     */
+    fun beatAccent(beats: Double, strength: Double, decay: Double = ACCENT_DECAY): Double {
+        val frac = beats - floor(beats)
+        return strength * exp(-frac * decay)
+    }
+
     fun pose(profile: Profile, positionMs: Long, bpm: Double, phaseOffsetBeats: Double = 0.0): Pose {
         val safeBpm = bpm.coerceIn(40.0, 220.0)
         val beats = positionMs / (60_000.0 / safeBpm) + phaseOffsetBeats
@@ -55,7 +102,11 @@ object DanceMotion {
         val rotation = sin(PI * beats) * 4.5 * slow
         val bounce = Math.pow(abs(sin(PI * beats)), 0.6) * 0.30 * slow
         val frac = beats - floor(beats)
-        val sink = exp(-frac * 6.0) * 0.10 * slow
+        // Knee-bend sink on every beat, plus the v1.0.22 accent at
+        // half frequency: the downbeat of each two-beat sway cycle
+        // lands heavier than the off beat.
+        val sink = exp(-frac * 6.0) * 0.10 * slow +
+            beatAccent(beats / 2.0, ACCENT_SUMO, decay = 5.0) * slow
         val pulse = exp(-frac * 5.0) * 0.015
         return Pose(
             bounceFraction = bounce.toFloat(),
@@ -76,7 +127,15 @@ object DanceMotion {
         val rotation = sin(2 * PI * beats) * swayAmp
         val frac = beats - floor(beats)
         val pulse = exp(-frac * 5.0) * (if (bounceHeavy) 0.03 else 0.02)
-        return Pose(bounce.toFloat(), rotation.toFloat(), (1.0 + pulse).toFloat())
+        // v1.0.22 beat accent: a dip that lands on the beat and
+        // rebounds inside it — strong for modern, soft for ancient.
+        val accent = beatAccent(beats, if (bounceHeavy) ACCENT_MODERN else ACCENT_ANCIENT) * slow
+        return Pose(
+            bounceFraction = bounce.toFloat(),
+            rotationDeg = rotation.toFloat(),
+            scale = (1.0 + pulse).toFloat(),
+            sinkFraction = accent.toFloat(),
+        )
     }
 
     /** The robot dances in mechanical steps: the pose is quantised
@@ -89,7 +148,11 @@ object DanceMotion {
         val rotations = floatArrayOf(-5f, -5f, 5f, 5f)
         val bounces = floatArrayOf(0f, 0.55f, 0.2f, 0f)
         val scales = floatArrayOf(1f, 1.04f, 1.04f, 1f)
-        return Pose(bounces[step] * slow, rotations[step], scales[step])
+        // v1.0.22 beat accent, robot style: no decay curve — a
+        // hard dip held for exactly the first quarter-beat step,
+        // then gone. Quantised like everything else he does.
+        val sink = if (step == 0) ACCENT_ROBOT * slow else 0f
+        return Pose(bounces[step] * slow, rotations[step], scales[step], sink)
     }
 
     /**
@@ -176,7 +239,15 @@ object BabyFall {
                 val wobble = beats * 1.5
                 val bounce = abs(sin(PI * wobble)) * 0.35f
                 val rotation = sin(2 * PI * wobble) * 5.0 + sin(PI * beats) * 1.8
-                DanceMotion.Pose(bounce.toFloat(), rotation.toFloat(), 1.0f)
+                // v1.0.22: a small beat accent on the song's beat
+                // grid (not the 1.5x wobble), dancing phase only —
+                // the fall phases own the sink while he is down.
+                val slow = if (bpm < 80.0) 0.7 else 1.0
+                val accent = DanceMotion.beatAccent(beats, DanceMotion.ACCENT_BABY) * slow
+                DanceMotion.Pose(
+                    bounce.toFloat(), rotation.toFloat(), 1.0f,
+                    sinkFraction = accent.toFloat(),
+                )
             }
             Phase.FALLING -> {
                 val t = state.progress.toDouble()

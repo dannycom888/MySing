@@ -600,3 +600,48 @@
 - GitHub 发布：代码提交 `f342456` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.14 （附件 `MySing-1.0.14.apk`）。API 回读校验：asset size `19025608`、digest `sha256:d1baade066244feff39dc95c833d2a5e1ed218bac778a199d66c9a8df3ad54a8`，与本地逐字一致。
 
 待用户真机验：唱完一首完整的歌，掌声应是人群感的——开头哗地起来、中间饱满、最后稀稀拉拉几下落完，不刺耳；不唱了切歌时仍无掌声。
+
+## v1.0.15 红字残留修复（2026-11-15）
+
+构建日期：2026-11-15（America/New_York）。动因：用户 13:33 截图——5 Seconds of Summer《Youngblood》正在正常播放（playing=true、进度 5/203s 在走、歌词金扫正常），底部却整首挂着橙红字「播放错误：ERROR_CODE_FAILED_RUNTIME_CHECK: Unexpected runtime error」，诊断行 sink=plain-retry。即开播首试失败、自愈切备用通道后已播好，但 v1.0.3 定的"错误永不自动隐藏"让横幅成了误导性残留。本版只修显示判定，播放与自愈行为一律未动。
+
+| 项 | 值 |
+|---|---|
+| 产物 | `~/workspace/shield-karaoke/MySing-1.0.15.apk` |
+| 大小 | 19,025,594 字节（较 v1.0.14 的 19,025,608 仅 -14 B，纯逻辑小改） |
+| SHA-256 | `66431371a3ac92faa8285c90722995d8d3cb830f109236b0ec36ad0e618902d4`（前缀 `66431371`） |
+| versionName / versionCode | 1.0.15 / 16（aapt badging 实测） |
+| 签名 | 同一把共享 keystore，证书 SHA-256 `1336ee0aefc229c3f0e6c025060ec0267825dbfc83f8799c3981dd74ea2befcc`，与历版逐字一致，可覆盖安装 |
+| 单元测试 | `:app:testDebugUnitTest` **170 个，0 失败**（162 旧 + 新增 8） |
+
+### 修复：ErrorDisplayPolicy（新增纯类，`audio/ErrorDisplayPolicy.kt`）
+
+判定输入：是否有错误记录、FallbackStateMachine 路径、以及一帧实时观测（READY / isPlaying / 播放位置）。规则：
+
+- **无错误** → 不显示（并顺手清掉内部闩锁）；
+- **FAILED 路径**（备用通道也挂）→ **永远显示**，那是真故障，必须留给用户看；
+- **PLAIN_RETRY 路径** → 显示到"恢复被确认"为止：READY + isPlaying + 位置比上一帧观测前进，三者齐了即判恢复、横幅清除；清除后**闩锁**到本首结束——之后用户暂停或短暂卡顿都不会把红字招回来（小字诊断行仍保留 sink=plain-retry，降级事实有据可查）；
+- CUSTOM 路径带错误 → 显示（该状态只在错误处理瞬间存在，保守处理）。
+
+接线：`PlayerController` 新增 `visibleError()`（读实时播放器状态喂判定类，返回应显示的错误文本或 null）；`load()` 与 `handleError()` 都调 `errorDisplay.reset()`——新歌、新错误都重新武装横幅。`MainActivity` 播放页沿用现有 33ms 轮询回路顺带刷新 `errorBanner` 状态，诊断区改读它（不再直读 `lastError`）。
+
+### 换歌重置核对（任务第 3 项）
+
+现状本来就已重置、无需改动：`PlayerController.load()` 每首新歌都清 `lastError` 并 `fallback.onNewLoad()` 回到 CUSTOM。本版新增的 UI 侧 `errorBanner` 状态也在 `startSong()` 里同步清零，上一首的残留不会带进下一首。
+
+### 新增单测（8 个，`audio/ErrorDisplayPolicyTest`）
+
+1. **无错误永不显示**：三条路径 × hasError=false 全 false。
+2. **未恢复继续显示**：备用通道还在 buffering / READY 但没播 / 在播但位置不动（卡死），红字都在。
+3. **恢复推进即清除且闩锁**：位置在 READY+playing 下前进 → 清除；之后暂停、buffering 都不再复现。
+4. **前进必须在 playing 时观测到**：暂停期间的位置跳变（seek）不算恢复；开始播且继续前进才清。
+5. **FAILED 永远显示**：即使 READY+playing+位置在走（理论组合）也照显。
+6. **CUSTOM 带错误显示**：保守口径钉死。
+7. **reset 忘掉闩锁**：恢复后 reset，新一轮必须重新确认推进才再清。
+8. **错误记录本身被清也复位**：hasError=false 一帧即清闩锁，下一条错误从未恢复状态开始。
+
+### 发布
+
+- GitHub 发布：代码提交 `cdfdd94` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.15 （附件 `MySing-1.0.15.apk`）。API 回读校验见发布后记录。
+
+待用户真机验：再遇开播首试失败、自愈切 plain-retry 播好的歌（如截图那首 Youngblood），红字应在开播确认推进后（约一两帧轮询内）自动消失，只剩诊断小字里的 sink=plain-retry；若某首歌备用通道也播不出来，红字应整首保留。

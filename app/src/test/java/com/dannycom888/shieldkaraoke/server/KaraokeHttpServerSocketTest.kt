@@ -114,6 +114,44 @@ class KaraokeHttpServerSocketTest {
     }
 
     @Test
+    fun orderReplyIsChineseByDefault() {
+        // v1.0.13: no lang in the request (a page from before this
+        // release) keeps the original Chinese reply, word for word.
+        val response = postOrder(chineseSong.id, "小明")
+        assertEquals(200, response.status)
+        assertEquals("马上开唱！", org.json.JSONObject(response.body).getString("message"))
+    }
+
+    @Test
+    fun orderReplyFollowsEnglishLang() {
+        val response = postOrder(englishSong.id, "William", lang = "en")
+        assertEquals(200, response.status)
+        assertEquals("You're up — singing now!", org.json.JSONObject(response.body).getString("message"))
+    }
+
+    @Test
+    fun queuedReplyCountsAheadInBothLanguages() {
+        // Occupy the current slot first, then the second order is a
+        // queued one and the reply must count the songs ahead in
+        // whichever language the ordering phone asked for.
+        postOrder(chineseSong.id, "小明")
+        val zh = postOrder(englishSong.id, "阿花", lang = "zh")
+        assertEquals("已加入，前面还有 1 首", org.json.JSONObject(zh.body).getString("message"))
+        val en = postOrder(chineseSong.id, "William", lang = "en")
+        assertEquals("Added — 2 song(s) ahead of you", org.json.JSONObject(en.body).getString("message"))
+    }
+
+    @Test
+    fun orderErrorsFollowLang() {
+        val unknownEn = postOrder("NOPE|missing", "William", lang = "en")
+        assertEquals(404, unknownEn.status)
+        assertEquals("Song not found", org.json.JSONObject(unknownEn.body).getString("error"))
+        val unknownZh = postOrder("NOPE|missing", "小明")
+        assertEquals(404, unknownZh.status)
+        assertEquals("找不到这首歌", org.json.JSONObject(unknownZh.body).getString("error"))
+    }
+
+    @Test
     fun dancerAnimRouteServesWebpBytes() {
         // v1.0.11: the picker cards are animated WebP loops. The
         // transport contract is what matters here — 200, the webp
@@ -195,11 +233,12 @@ class KaraokeHttpServerSocketTest {
         return bytes.size
     }
 
-    private fun orderJson(id: String, name: String): String =
-        """{"id":"$id","name":"$name"}"""
+    private fun orderJson(id: String, name: String, lang: String? = null): String =
+        if (lang == null) """{"id":"$id","name":"$name"}"""
+        else """{"id":"$id","name":"$name","lang":"$lang"}"""
 
-    private fun postOrder(id: String, name: String): Response {
-        val body = orderJson(id, name).toByteArray(Charsets.UTF_8)
+    private fun postOrder(id: String, name: String, lang: String? = null): Response {
+        val body = orderJson(id, name, lang).toByteArray(Charsets.UTF_8)
         val head = (
             "POST /api/order HTTP/1.1\r\n" +
                 "Host: ::1:$port\r\n" +

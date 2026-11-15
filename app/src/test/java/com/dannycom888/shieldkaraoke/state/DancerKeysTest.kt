@@ -38,6 +38,22 @@ class DancerKeysTest {
     }
 
     @Test
+    fun englishStageNames() {
+        // v1.0.13: the phone page's English cards read these names;
+        // the page carries the same mapping inline and PhonePageTest
+        // pins the two sides together.
+        assertEquals("Chun-Li", DancerKeys.labelEn("modern"))
+        assertEquals("Lin Yuyan", DancerKeys.labelEn("ancient"))
+        assertEquals("Sanshiro", DancerKeys.labelEn("sumo"))
+        assertEquals("Xiaoman", DancerKeys.labelEn("ancient_girl"))
+        assertEquals("Nezha", DancerKeys.labelEn("baby"))
+        assertEquals("WALL-E", DancerKeys.labelEn("robot"))
+        assertEquals(DancerKeys.ALL.toSet(), DancerKeys.LABELS_EN.keys)
+        assertEquals("Chun-Li", DancerKeys.labelEn("girl"))
+        assertEquals("Chun-Li", DancerKeys.labelEn(null))
+    }
+
+    @Test
     fun retiredAndUnknownKeysFallBackToDefault() {
         assertEquals("春丽", DancerKeys.label("girl"))
         assertEquals("春丽", DancerKeys.label("nonsense"))

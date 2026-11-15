@@ -32,10 +32,29 @@ object DancerKeys {
         ROBOT to "瓦力",
     )
 
+    /**
+     * English stage names (v1.0.13), the shared mapping behind the
+     * phone page's English picker cards: William can't read the
+     * Chinese names, so in English mode the cards read Chun-Li /
+     * Lin Yuyan / Sanshiro / Xiaoman / Nezha / WALL-E. The phone
+     * page is static HTML and carries the same six names inline;
+     * tests pin both sides to this table.
+     */
+    val LABELS_EN = mapOf(
+        MODERN to "Chun-Li",
+        ANCIENT to "Lin Yuyan",
+        SUMO to "Sanshiro",
+        ANCIENT_GIRL to "Xiaoman",
+        BABY to "Nezha",
+        ROBOT to "WALL-E",
+    )
+
     /** TV-ordered songs and unknown orderers get Chun-Li （春丽）. */
     const val DEFAULT = MODERN
 
     fun isValid(key: String): Boolean = key in ALL
 
     fun label(key: String?): String = LABELS[key] ?: LABELS.getValue(DEFAULT)
+
+    fun labelEn(key: String?): String = LABELS_EN[key] ?: LABELS_EN.getValue(DEFAULT)
 }

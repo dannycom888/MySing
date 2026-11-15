@@ -1,5 +1,8 @@
 package com.dannycom888.shieldkaraoke.server
 
+import com.dannycom888.shieldkaraoke.i18n.ServerKey
+import com.dannycom888.shieldkaraoke.i18n.ServerStrings
+import com.dannycom888.shieldkaraoke.i18n.UiLang
 import com.dannycom888.shieldkaraoke.library.Gender
 import com.dannycom888.shieldkaraoke.library.Language
 import com.dannycom888.shieldkaraoke.state.KaraokeState
@@ -305,16 +308,24 @@ class KaraokeHttpServer(
                 val json = try { JSONObject(body) } catch (e: Exception) { JSONObject() }
                 val name = json.optString("name").trim()
                 val id = json.optString("id")
+                // The page sends its own UI language (v1.0.13) and
+                // the reply follows it; no lang (an older page)
+                // keeps the original Chinese wording.
+                val ui = UiLang.parse(json.optString("lang"))
                 if (name.isBlank()) {
                     return Triple(400, "application/json; charset=utf-8",
-                        JSONObject().put("error", "请先输入你的名字").toString())
+                        JSONObject().put("error", ServerStrings.get(ui, ServerKey.ORDER_NAME_REQUIRED)).toString())
                 }
                 val song = state.catalog.byId(id)
                     ?: return Triple(404, "application/json; charset=utf-8",
-                        JSONObject().put("error", "找不到这首歌").toString())
+                        JSONObject().put("error", ServerStrings.get(ui, ServerKey.ORDER_NOT_FOUND)).toString())
                 val result = state.order(song, name)
                 val ahead = if (result.position < 0) 0 else state.queue.aheadCountFor(result.position)
-                val msg = if (result.position < 0) "马上开唱！" else "已加入，前面还有 $ahead 首"
+                val msg = if (result.position < 0) {
+                    ServerStrings.get(ui, ServerKey.ORDER_START_NOW)
+                } else {
+                    ServerStrings.get(ui, ServerKey.ORDER_QUEUED, ahead)
+                }
                 Triple(200, "application/json; charset=utf-8", JSONObject().apply {
                     put("message", msg); put("duplicate", result.wasDuplicate); put("ahead", ahead)
                 }.toString())
@@ -333,9 +344,10 @@ class KaraokeHttpServer(
                 val json = try { JSONObject(body) } catch (e: Exception) { JSONObject() }
                 val name = json.optString("name").trim()
                 val who = json.optString("who")
+                val ui = UiLang.parse(json.optString("lang"))
                 if (name.isBlank() || !com.dannycom888.shieldkaraoke.state.DancerKeys.isValid(who)) {
                     Triple(400, "application/json; charset=utf-8",
-                        JSONObject().put("error", "名字或伴舞选择不对").toString())
+                        JSONObject().put("error", ServerStrings.get(ui, ServerKey.DANCER_INVALID)).toString())
                 } else {
                     dancerSetter(name, who)
                     Triple(200, "application/json; charset=utf-8",
@@ -346,9 +358,10 @@ class KaraokeHttpServer(
             method == "POST" && path == "/dancer" -> {
                 val name = (query["name"] ?: "").trim()
                 val who = query["who"] ?: ""
+                val ui = UiLang.parse(query["lang"])
                 if (name.isBlank() || !com.dannycom888.shieldkaraoke.state.DancerKeys.isValid(who)) {
                     Triple(400, "application/json; charset=utf-8",
-                        JSONObject().put("error", "名字或伴舞选择不对").toString())
+                        JSONObject().put("error", ServerStrings.get(ui, ServerKey.DANCER_INVALID)).toString())
                 } else {
                     dancerSetter(name, who)
                     Triple(200, "application/json; charset=utf-8",

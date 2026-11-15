@@ -95,13 +95,62 @@ class PhonePageTest {
         }
         // v1.0.12: the retired modern girl is off the page entirely.
         assertFalse(html.contains("data-who=\"girl\""))
-        // v1.0.12: cards carry the dancers' stage names.
-        for (name in listOf("春丽", "林语嫣", "姿三四郎", "小蛮", "哪吒", "瓦力")) {
-            assertTrue(html.contains("<span>$name</span>"))
+        // v1.0.12: cards carry the dancers' stage names. Since
+        // v1.0.13 the name span is language-switched (data-dancer),
+        // initially rendered in Chinese like the rest of the page.
+        for ((key, name) in listOf(
+            "modern" to "春丽", "ancient" to "林语嫣", "sumo" to "姿三四郎",
+            "ancient_girl" to "小蛮", "baby" to "哪吒", "robot" to "瓦力",
+        )) {
+            assertTrue(html.contains("<span data-dancer=\"$key\">$name</span>"))
         }
         assertTrue(html.contains("class=\"dcard\""))
         assertTrue(html.contains(".dcard.on"))
         // The old text-only dancer chips are gone.
         assertFalse(html.contains("<button class=\"chip\" data-who="))
+    }
+
+    @Test
+    fun pageHasPerPhoneLanguageSwitch() {
+        // v1.0.13: the page carries its own 中文/EN switch; the
+        // choice is this phone's alone (localStorage mysing_lang),
+        // never the TV's setting and never another guest's phone.
+        assertTrue(html.contains("id=\"langZh\""))
+        assertTrue(html.contains("id=\"langEn\""))
+        assertTrue(html.contains("localStorage.getItem('mysing_lang')"))
+        assertTrue(html.contains("localStorage.setItem('mysing_lang', l)"))
+        assertTrue(html.contains("function applyLang()"))
+        // The switch sits outside both the name gate and the main
+        // block, so it is reachable before a name is entered too.
+        assertTrue(html.indexOf("id=\"langBar\"") < html.indexOf("id=\"nameGate\""))
+    }
+
+    @Test
+    fun pageCarriesBothLanguagesOfText() {
+        // The whole UI runs off the embedded dictionary: spot-check
+        // one string per area in each language.
+        for (s in listOf(
+            // Chinese (defaults, rendered statically too)
+            "先输入你的名字", "已点歌单（共 ", "我还没点歌", "选伴舞", "点歌",
+            // English
+            "Enter your name first", "Queue (", "You haven't ordered yet",
+            "Pick your dancer", "Order", "No songs queued yet",
+            "can't reach the TV", "The TV app restarted",
+        )) {
+            assertTrue("missing page string: $s", html.contains(s))
+        }
+        // Dancer cards in English use the shared stage-name mapping
+        // (DancerKeys.LABELS_EN is the authority; pinned here).
+        for (name in listOf("Chun-Li", "Lin Yuyan", "Sanshiro", "Xiaoman", "Nezha", "WALL-E")) {
+            assertTrue("missing English dancer name: $name", html.contains(name))
+        }
+    }
+
+    @Test
+    fun requestsCarryThePageLanguage() {
+        // Order and dancer posts tell the server the page language
+        // so its replies (马上开唱 / You're up…) match the phone.
+        assertTrue(html.contains("JSON.stringify({id:id, name:name, lang:ui})"))
+        assertTrue(html.contains("JSON.stringify({name:name, who:myDancer, lang:ui})"))
     }
 }

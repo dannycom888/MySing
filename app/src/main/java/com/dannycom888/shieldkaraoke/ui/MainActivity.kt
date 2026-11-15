@@ -70,6 +70,9 @@ import com.dannycom888.shieldkaraoke.audio.AudioMath
 import com.dannycom888.shieldkaraoke.audio.LoudnessAnalyzer
 import com.dannycom888.shieldkaraoke.audio.PlayerController
 import com.dannycom888.shieldkaraoke.audio.TempoAnalyzer
+import com.dannycom888.shieldkaraoke.i18n.TvKey
+import com.dannycom888.shieldkaraoke.i18n.TvStrings
+import com.dannycom888.shieldkaraoke.i18n.UiLang
 import com.dannycom888.shieldkaraoke.library.Catalog
 import com.dannycom888.shieldkaraoke.library.Gender
 import com.dannycom888.shieldkaraoke.library.Language
@@ -121,6 +124,19 @@ class MainActivity : ComponentActivity() {
     private var scanning by mutableStateOf(false)
     private var quitting = false
 
+    /** TV interface language (v1.0.13), switched on the home
+     *  screen and persisted in prefs. Every user-facing string on
+     *  the TV goes through [s] and the zh/en table — song and
+     *  singer names are file-name data and stay untranslated. */
+    private var uiLang by mutableStateOf(UiLang.ZH)
+
+    private fun s(key: TvKey, vararg args: Any): String = TvStrings.get(uiLang, key, *args)
+
+    private fun switchUiLang(lang: UiLang) {
+        uiLang = lang
+        app.prefs.uiLangCode = lang.code
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // A karaoke box must not go dark mid-party (v1.0.8): keep
@@ -131,6 +147,7 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         app = application as KaraokeApp
         dancersOn = app.prefs.dancersEnabled
+        uiLang = UiLang.parse(app.prefs.uiLangCode)
         controller = PlayerController(this)
         controller.onEnded = { onSongEndedNaturally() }
         app.state.onShouldStart = { entry ->
@@ -174,13 +191,13 @@ class MainActivity : ComponentActivity() {
                     if (confirmQuit) {
                         AlertDialog(
                             onDismissRequest = { confirmQuit = false },
-                            title = { Text("不唱了？") },
-                            text = { Text("结束当前这首，接着唱下一首。") },
+                            title = { Text(s(TvKey.QUIT_TITLE)) },
+                            text = { Text(s(TvKey.QUIT_TEXT)) },
                             confirmButton = {
-                                Button(onClick = { confirmQuit = false; quitCurrent() }) { Text("不唱了") }
+                                Button(onClick = { confirmQuit = false; quitCurrent() }) { Text(s(TvKey.QUIT_CONFIRM)) }
                             },
                             dismissButton = {
-                                TextButton(onClick = { confirmQuit = false }) { Text("继续唱") }
+                                TextButton(onClick = { confirmQuit = false }) { Text(s(TvKey.QUIT_CANCEL)) }
                             },
                         )
                     }
@@ -358,7 +375,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun orderFromTv(song: Song) {
-        app.state.order(song, "电视")
+        // The TV's own orders carry the TV as orderer name, in the
+        // interface's current language （电视 / TV).
+        app.state.order(song, s(TvKey.TV_ORDERER))
         if (app.state.queue.current != null) screen = Screen.PLAYER
     }
 
@@ -375,37 +394,50 @@ class MainActivity : ComponentActivity() {
                     Text("MySing", color = gold, fontSize = (if (compact) 24 else 36).sp, fontWeight = FontWeight.Bold)
                     Text(
                         when {
-                            scanning -> "正在扫描歌库…"
-                            state.catalog.songs.isEmpty() -> "先选歌库文件夹（里面有四个分类文件夹）"
-                            else -> "歌库共 ${state.catalog.songs.size} 首"
+                            scanning -> s(TvKey.SCANNING)
+                            state.catalog.songs.isEmpty() -> s(TvKey.PICK_FOLDER)
+                            else -> s(TvKey.LIBRARY_COUNT, state.catalog.songs.size)
                         },
                         color = soft, fontSize = (if (compact) 13 else 17).sp,
                     )
                     if (!app.serverAlive) {
                         Text(
-                            "⚠ 点歌服务未启动，手机暂时扫不了码" +
+                            s(TvKey.SERVER_DOWN) +
                                 (app.serverError?.let { "（$it）" } ?: ""),
                             color = Color(0xFFFF7043), fontSize = (if (compact) 12 else 15).sp,
                         )
                     }
                 }
+                // Language switch (v1.0.13): William can't read
+                // Chinese, so the whole TV UI flips to English here
+                // and stays flipped across restarts (prefs). The two
+                // chips label themselves in their own language, so
+                // the switch is findable from either side.
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(end = if (compact) 8.dp else 16.dp),
+                ) {
+                    Chip("中文", uiLang == UiLang.ZH) { switchUiLang(UiLang.ZH) }
+                    Chip("EN", uiLang == UiLang.EN) { switchUiLang(UiLang.EN) }
+                }
                 if (ip != null) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         val qr = remember(ip, port) { Qr.encode("http://$ip:$port/", if (compact) 110 else 170) }
-                        Image(bitmap = qr.asImageBitmap(), contentDescription = "手机点歌二维码",
+                        Image(bitmap = qr.asImageBitmap(), contentDescription = s(TvKey.QR_DESC),
                             modifier = Modifier.height(if (compact) 62.dp else 110.dp).width(if (compact) 62.dp else 110.dp))
-                        Text("手机扫码点歌", color = Color.White, fontSize = (if (compact) 11 else 14).sp)
+                        Text(s(TvKey.SCAN_QR), color = Color.White, fontSize = (if (compact) 11 else 14).sp)
                     }
                 }
             }
             Spacer(Modifier.height(if (compact) 10.dp else 20.dp))
             val entries = listOf(
-                "🎤 按歌手" to { openBrowse(ListType.SINGERS, null, null, Special.NONE) },
-                "🎵 按歌名" to { openBrowse(ListType.SONGS, null, null, Special.NONE) },
-                "🇨🇳 中文" to { openBrowse(ListType.SONGS, Language.CHINESE, null, Special.NONE) },
-                "🇬🇧 英文" to { openBrowse(ListType.SONGS, Language.ENGLISH, null, Special.NONE) },
-                "❤ 收藏" to { openBrowse(ListType.SONGS, null, null, Special.FAVORITES) },
-                "🕘 最近唱过" to { openBrowse(ListType.SONGS, null, null, Special.RECENTS) },
+                s(TvKey.ENTRY_SINGERS) to { openBrowse(ListType.SINGERS, null, null, Special.NONE) },
+                s(TvKey.ENTRY_SONGS) to { openBrowse(ListType.SONGS, null, null, Special.NONE) },
+                s(TvKey.ENTRY_CHINESE) to { openBrowse(ListType.SONGS, Language.CHINESE, null, Special.NONE) },
+                s(TvKey.ENTRY_ENGLISH) to { openBrowse(ListType.SONGS, Language.ENGLISH, null, Special.NONE) },
+                s(TvKey.ENTRY_FAVORITES) to { openBrowse(ListType.SONGS, null, null, Special.FAVORITES) },
+                s(TvKey.ENTRY_RECENTS) to { openBrowse(ListType.SONGS, null, null, Special.RECENTS) },
             )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(entries) { (label, action) ->
@@ -425,16 +457,16 @@ class MainActivity : ComponentActivity() {
                         loadLibrary(uri)
                     }
                 }
-                EntryCard("📁 选择歌库文件夹", compact) { picker.launch(null) }
-                EntryCard("🔄 重新扫描", compact) {
+                EntryCard(s(TvKey.PICK_FOLDER_BTN), compact) { picker.launch(null) }
+                EntryCard(s(TvKey.RESCAN), compact) {
                     app.prefs.libraryTreeUri?.let { rescan(Uri.parse(it)) }
                 }
                 if (state.nowPlaying != null) {
-                    EntryCard("▶ 正在唱：${state.nowPlaying!!.song.displayName}", compact) { screen = Screen.PLAYER }
+                    EntryCard(s(TvKey.NOW_SINGING_CARD, state.nowPlaying!!.song.displayName), compact) { screen = Screen.PLAYER }
                 }
             }
             Spacer(Modifier.weight(1f))
-            Text("本软件由 Muse 协助制作", color = soft.copy(alpha = 0.6f), fontSize = 11.sp)
+            Text(s(TvKey.CREDIT), color = soft.copy(alpha = 0.6f), fontSize = 11.sp)
         }
     }
 
@@ -464,18 +496,18 @@ class MainActivity : ComponentActivity() {
         }
         Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("歌曲", listType == ListType.SONGS) { listType = ListType.SONGS }
-                Chip("歌手", listType == ListType.SINGERS) { listType = ListType.SINGERS }
-                Chip("全部", filterLang == null && special == Special.NONE) {
+                Chip(s(TvKey.TAB_SONGS), listType == ListType.SONGS) { listType = ListType.SONGS }
+                Chip(s(TvKey.TAB_SINGERS), listType == ListType.SINGERS) { listType = ListType.SINGERS }
+                Chip(s(TvKey.FILTER_ALL), filterLang == null && special == Special.NONE) {
                     filterLang = null; special = Special.NONE
                 }
-                Chip("中文", filterLang == Language.CHINESE) { filterLang = Language.CHINESE; special = Special.NONE }
-                Chip("英文", filterLang == Language.ENGLISH) { filterLang = Language.ENGLISH; special = Special.NONE }
-                Chip("不限男女", filterGender == null) { filterGender = null }
-                Chip("男歌手", filterGender == Gender.MALE) { filterGender = Gender.MALE }
-                Chip("女歌手", filterGender == Gender.FEMALE) { filterGender = Gender.FEMALE }
+                Chip(s(TvKey.FILTER_CHINESE), filterLang == Language.CHINESE) { filterLang = Language.CHINESE; special = Special.NONE }
+                Chip(s(TvKey.FILTER_ENGLISH), filterLang == Language.ENGLISH) { filterLang = Language.ENGLISH; special = Special.NONE }
+                Chip(s(TvKey.FILTER_ANY_GENDER), filterGender == null) { filterGender = null }
+                Chip(s(TvKey.FILTER_MALE), filterGender == Gender.MALE) { filterGender = Gender.MALE }
+                Chip(s(TvKey.FILTER_FEMALE), filterGender == Gender.FEMALE) { filterGender = Gender.FEMALE }
                 if (filterArtist != null) {
-                    Chip("歌手：${filterArtist} ✕", true) { filterArtist = null }
+                    Chip(s(TvKey.SINGER_CHIP, filterArtist!!), true) { filterArtist = null }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -529,7 +561,7 @@ class MainActivity : ComponentActivity() {
             val screenH = maxHeight
             val screenW = maxWidth
             Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
-                val nextUp = state.queue.nextUpText()
+                val nextUp = state.queue.nextUpText(uiLang)
                 Box(modifier = Modifier.fillMaxWidth().height(if (compact) 26.dp else 36.dp)) {
                     if (nextUp != null) {
                         Text(nextUp, color = gold, fontSize = (if (compact) 14 else 19).sp, fontWeight = FontWeight.Bold)
@@ -548,7 +580,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text("👏", fontSize = (if (compact) 30 else 48).sp)
                             Text(nextUp ?: "", color = Color.White, fontSize = (if (compact) 18 else 26).sp, fontWeight = FontWeight.Bold)
-                            Text("${state.interludeSeconds} 秒后开始", color = soft, fontSize = (if (compact) 14 else 18).sp)
+                            Text(s(TvKey.INTERLUDE_COUNTDOWN, state.interludeSeconds), color = soft, fontSize = (if (compact) 14 else 18).sp)
                         }
                     } else {
                         // Three dancer phases (DancerActivity): the
@@ -619,7 +651,7 @@ class MainActivity : ComponentActivity() {
                             }
                             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                 Text(
-                                    entry?.let { "正在唱：${it.song.displayName}（${it.orderedBy}点的）" } ?: "",
+                                    entry?.let { s(TvKey.NOW_SINGING_LINE, it.song.displayName, it.orderedBy) } ?: "",
                                     color = soft, fontSize = (if (compact) 12 else 15).sp,
                                 )
                                 LyricsView(lyrics, positionMs, compact, modifier = Modifier.weight(1f))
@@ -644,7 +676,7 @@ class MainActivity : ComponentActivity() {
                 }
                 // --- diagnostics: always visible; an error never auto-hides ---
                 controller.lastError?.let { err ->
-                    Text("⚠ 播放错误：$err", color = Color(0xFFFF7043), fontSize = (if (compact) 11 else 12).sp)
+                    Text(s(TvKey.PLAY_ERROR, err), color = Color(0xFFFF7043), fontSize = (if (compact) 11 else 12).sp)
                 }
                 Text(
                     diagnosticsText(entry),
@@ -655,19 +687,19 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 ) {
-                    Chip(if (controller.player.isPlaying) "⏸ 暂停" else "▶ 继续", false) { controller.togglePlayPause() }
-                    Chip("↺ 重唱", false) { controller.replay() }
-                    Chip(if (accompaniment) "🎙 伴奏中" else "🎤 原唱", accompaniment) {
+                    Chip(if (controller.player.isPlaying) s(TvKey.PAUSE) else s(TvKey.RESUME), false) { controller.togglePlayPause() }
+                    Chip(s(TvKey.REPLAY), false) { controller.replay() }
+                    Chip(if (accompaniment) s(TvKey.ACCOMP_ON) else s(TvKey.ACCOMP_OFF), accompaniment) {
                         accompaniment = !accompaniment; controller.setAccompaniment(accompaniment)
                     }
-                    Chip("降调 −", false) { controller.shiftPitch(-1); semitoneLabel = controller.semitones }
-                    Chip("调 $semitoneLabel", false) { }
-                    Chip("升调 ＋", false) { controller.shiftPitch(1); semitoneLabel = controller.semitones }
-                    Chip(if (dancersOn) "💃 小人开" else "💃 小人关", dancersOn) {
+                    Chip(s(TvKey.PITCH_DOWN), false) { controller.shiftPitch(-1); semitoneLabel = controller.semitones }
+                    Chip(s(TvKey.PITCH_LABEL, semitoneLabel), false) { }
+                    Chip(s(TvKey.PITCH_UP), false) { controller.shiftPitch(1); semitoneLabel = controller.semitones }
+                    Chip(if (dancersOn) s(TvKey.DANCERS_ON) else s(TvKey.DANCERS_OFF), dancersOn) {
                         dancersOn = !dancersOn; app.prefs.dancersEnabled = dancersOn
                     }
-                    Chip("🚪 不唱了", false) { confirmQuit = true }
-                    Chip("🎵 去点歌", false) { screen = Screen.BROWSE }
+                    Chip(s(TvKey.QUIT), false) { confirmQuit = true }
+                    Chip(s(TvKey.GO_ORDER), false) { screen = Screen.BROWSE }
                 }
             }
         }
@@ -725,10 +757,10 @@ class MainActivity : ComponentActivity() {
         ) {
             Image(
                 bitmap = bitmap.asImageBitmap(),
-                contentDescription = "扫码点歌二维码",
+                contentDescription = s(TvKey.CORNER_QR_DESC),
                 modifier = Modifier.width(qrDp).height(qrDp),
             )
-            Text("扫码点歌", color = Color(0xFF26325E), fontSize = (if (compact) 9 else 11).sp)
+            Text(s(TvKey.CORNER_QR_CAPTION), color = Color(0xFF26325E), fontSize = (if (compact) 9 else 11).sp)
         }
     }
 

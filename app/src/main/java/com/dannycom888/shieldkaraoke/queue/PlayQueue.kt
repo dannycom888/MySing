@@ -1,5 +1,8 @@
 package com.dannycom888.shieldkaraoke.queue
 
+import com.dannycom888.shieldkaraoke.i18n.TvKey
+import com.dannycom888.shieldkaraoke.i18n.TvStrings
+import com.dannycom888.shieldkaraoke.i18n.UiLang
 import com.dannycom888.shieldkaraoke.library.Song
 
 /** One queued song and who ordered it (name from the phone page). */
@@ -49,11 +52,13 @@ class PlayQueue {
         )
     }
 
-    /** The "next up" banner text for the TV: exactly
-     *  `下一首：{点歌人}点的 {歌手} - {歌名}`, or null when nothing waits. */
-    fun nextUpText(): String? {
+    /** The "next up" banner text for the TV: in Chinese exactly
+     *  `下一首：{点歌人}点的 {歌手} - {歌名}`; the wording lives in
+     *  the zh/en string table (v1.0.13) and the song name passes
+     *  through untranslated. Null when nothing waits. */
+    fun nextUpText(lang: UiLang = UiLang.ZH): String? {
         val next = waiting.firstOrNull() ?: return null
-        return "下一首：${next.orderedBy}点的 ${next.song.displayName}"
+        return TvStrings.get(lang, TvKey.NEXT_UP, next.song.displayName, next.orderedBy)
     }
 
     fun peekNext(): QueueEntry? = waiting.firstOrNull()

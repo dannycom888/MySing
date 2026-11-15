@@ -41,6 +41,19 @@ class PlayQueueTest {
     }
 
     @Test
+    fun `next up banner in english keeps the song name as-is`() {
+        // v1.0.13: the banner follows the TV language; the song
+        // name is file-name data and is never translated.
+        val q = PlayQueue()
+        q.add(song("1", "周杰伦", "晴天"), "小明")
+        q.add(song("2", "凤凰传奇", "最炫民族风"), "William")
+        assertEquals(
+            "Next up: 凤凰传奇 - 最炫民族风 (ordered by William)",
+            q.nextUpText(com.dannycom888.shieldkaraoke.i18n.UiLang.EN),
+        )
+    }
+
+    @Test
     fun `no banner when nothing waits`() {
         val q = PlayQueue()
         q.add(song("1"), "小明")

@@ -12,6 +12,14 @@ class Prefs(context: Context) {
         get() = prefs.getString("library_tree_uri", null)
         set(value) = prefs.edit().putString("library_tree_uri", value).apply()
 
+    /** TV interface language (v1.0.13): "zh" / "en", default "zh".
+     *  Stored as the wire code; [com.dannycom888.shieldkaraoke.i18n.UiLang]
+     *  parses it. The phone page keeps its own per-phone choice and
+     *  never reads this. */
+    var uiLangCode: String
+        get() = prefs.getString("ui_lang", "zh") ?: "zh"
+        set(value) = prefs.edit().putString("ui_lang", value).apply()
+
     fun favorites(): Set<String> = prefs.getStringSet("favorites", emptySet()) ?: emptySet()
 
     fun setFavorite(songId: String, favorite: Boolean) {

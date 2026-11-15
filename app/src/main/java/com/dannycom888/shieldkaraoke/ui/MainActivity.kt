@@ -148,6 +148,13 @@ class MainActivity : ComponentActivity() {
     private var celebrating by mutableStateOf(false)
     private var applauseStartMs by mutableStateOf(0L)
     private var celebrationToken = 0
+    /** The v1.0.23 handover ceremony (see [Ceremony]): the next
+     *  entry locked in when a song finished, the keeper dancer's
+     *  key (the next orderer's choice) and the wall-clock start.
+     *  [ceremonyNext] null = no ceremony running. */
+    private var ceremonyNext by mutableStateOf<QueueEntry?>(null)
+    private var ceremonyKeeperKey by mutableStateOf<String?>(null)
+    private var ceremonyStartMs by mutableStateOf(0L)
     private var confirmQuit by mutableStateOf(false)
     /** Host-renamed dancer names (v1.0.21), mirrored from prefs
      *  so every label on the TV resolves through [DancerNames]
@@ -318,6 +325,7 @@ class MainActivity : ComponentActivity() {
         semitoneLabel = 0
         celebrating = false
         celebrationToken++
+        clearCeremony()
         val uri = Uri.parse(entry.song.audioRef)
         val cachedGain = app.prefs.loudnessDb(entry.song.id)
         controller.load(uri, AudioMath.normalizationGainDb(cachedGain))
@@ -466,14 +474,55 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             } else {
-                // Applause + a few seconds for the next singer to get ready.
-                app.state.interludeSeconds = 5
+                // A real next song is queued: the applause opens the
+                // v1.0.23 handover ceremony (see Ceremony) — the six
+                // clap under a big next-song card, invite together,
+                // five fade away, the next orderer's dancer invites
+                // once more alone, then the song starts. The
+                // ceremony is locked to this entry; at every segment
+                // boundary the lock is re-checked (Ceremony's
+                // interruption rule) — a superseding flow (token
+                // bump: quit, filler toggle…) simply ends it.
+                ceremonyNext = next
+                ceremonyKeeperKey = Dancers.byKey(app.prefs.dancerFor(next.orderedBy)).key
+                ceremonyStartMs = applauseStartMs
                 lifecycleScope.launch {
-                    while (app.state.interludeSeconds > 0) {
-                        delay(1000)
-                        app.state.interludeSeconds -= 1
+                    var lastPhase = Ceremony.Phase.CLAPPING
+                    while (celebrationToken == token) {
+                        delay(100)
+                        if (celebrationToken != token) return@launch
+                        val phase = Ceremony.phaseAt(
+                            SystemClock.elapsedRealtime() - ceremonyStartMs,
+                        )
+                        if (phase != lastPhase) {
+                            val current = app.state.queue.current
+                            when (
+                                Ceremony.boundaryAction(
+                                    lockedStillCurrent = current === next,
+                                    hasCurrent = current != null,
+                                )
+                            ) {
+                                Ceremony.BoundaryAction.CONTINUE -> lastPhase = phase
+                                Ceremony.BoundaryAction.START_CURRENT -> {
+                                    clearCeremony()
+                                    startSong(current!!)
+                                    return@launch
+                                }
+                                Ceremony.BoundaryAction.END_TO_IDLE -> {
+                                    clearCeremony()
+                                    celebrating = false
+                                    app.state.nowPlaying = null
+                                    if (!maybeStartFiller()) screen = Screen.HOME
+                                    return@launch
+                                }
+                            }
+                        }
+                        if (phase == Ceremony.Phase.DONE) {
+                            clearCeremony()
+                            startSong(next)
+                            return@launch
+                        }
                     }
-                    if (celebrationToken == token) startSong(next)
                 }
             }
         }
@@ -485,6 +534,7 @@ class MainActivity : ComponentActivity() {
         quitting = false
         celebrating = false
         celebrationToken++
+        clearCeremony()
         app.state.interludeSeconds = 0
         if (app.state.nowPlaying?.isFiller == true) {
             // Cutting a filler song (the remote holder's 切歌 on a
@@ -500,6 +550,13 @@ class MainActivity : ComponentActivity() {
         } else {
             startSong(next)
         }
+    }
+
+    /** End the handover ceremony's state (its driver coroutine is
+     *  separately retired by the celebration token). */
+    private fun clearCeremony() {
+        ceremonyNext = null
+        ceremonyKeeperKey = null
     }
 
     private fun playApplause() {
@@ -916,16 +973,29 @@ class MainActivity : ComponentActivity() {
                         // right end clear of the top-right QR card.
                         .padding(end = if (qrPresent) (if (compact) 90.dp else 114.dp) else 0.dp),
                 ) {
-                    if (nextUp != null) {
+                    // During the v1.0.23 ceremony the banner yields
+                    // to the big centred next-song card on the stage
+                    // (never the same line in two places at once).
+                    if (nextUp != null && ceremonyNext == null) {
                         Text(nextUp, color = gold, fontSize = (if (compact) 14 else 19).sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                   Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                     val clapElapsed = tickMs - applauseStartMs
-                    val showCelebration = celebrating && entry != null &&
+                    // The v1.0.23 handover ceremony owns the stage
+                    // while it runs; the plain applause celebration
+                    // below is only for the no-next-song send-off.
+                    val ceremony = ceremonyNext
+                    val ceremonyElapsed = if (ceremony != null) tickMs - ceremonyStartMs else 0L
+                    val ceremonyPhase = ceremony?.let { Ceremony.phaseAt(ceremonyElapsed) }
+                    val showCelebration = ceremony == null && celebrating && entry != null &&
                         clapElapsed in 0..(APPLAUSE_MS + 200)
-                    if (state.interludeSeconds > 0) {
+                    if (ceremony != null && ceremonyPhase != null &&
+                        ceremonyPhase != Ceremony.Phase.DONE
+                    ) {
+                        CeremonyStage(ceremony, ceremonyPhase, ceremonyElapsed, compact, screenH, screenW)
+                    } else if (state.interludeSeconds > 0) {
                         // --- interlude: centred text over the whole stage ---
                         Column(
                             modifier = Modifier.fillMaxSize(),
@@ -1429,6 +1499,129 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * The v1.0.23 handover ceremony stage (see [Ceremony] for the
+     * timeline): a big centred card announcing the locked next
+     * song, the six dancers clapping / inviting in a row at the
+     * bottom, and — from the exit segment on — the keeper alone at
+     * the regular dancer position, cross-fading in while the row
+     * melts away, then inviting once more on its own. Purely a
+     * function of the ceremony phase + elapsed time; the driver
+     * coroutine in [onSongEndedNaturally] owns the lifecycle.
+     */
+    @Composable
+    private fun CeremonyStage(
+        next: QueueEntry,
+        phase: Ceremony.Phase,
+        elapsedMs: Long,
+        compact: Boolean,
+        screenH: Dp,
+        screenW: Dp,
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // --- big next-song card, centred on the stage ---
+            val remainingSec =
+                ((Ceremony.TOTAL_MS - elapsedMs).coerceAtLeast(0L) + 999L) / 1000L
+            Column(
+                modifier = Modifier.align(Alignment.Center)
+                    .background(cardBg, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 30.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (phase == Ceremony.Phase.CLAPPING) {
+                    Text("👏", fontSize = (if (compact) 28 else 42).sp)
+                }
+                Text(
+                    // The locked next song itself, in the banner's
+                    // exact bilingual wording — just much bigger.
+                    TvStrings.get(uiLang, TvKey.NEXT_UP, next.song.displayName, next.orderedBy),
+                    color = gold,
+                    fontSize = (if (compact) 20 else 32).sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    s(TvKey.INTERLUDE_COUNTDOWN, remainingSec.toInt()),
+                    color = soft, fontSize = (if (compact) 13 else 17).sp,
+                )
+            }
+            // --- the row of six: clapping, then inviting together,
+            //     then melting away during the exit ---
+            if (phase != Ceremony.Phase.SOLO_INVITE) {
+                val rowAlpha = 0.95f * Ceremony.leavingAlpha(elapsedMs)
+                val rowHeight = screenH * if (compact) 0.36f else 0.32f
+                Row(
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Dancers.ALL.forEach { dancer ->
+                        when (phase) {
+                            Ceremony.Phase.CLAPPING -> DancerImage(
+                                dancer = dancer,
+                                pose = DanceMotion.clapPose(dancer.profile, elapsedMs),
+                                heightDp = rowHeight,
+                                alpha = rowAlpha,
+                            )
+                            Ceremony.Phase.GROUP_INVITE -> DancerImage(
+                                dancer = dancer,
+                                pose = Ceremony.invitePose(
+                                    dancer.profile,
+                                    elapsedMs - Ceremony.CLAP_MS,
+                                    Ceremony.GROUP_INVITE_MS,
+                                ),
+                                heightDp = rowHeight,
+                                invite = true,
+                                alpha = rowAlpha,
+                            )
+                            else -> DancerImage(
+                                // EXITING: the invite gesture is
+                                // complete (lean back at neutral);
+                                // the row just melts away.
+                                dancer = dancer,
+                                pose = Ceremony.invitePose(
+                                    dancer.profile,
+                                    Ceremony.GROUP_INVITE_MS,
+                                    Ceremony.GROUP_INVITE_MS,
+                                ),
+                                heightDp = rowHeight,
+                                invite = true,
+                                alpha = rowAlpha,
+                            )
+                        }
+                    }
+                }
+            }
+            // --- the keeper alone at the regular dancer position:
+            //     cross-fades in during the exit, then invites once
+            //     more — already standing exactly where normal
+            //     playback rendering will put it when the song
+            //     starts, so the handover has no jump. ---
+            if (phase == Ceremony.Phase.EXITING || phase == Ceremony.Phase.SOLO_INVITE) {
+                val keeper = Dancers.ALL[Ceremony.keeperIndex(ceremonyKeeperKey)]
+                Box(
+                    modifier = Modifier.fillMaxHeight().width(screenW * 0.32f),
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    DancerImage(
+                        dancer = keeper,
+                        pose = if (phase == Ceremony.Phase.SOLO_INVITE) {
+                            Ceremony.invitePose(
+                                keeper.profile,
+                                elapsedMs - Ceremony.CLAP_MS -
+                                    Ceremony.GROUP_INVITE_MS - Ceremony.EXIT_MS,
+                                Ceremony.SOLO_INVITE_MS,
+                            )
+                        } else {
+                            Ceremony.invitePose(keeper.profile, 0L, Ceremony.SOLO_INVITE_MS)
+                        },
+                        heightDp = screenH * if (compact) 0.62f else 0.70f,
+                        invite = true,
+                        alpha = 0.95f * Ceremony.keeperSoloAlpha(elapsedMs),
+                    )
+                }
+            }
+        }
+    }
+
     @Composable
     private fun DancerImage(
         dancer: Dancer,
@@ -1438,6 +1631,10 @@ class MainActivity : ComponentActivity() {
         frameIndex: Int = -1,
         invite: Boolean = false,
         blend: PoseCycle.Blend? = null,
+        /** Overall opacity the figure is drawn at; the default is
+         *  the long-standing stage alpha. The v1.0.23 ceremony
+         *  drives it for its fade-out / fade-in handover. */
+        alpha: Float = 0.95f,
     ) {
         // v1.0.10: while a beat's cross-fade is still running, the
         // previous pose frame is drawn under the current one with
@@ -1458,14 +1655,14 @@ class MainActivity : ComponentActivity() {
                     label = dancerDisplayName(dancer.key),
                     pose = pose,
                     heightDp = heightDp,
-                    alpha = 0.95f * (1f - blend.currentAlpha),
+                    alpha = alpha * (1f - blend.currentAlpha),
                 )
                 DancerFrame(
                     resId = dancer.frames[blend.currentIndex],
                     label = dancerDisplayName(dancer.key),
                     pose = pose,
                     heightDp = heightDp,
-                    alpha = 0.95f * blend.currentAlpha,
+                    alpha = alpha * blend.currentAlpha,
                 )
             }
         } else {
@@ -1478,7 +1675,7 @@ class MainActivity : ComponentActivity() {
                 label = dancerDisplayName(dancer.key),
                 pose = pose,
                 heightDp = heightDp,
-                alpha = 0.95f,
+                alpha = alpha,
                 modifier = modifier,
             )
         }

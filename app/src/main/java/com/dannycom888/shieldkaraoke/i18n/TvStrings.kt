@@ -32,6 +32,12 @@ enum class TvKey {
     ADMIN_DEFAULT, ADMIN_RESTORE, ADMIN_RESTORE_TITLE,
     ADMIN_RESTORE_TEXT, ADMIN_RESTORE_CONFIRM, ADMIN_BACK,
     SAVE, CANCEL,
+    // Settings move into the admin page (v1.0.26): the library
+    // section, the sweep-colour section, the home screen's
+    // no-folder guidance chip and the gear button's description.
+    ADMIN_LIBRARY_TITLE, ADMIN_LIBRARY_CURRENT, ADMIN_LIBRARY_NONE,
+    ADMIN_SWEEP_TITLE, SWEEP_GOLD, SWEEP_GREEN, SWEEP_PINK,
+    PICK_FOLDER_GUIDE, ADMIN_GEAR_DESC, ADMIN_VERSION,
 }
 
 /**
@@ -114,6 +120,16 @@ object TvStrings {
         TvKey.ADMIN_BACK to "返回",
         TvKey.SAVE to "保存",
         TvKey.CANCEL to "取消",
+        TvKey.ADMIN_LIBRARY_TITLE to "歌库",
+        TvKey.ADMIN_LIBRARY_CURRENT to "当前歌库：%s",
+        TvKey.ADMIN_LIBRARY_NONE to "尚未选择歌库文件夹",
+        TvKey.ADMIN_SWEEP_TITLE to "扫光颜色",
+        TvKey.SWEEP_GOLD to "金色",
+        TvKey.SWEEP_GREEN to "浅绿",
+        TvKey.SWEEP_PINK to "浅粉",
+        TvKey.PICK_FOLDER_GUIDE to "⚙ 请进后台选择歌库文件夹",
+        TvKey.ADMIN_GEAR_DESC to "后台设置",
+        TvKey.ADMIN_VERSION to "版本 v%s",
     )
 
     private val EN: Map<TvKey, String> = mapOf(
@@ -184,6 +200,16 @@ object TvStrings {
         TvKey.ADMIN_BACK to "Back",
         TvKey.SAVE to "Save",
         TvKey.CANCEL to "Cancel",
+        TvKey.ADMIN_LIBRARY_TITLE to "Library",
+        TvKey.ADMIN_LIBRARY_CURRENT to "Library folder: %s",
+        TvKey.ADMIN_LIBRARY_NONE to "No library folder chosen yet",
+        TvKey.ADMIN_SWEEP_TITLE to "Sweep color",
+        TvKey.SWEEP_GOLD to "Gold",
+        TvKey.SWEEP_GREEN to "Light green",
+        TvKey.SWEEP_PINK to "Light pink",
+        TvKey.PICK_FOLDER_GUIDE to "⚙ Choose the library folder in Settings",
+        TvKey.ADMIN_GEAR_DESC to "Settings",
+        TvKey.ADMIN_VERSION to "Version %s",
     )
 
     /** Key set of each language's table, for the parity test. */

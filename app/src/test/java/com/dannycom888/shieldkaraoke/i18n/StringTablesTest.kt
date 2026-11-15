@@ -99,6 +99,42 @@ class StringTablesTest {
     }
 
     @Test
+    fun adminSettingsStringsRender() {
+        // v1.0.26: library + sweep colour moved into the admin
+        // page; the home screen keeps only the no-folder signpost
+        // and the gear (whose description names it in both
+        // languages).
+        assertEquals("歌库", TvStrings.get(UiLang.ZH, TvKey.ADMIN_LIBRARY_TITLE))
+        assertEquals("Library", TvStrings.get(UiLang.EN, TvKey.ADMIN_LIBRARY_TITLE))
+        assertEquals(
+            "当前歌库：primary:Music",
+            TvStrings.get(UiLang.ZH, TvKey.ADMIN_LIBRARY_CURRENT, "primary:Music"),
+        )
+        assertEquals(
+            "Library folder: primary:Music",
+            TvStrings.get(UiLang.EN, TvKey.ADMIN_LIBRARY_CURRENT, "primary:Music"),
+        )
+        assertEquals("尚未选择歌库文件夹", TvStrings.get(UiLang.ZH, TvKey.ADMIN_LIBRARY_NONE))
+        assertEquals("No library folder chosen yet", TvStrings.get(UiLang.EN, TvKey.ADMIN_LIBRARY_NONE))
+        assertEquals("扫光颜色", TvStrings.get(UiLang.ZH, TvKey.ADMIN_SWEEP_TITLE))
+        assertEquals("Sweep color", TvStrings.get(UiLang.EN, TvKey.ADMIN_SWEEP_TITLE))
+        assertEquals("金色", TvStrings.get(UiLang.ZH, TvKey.SWEEP_GOLD))
+        assertEquals("Gold", TvStrings.get(UiLang.EN, TvKey.SWEEP_GOLD))
+        assertEquals("浅绿", TvStrings.get(UiLang.ZH, TvKey.SWEEP_GREEN))
+        assertEquals("Light green", TvStrings.get(UiLang.EN, TvKey.SWEEP_GREEN))
+        assertEquals("浅粉", TvStrings.get(UiLang.ZH, TvKey.SWEEP_PINK))
+        assertEquals("Light pink", TvStrings.get(UiLang.EN, TvKey.SWEEP_PINK))
+        assertEquals("后台设置", TvStrings.get(UiLang.ZH, TvKey.ADMIN_GEAR_DESC))
+        assertEquals("Settings", TvStrings.get(UiLang.EN, TvKey.ADMIN_GEAR_DESC))
+        // The admin footer carries the real versionName through
+        // the %s slot: zh prefixes it with "v", en does not.
+        assertEquals("版本 v1.0.26", TvStrings.get(UiLang.ZH, TvKey.ADMIN_VERSION, "1.0.26"))
+        assertEquals("Version 1.0.26", TvStrings.get(UiLang.EN, TvKey.ADMIN_VERSION, "1.0.26"))
+        assertTrue(TvStrings.get(UiLang.ZH, TvKey.PICK_FOLDER_GUIDE).contains("后台"))
+        assertTrue(TvStrings.get(UiLang.EN, TvKey.PICK_FOLDER_GUIDE).contains("Settings"))
+    }
+
+    @Test
     fun serverOrderMessagesInBothLanguages() {
         assertEquals("马上开唱！", ServerStrings.get(UiLang.ZH, ServerKey.ORDER_START_NOW))
         assertEquals("You're up — singing now!", ServerStrings.get(UiLang.EN, ServerKey.ORDER_START_NOW))

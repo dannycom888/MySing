@@ -29,7 +29,12 @@ import com.dannycom888.shieldkaraoke.lyrics.LrcParser
 import com.dannycom888.shieldkaraoke.lyrics.LyricLine
 import com.dannycom888.shieldkaraoke.lyrics.SweepProgress
 
-/** Karaoke gold: characters already sung (same as MyLRC Auto). */
+/** Karaoke gold: characters already sung (same as MyLRC Auto).
+ *  Since v1.0.26 this is the GOLD entry — and the default — of
+ *  the admin page's sweep-colour choice
+ *  ([com.dannycom888.shieldkaraoke.state.SweepColor]); the view
+ *  takes the chosen colour as a parameter and this constant is
+ *  only the fallback for callers that pass none. */
 val SWEEP_COLOR = Color(0xFFFFD54F)
 
 /** Cyan glow base of the current line. */
@@ -96,7 +101,13 @@ object LyricsWindow {
  * line spacing and the sweep rendering are untouched.
  */
 @Composable
-fun LyricsView(lines: List<LyricLine>, positionMs: Long, compact: Boolean, modifier: Modifier = Modifier) {
+fun LyricsView(
+    lines: List<LyricLine>,
+    positionMs: Long,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+    sweepColor: Color = SWEEP_COLOR,
+) {
     val current = LrcParser.currentIndex(lines, positionMs)
     // v1.0.24: a touch larger now the stage is wider (the queue
     // panel floats instead of taking a column): current line
@@ -124,6 +135,7 @@ fun LyricsView(lines: List<LyricLine>, positionMs: Long, compact: Boolean, modif
                         line = lines.getOrNull(idx),
                         positionMs = positionMs,
                         fontSize = currentSize,
+                        sweepColor = sweepColor,
                     )
                 } else {
                     Text(
@@ -141,7 +153,7 @@ fun LyricsView(lines: List<LyricLine>, positionMs: Long, compact: Boolean, modif
 }
 
 @Composable
-private fun CurrentLine(line: LyricLine?, positionMs: Long, fontSize: Int) {
+private fun CurrentLine(line: LyricLine?, positionMs: Long, fontSize: Int, sweepColor: Color) {
     if (line == null) {
         Text("♪ ♪ ♪", color = GLOW_COLOR, fontSize = fontSize.sp, fontWeight = FontWeight.Bold)
         return
@@ -151,7 +163,7 @@ private fun CurrentLine(line: LyricLine?, positionMs: Long, fontSize: Int) {
         // Plain LRC: the whole line highlights.
         Text(
             text = line.text,
-            color = SWEEP_COLOR,
+            color = sweepColor,
             fontSize = fontSize.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -159,7 +171,7 @@ private fun CurrentLine(line: LyricLine?, positionMs: Long, fontSize: Int) {
             maxLines = 1,
         )
     } else {
-        SweepLine(line = line, positionMs = positionMs, fontSize = fontSize, glow = glow)
+        SweepLine(line = line, positionMs = positionMs, fontSize = fontSize, glow = glow, sweepColor = sweepColor)
     }
 }
 
@@ -172,7 +184,7 @@ private fun CurrentLine(line: LyricLine?, positionMs: Long, fontSize: Int) {
  * character instead of jumping character by character.
  */
 @Composable
-private fun SweepLine(line: LyricLine, positionMs: Long, fontSize: Int, glow: Shadow) {
+private fun SweepLine(line: LyricLine, positionMs: Long, fontSize: Int, glow: Shadow, sweepColor: Color) {
     val windows = remember(line.words) { SweepProgress.charWindows(line.words) }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -193,7 +205,7 @@ private fun SweepLine(line: LyricLine, positionMs: Long, fontSize: Int, glow: Sh
             if (boundary > 0f) {
                 Text(
                     text = line.text,
-                    color = SWEEP_COLOR,
+                    color = sweepColor,
                     fontSize = fontSize.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,

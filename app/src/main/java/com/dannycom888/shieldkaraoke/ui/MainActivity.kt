@@ -31,11 +31,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +68,8 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -93,6 +99,8 @@ import com.dannycom888.shieldkaraoke.queue.FillerPolicy
 import com.dannycom888.shieldkaraoke.queue.FillerSession
 import com.dannycom888.shieldkaraoke.queue.QueueEntry
 import com.dannycom888.shieldkaraoke.state.DancerNames
+import com.dannycom888.shieldkaraoke.state.SweepColor
+import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -166,6 +174,12 @@ class MainActivity : ComponentActivity() {
      *  against the same snapshot; refreshed after each admin edit. */
     private var customDancerNames by mutableStateOf<Map<String, String>>(emptyMap())
     private var confirmRestoreNames by mutableStateOf(false)
+    /** Karaoke sweep colour (v1.0.26), chosen on the admin page
+     *  and persisted in prefs. Held as activity state so a change
+     *  in the admin page recomposes the player at once — the new
+     *  colour is on the lyrics from the very next frame, mid-song
+     *  included. */
+    private var sweepColor by mutableStateOf(SweepColor.DEFAULT)
     private var accompaniment by mutableStateOf(false)
     private var semitoneLabel by mutableStateOf(0)
     private var scanning by mutableStateOf(false)
@@ -201,6 +215,7 @@ class MainActivity : ComponentActivity() {
         app = application as KaraokeApp
         dancersOn = app.prefs.dancersEnabled
         fillerOn = app.prefs.randomFillerEnabled
+        sweepColor = app.prefs.sweepColor
         customDancerNames = app.prefs.customDancerNames()
         uiLang = UiLang.parse(app.prefs.uiLangCode)
         controller = PlayerController(this)
@@ -279,6 +294,47 @@ class MainActivity : ComponentActivity() {
     }
 
     // ---------- library ----------
+
+    /**
+     * A folder picked in the SAF tree picker (v1.0.26: the picker
+     * is launched from the admin page — the handling is exactly
+     * what the home screen's button always did): keep read
+     * permission across restarts where the provider allows it,
+     * remember the tree, load it.
+     */
+    private fun onLibraryFolderPicked(uri: Uri) {
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        } catch (e: Exception) { /* still usable this session */ }
+        app.prefs.libraryTreeUri = uri.toString()
+        loadLibrary(uri)
+    }
+
+    /** The installed build's real versionName, read from the
+     *  package manager (v1.0.26 admin page footer). Deliberately
+     *  not a constant anywhere: it follows the build by itself. */
+    private fun installedVersionName(): String? = try {
+        @Suppress("DEPRECATION")
+        packageManager.getPackageInfo(packageName, 0).versionName
+    } catch (e: Exception) {
+        null
+    }
+
+    /** Display label for the current library folder on the admin
+     *  page: the folder's own name where SAF reports one, the
+     *  decoded tree path otherwise. Null = never chosen. */
+    private fun libraryFolderLabel(): String? {
+        val raw = app.prefs.libraryTreeUri ?: return null
+        val uri = Uri.parse(raw)
+        val name = try {
+            DocumentFile.fromTreeUri(this, uri)?.name
+        } catch (e: Exception) {
+            null
+        }
+        return name ?: Uri.decode(uri.lastPathSegment ?: raw)
+    }
 
     /** True once a real SAF scan has landed in this process; the
      *  cached catalog may only fill the state before that. */
@@ -653,9 +709,12 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Chip("中文", uiLang == UiLang.ZH) { switchUiLang(UiLang.ZH) }
                     Chip("EN", uiLang == UiLang.EN) { switchUiLang(UiLang.EN) }
-                    // Admin entry (v1.0.21): rename the dancers —
-                    // same chip style as the language switch.
-                    Chip(s(TvKey.ADMIN_TITLE), false) { screen = Screen.ADMIN }
+                    // Admin entry: a small gear under the language
+                    // chips (v1.0.26 — until now a full text chip
+                    // sat here; the user asked for just a gear in
+                    // the front, with the settings themselves
+                    // behind it). The freed space stays empty.
+                    GearButton(compact) { screen = Screen.ADMIN }
                 }
                 if (ip != null) {
                     // v1.0.19: the home header's big QR is gone — the
@@ -681,20 +740,15 @@ class MainActivity : ComponentActivity() {
             }
             Spacer(Modifier.height(if (compact) 8.dp else 16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-                    if (uri != null) {
-                        try {
-                            contentResolver.takePersistableUriPermission(
-                                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                            )
-                        } catch (e: Exception) { /* still usable this session */ }
-                        app.prefs.libraryTreeUri = uri.toString()
-                        loadLibrary(uri)
-                    }
-                }
-                EntryCard(s(TvKey.PICK_FOLDER_BTN), compact) { picker.launch(null) }
-                EntryCard(s(TvKey.RESCAN), compact) {
-                    app.prefs.libraryTreeUri?.let { rescan(Uri.parse(it)) }
+                // v1.0.26: picking the library folder and rescanning
+                // moved into the admin page (settings live behind
+                // the gear now). The one exception: before any
+                // folder has EVER been chosen, home keeps this
+                // signpost chip so a fresh install can find its way
+                // — it only points at the admin page, the picker
+                // itself is not back on the front.
+                if (app.prefs.libraryTreeUri == null) {
+                    EntryCard(s(TvKey.PICK_FOLDER_GUIDE), compact) { screen = Screen.ADMIN }
                 }
                 if (state.nowPlaying != null) {
                     EntryCard(s(TvKey.NOW_SINGING_CARD, state.nowPlaying!!.song.displayName), compact) { screen = Screen.PLAYER }
@@ -705,26 +759,37 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ---------- admin: rename the dancers (v1.0.21) ----------
+    // ---------- admin: settings behind the gear ----------
 
     /**
-     * The TV admin page. Friends come over, the host puts their
-     * names on the dancers here. Renaming is TV-only: the phone
-     * server reads the names for its picker cards but has no
-     * write path. Rows carry the dancer's standing frame so the
-     * host recognises who is who even after a rename; a renamed
-     * row also shows the default it would fall back to.
+     * The TV admin page — everything settable lives here since
+     * v1.0.26 (the user's layout: 选文件夹、改名、改颜色进后台，
+     * 改中英在前台）, reached from the home screen's little gear:
+     * the library folder and rescan (moved in from home), the
+     * sweep colour, and the dancer renames (v1.0.21). Renaming is
+     * TV-only: the phone server reads the names for its picker
+     * cards but has no write path. Rows carry the dancer's
+     * standing frame so the host recognises who is who even after
+     * a rename; a renamed row also shows the default it would
+     * fall back to.
      */
     @Composable
     private fun AdminScreen(compact: Boolean) {
         BackHandler { screen = Screen.HOME }
+        val state = app.state
         // The corner QR overlay is pinned top-right here too;
         // reserve its width so no row slides under it (same
         // pattern as BrowseScreen).
-        val qrEndReserve = if (remember(app.state.version) { Qr.lanIpAddress() } != null) {
+        val qrEndReserve = if (remember(state.version) { Qr.lanIpAddress() } != null) {
             if (compact) 88.dp else 112.dp
         } else {
             0.dp
+        }
+        // The library folder picker lives here now (v1.0.26);
+        // the picked tree goes through the same handling the
+        // home button always used.
+        val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) onLibraryFolderPicked(uri)
         }
         Column(
             modifier = Modifier.fillMaxSize().padding(
@@ -732,11 +797,67 @@ class MainActivity : ComponentActivity() {
                 top = if (compact) 14.dp else 28.dp,
                 bottom = if (compact) 14.dp else 28.dp,
                 end = (if (compact) 14.dp else 28.dp) + qrEndReserve,
-            ),
+            ).verticalScroll(rememberScrollState()),
         ) {
             Text(s(TvKey.ADMIN_TITLE), color = gold, fontSize = (if (compact) 22 else 32).sp, fontWeight = FontWeight.Bold)
-            Text(s(TvKey.ADMIN_HINT), color = soft, fontSize = (if (compact) 13 else 16).sp)
+            // --- library (v1.0.26: moved in from the home screen,
+            // together with the scan status and the server-down
+            // warning that used to sit under the home title) ---
             Spacer(Modifier.height(if (compact) 8.dp else 14.dp))
+            AdminSectionTitle(s(TvKey.ADMIN_LIBRARY_TITLE), compact)
+            val folderLabel = libraryFolderLabel()
+            Text(
+                if (folderLabel != null) s(TvKey.ADMIN_LIBRARY_CURRENT, folderLabel)
+                else s(TvKey.ADMIN_LIBRARY_NONE),
+                color = soft, fontSize = (if (compact) 13 else 16).sp,
+            )
+            Text(
+                when {
+                    scanning -> s(TvKey.SCANNING)
+                    state.catalog.songs.isEmpty() -> s(TvKey.PICK_FOLDER)
+                    else -> s(TvKey.LIBRARY_COUNT, state.catalog.songs.size)
+                },
+                color = soft, fontSize = (if (compact) 13 else 16).sp,
+            )
+            if (!app.serverAlive) {
+                Text(
+                    s(TvKey.SERVER_DOWN) +
+                        (app.serverError?.let { "（$it）" } ?: ""),
+                    color = Color(0xFFFF7043), fontSize = (if (compact) 12 else 15).sp,
+                )
+            }
+            Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                EntryCard(s(TvKey.PICK_FOLDER_BTN), compact) { picker.launch(null) }
+                EntryCard(s(TvKey.RESCAN), compact) {
+                    app.prefs.libraryTreeUri?.let { rescan(Uri.parse(it)) }
+                }
+            }
+            // --- sweep colour (v1.0.26, new): gold by default,
+            // light green / light pink the softer alternatives;
+            // the pick is persisted and recolours the player from
+            // the next frame on, even mid-song ---
+            Spacer(Modifier.height(if (compact) 10.dp else 18.dp))
+            AdminSectionTitle(s(TvKey.ADMIN_SWEEP_TITLE), compact)
+            Spacer(Modifier.height(if (compact) 4.dp else 6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip(s(TvKey.SWEEP_GOLD), sweepColor == SweepColor.GOLD) {
+                    sweepColor = SweepColor.GOLD
+                    app.prefs.sweepColor = SweepColor.GOLD
+                }
+                Chip(s(TvKey.SWEEP_GREEN), sweepColor == SweepColor.LIGHT_GREEN) {
+                    sweepColor = SweepColor.LIGHT_GREEN
+                    app.prefs.sweepColor = SweepColor.LIGHT_GREEN
+                }
+                Chip(s(TvKey.SWEEP_PINK), sweepColor == SweepColor.LIGHT_PINK) {
+                    sweepColor = SweepColor.LIGHT_PINK
+                    app.prefs.sweepColor = SweepColor.LIGHT_PINK
+                }
+            }
+            // --- rename the dancers (v1.0.21, unchanged) ---
+            Spacer(Modifier.height(if (compact) 10.dp else 18.dp))
+            Text(s(TvKey.ADMIN_HINT), color = soft, fontSize = (if (compact) 13 else 16).sp)
+            Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Dancers.ALL.forEach { dancer ->
                     AdminDancerRow(dancer, compact) { showRenameDialog(dancer) }
@@ -746,6 +867,19 @@ class MainActivity : ComponentActivity() {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 EntryCard(s(TvKey.ADMIN_RESTORE), compact) { confirmRestoreNames = true }
                 EntryCard(s(TvKey.ADMIN_BACK), compact) { screen = Screen.HOME }
+            }
+            // Version footer (v1.0.26): the host kept forgetting
+            // which build was installed, so the admin page states
+            // it — the real versionName off the installed package
+            // (see installedVersionName), never a typed-in string
+            // someone would have to remember to bump.
+            installedVersionName()?.let { version ->
+                Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
+                Text(
+                    s(TvKey.ADMIN_VERSION, version),
+                    color = soft.copy(alpha = 0.6f),
+                    fontSize = (if (compact) 11 else 13).sp,
+                )
             }
         }
         if (confirmRestoreNames) {
@@ -1186,7 +1320,15 @@ class MainActivity : ComponentActivity() {
                                     } ?: "",
                                     color = soft, fontSize = (if (compact) 12 else 15).sp,
                                 )
-                                LyricsView(lyrics, positionMs, compact, modifier = Modifier.weight(1f))
+                                LyricsView(
+                                    lyrics, positionMs, compact,
+                                    modifier = Modifier.weight(1f),
+                                    // v1.0.26: the admin page's sweep
+                                    // colour; read from activity state
+                                    // so a mid-song change recolours
+                                    // the very next frame.
+                                    sweepColor = Color(sweepColor.argb),
+                                )
                             }
                         }
                     }
@@ -1793,6 +1935,44 @@ class MainActivity : ComponentActivity() {
                     transformOrigin = TransformOrigin(0.5f, 0.95f)
                 },
         )
+    }
+
+    /** A section heading inside the admin page (v1.0.26). */
+    @Composable
+    private fun AdminSectionTitle(label: String, compact: Boolean) {
+        Text(
+            label,
+            color = gold,
+            fontSize = (if (compact) 16 else 21).sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+
+    /**
+     * The home screen's admin entry (v1.0.26): just a small gear
+     * in a circle next to the language chips — the user's ruling
+     * was "a little gear in the front, the settings behind it".
+     * Same focus language as every other control (a ring when
+     * focused, tap/OK to open); its content description names it
+     * ("Settings") in both UI languages, since the glyph itself
+     * carries no text.
+     */
+    @Composable
+    private fun GearButton(compact: Boolean, onClick: () -> Unit) {
+        var focused by remember { mutableStateOf(false) }
+        Box(
+            modifier = Modifier
+                .size(if (compact) 36.dp else 46.dp)
+                .border(2.dp, if (focused) gold else Color.Transparent, CircleShape)
+                .background(cardBg, CircleShape)
+                .focusable()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { onClick() }
+                .semantics { contentDescription = s(TvKey.ADMIN_GEAR_DESC) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("⚙", color = Color.White, fontSize = (if (compact) 18 else 24).sp)
+        }
     }
 
     @Composable

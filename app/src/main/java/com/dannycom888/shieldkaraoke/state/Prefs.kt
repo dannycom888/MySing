@@ -66,6 +66,13 @@ class Prefs(context: Context) {
         get() = prefs.getBoolean("random_filler_enabled", true)
         set(value) = prefs.edit().putBoolean("random_filler_enabled", value).apply()
 
+    /** Karaoke sweep colour (v1.0.26), chosen on the TV admin
+     *  page. Stored as the [SweepColor] enum name; parsing and
+     *  the gold fallback live in [SweepColor.fromStoredName]. */
+    var sweepColor: SweepColor
+        get() = SweepColor.fromStoredName(prefs.getString("sweep_color", null))
+        set(value) = prefs.edit().putString("sweep_color", value.name).apply()
+
     /**
      * Per-orderer dancer choice: orderer name -> dancer key.
      * Stored as `name\u0001key` lines in one string.

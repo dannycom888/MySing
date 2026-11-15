@@ -642,6 +642,6 @@
 
 ### 发布
 
-- GitHub 发布：代码提交 `cdfdd94` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.15 （附件 `MySing-1.0.15.apk`）。API 回读校验见发布后记录。
+- GitHub 发布：代码提交 `cdfdd94`、报告提交 `a8ce540` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.15 （附件 `MySing-1.0.15.apk`）。API 回读校验：asset size `19025594`、digest `sha256:66431371a3ac92faa8285c90722995d8d3cb830f109236b0ec36ad0e618902d4`，与本地逐字一致。
 
 待用户真机验：再遇开播首试失败、自愈切 plain-retry 播好的歌（如截图那首 Youngblood），红字应在开播确认推进后（约一两帧轮询内）自动消失，只剩诊断小字里的 sink=plain-retry；若某首歌备用通道也播不出来，红字应整首保留。

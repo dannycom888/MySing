@@ -18,7 +18,13 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 .song{display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid #223}
 .song button{padding:6px 14px}
 .small{color:#9db4e8;font-size:13px}
-#queue div{padding:6px 4px;border-bottom:1px solid #223}
+#qpanel{background:#16295c;border:1px solid #446;border-radius:10px;padding:8px 10px;margin:10px 0}
+#qhead{font-size:17px;font-weight:bold;color:#FFD54F;cursor:pointer}
+#qarrow{float:right}
+#qsummary{margin-top:2px}
+#qlist div{padding:6px 4px;border-bottom:1px solid #223}
+#qlist .mine{background:#4a3a08;border-left:4px solid #FFD54F}
+.badge{background:#FFD54F;color:#111;border-radius:8px;padding:1px 6px;font-size:12px;font-weight:bold;white-space:nowrap}
 .del{background:#a33;color:#fff}
 .hidden{display:none}
 </style></head><body>
@@ -30,6 +36,11 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 </div>
 <div id="main" class="hidden">
 <h1>🎤 点歌 <span class="small" id="who"></span></h1>
+<div id="qpanel">
+<div id="qhead">📋 已点歌单（共 <span id="qcount">0</span> 首）<span id="qarrow">▴</span></div>
+<div id="qsummary" class="small"></div>
+<div id="qlist"></div>
+</div>
 <input id="q" placeholder="搜歌名/歌手，或拼音首字母（如 fh cq）">
 <div style="margin:8px 0">
 <button class="chip on" data-lang="">全部</button>
@@ -53,13 +64,12 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 </div>
 <div id="msg" class="small"></div>
 <div id="songs"></div>
-<h1>📋 已点顺序</h1>
-<div id="queue"></div>
 </div>
 <script>
 var name = localStorage.getItem('sk_name') || '';
 var lang='', gender='', mode='all', favs=[], recents=[];
 var myDancer = localStorage.getItem('sk_dancer') || 'modern';
+var qOpen = true, qSig = '';
 function paintDancers(){ document.querySelectorAll('[data-who]').forEach(function(c){
   c.classList.toggle('on', c.getAttribute('data-who')===myDancer); }); }
 function show(){ document.getElementById('nameGate').classList.toggle('hidden', !!name);
@@ -104,23 +114,59 @@ function toggleFav(id, fav){
   fetch('/api/fav',{method:'POST',headers:{'Content-Type':'application/json'},
     body: JSON.stringify({id:id, fav:fav})}).then(function(){ loadQueue(); });
 }
+function paintQPanel(){
+  document.getElementById('qlist').style.display = qOpen ? '' : 'none';
+  document.getElementById('qarrow').textContent = qOpen ? '▴' : '▾';
+}
+document.getElementById('qhead').onclick = function(){ qOpen = !qOpen; paintQPanel(); };
+function renderQueue(d){
+  var waiting = d.waiting || [];
+  document.getElementById('qcount').textContent = waiting.length + (d.current ? 1 : 0);
+  var myNext = -1;
+  waiting.forEach(function(e,i){ if(e.by === name && myNext < 0) myNext = i; });
+  document.getElementById('qsummary').textContent =
+    myNext >= 0 ? ('我点的下一首在第 ' + (myNext + 1) + ' 位') :
+    (d.current && d.current.by === name) ? '正在唱的就是我点的 🎤' : '我还没点歌';
+  var sig = JSON.stringify([d.current, waiting]);
+  if(sig === qSig){ paintQPanel(); return; }
+  qSig = sig;
+  var el = document.getElementById('qlist'); el.innerHTML = '';
+  if(d.current){
+    var c = document.createElement('div');
+    if(d.current.by === name) c.className = 'mine';
+    c.textContent = '▶ 正在唱：' + d.current.artist + ' - ' + d.current.title + '（' + d.current.by + '点的）';
+    if(d.current.by === name){
+      var cb = document.createElement('span'); cb.className = 'badge'; cb.textContent = '我点的';
+      c.appendChild(document.createTextNode(' ')); c.appendChild(cb);
+    }
+    el.appendChild(c);
+  }
+  waiting.forEach(function(e,i){
+    var row = document.createElement('div');
+    var mine = e.by === name;
+    if(mine) row.className = 'mine';
+    row.textContent = (i + 1) + '. ' + e.artist + ' - ' + e.title + '（' + e.by + '点的）';
+    if(mine){
+      var b = document.createElement('span'); b.className = 'badge';
+      b.textContent = '我点的 · 第 ' + (i + 1) + ' 位';
+      row.appendChild(document.createTextNode(' ')); row.appendChild(b);
+    }
+    row.appendChild(document.createTextNode(' '));
+    var del = document.createElement('button'); del.textContent = '删'; del.className = 'del';
+    del.onclick = function(){ fetch('/api/remove',{method:'POST',headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({index:i})}).then(loadQueue); };
+    row.appendChild(del); el.appendChild(row);
+  });
+  if(!d.current && !waiting.length) el.innerHTML = '<div class="small">还没有人点歌</div>';
+  paintQPanel();
+}
 function loadQueue(){
   fetch('/api/queue').then(function(r){return r.json()}).then(function(d){
     favs = d.favorites||[]; recents = d.recents||[];
     var ds = d.dancers||{};
     if(ds[name] && ds[name]!==myDancer){ myDancer=ds[name]; localStorage.setItem('sk_dancer', myDancer); }
     paintDancers();
-    var el=document.getElementById('queue'); el.innerHTML='';
-    if(d.current) el.innerHTML += '<div>▶ 正在唱：'+d.current.artist+' - '+d.current.title+'（'+d.current.by+'点的）</div>';
-    (d.waiting||[]).forEach(function(e,i){
-      var row=document.createElement('div');
-      row.textContent=(i+1)+'. '+e.artist+' - '+e.title+'（'+e.by+'点的） ';
-      var b=document.createElement('button'); b.textContent='删'; b.className='del';
-      b.onclick=function(){ fetch('/api/remove',{method:'POST',headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({index:i})}).then(loadQueue); };
-      row.appendChild(b); el.appendChild(row);
-    });
-    if(!d.current && !(d.waiting||[]).length) el.innerHTML='<div class="small">还没有人点歌</div>';
+    renderQueue(d);
   });
 }
 document.getElementById('q').addEventListener('input', function(){ mode='all'; loadSongs(); });

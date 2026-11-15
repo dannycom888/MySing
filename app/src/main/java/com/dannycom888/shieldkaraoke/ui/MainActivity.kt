@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -145,6 +146,22 @@ class MainActivity : ComponentActivity() {
                         Screen.HOME -> HomeScreen(compact)
                         Screen.BROWSE -> BrowseScreen(compact)
                         Screen.PLAYER -> PlayerScreen(compact)
+                    }
+                    // Corner QR: on screen at all times so a phone can
+                    // join in mid-song — except on Home, whose header
+                    // already carries the big QR (never both).
+                    val cornerIp = remember(app.state.version) { Qr.lanIpAddress() }
+                    if (cornerIp != null && screen != Screen.HOME) {
+                        CornerQrCard(
+                            ip = cornerIp,
+                            port = app.localServerPort(),
+                            compact = compact,
+                            modifier = Modifier.align(Alignment.BottomEnd)
+                                .padding(
+                                    end = if (compact) 12.dp else 24.dp,
+                                    bottom = if (compact) 70.dp else 88.dp,
+                                ),
+                        )
                     }
                     if (confirmQuit) {
                         AlertDialog(
@@ -422,6 +439,14 @@ class MainActivity : ComponentActivity() {
         BackHandler { screen = Screen.HOME }
         @Suppress("UNUSED_VARIABLE") val versionTick = app.state.version
         val catalog = app.state.catalog
+        // Bottom scroll clearance so the last list row can be scrolled
+        // fully clear of the always-on corner QR card (bottom offset
+        // + card height + a margin); no card without a LAN address.
+        val qrClearance = if (remember(app.state.version) { Qr.lanIpAddress() } != null) {
+            if (compact) 186.dp else 224.dp
+        } else {
+            8.dp
+        }
         Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip("歌曲", listType == ListType.SONGS) { listType = ListType.SONGS }
@@ -441,7 +466,10 @@ class MainActivity : ComponentActivity() {
             Spacer(Modifier.height(8.dp))
             if (listType == ListType.SINGERS) {
                 val singers = catalog.singers(filterLang, filterGender)
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    contentPadding = PaddingValues(bottom = qrClearance),
+                ) {
                     items(singers) { singer ->
                         ListRow("🎤 $singer", compact) {
                             filterArtist = singer; listType = ListType.SONGS
@@ -455,7 +483,10 @@ class MainActivity : ComponentActivity() {
                     Special.NONE -> catalog.filtered(filterLang, filterGender)
                         .filter { filterArtist == null || it.artist.equals(filterArtist, ignoreCase = true) }
                 }
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    contentPadding = PaddingValues(bottom = qrClearance),
+                ) {
                     items(songs) { song ->
                         ListRow("🎵 ${song.displayName}", compact) { orderFromTv(song) }
                     }
@@ -505,6 +536,12 @@ class MainActivity : ComponentActivity() {
                             Text("${state.interludeSeconds} 秒后开始", color = soft, fontSize = (if (compact) 14 else 18).sp)
                         }
                     } else {
+                        // Outro rule: once the last lyric line has been
+                        // sung only music remains, and the dancer stands
+                        // still until the song ends. A song without an
+                        // LRC has no such moment and dances throughout.
+                        val lastLyricEnd = remember(lyrics) { DancerActivity.lastLyricEndMs(lyrics) }
+                        val dancerDancing = DancerActivity.isDancing(positionMs, lastLyricEnd)
                         // --- dancer LEFT of the lyrics, lyrics column gives
                         //     up the left zone and takes the rest ---
                         Row(modifier = Modifier.fillMaxSize()) {
@@ -517,14 +554,26 @@ class MainActivity : ComponentActivity() {
                                 ) {
                                     DancerImage(
                                         dancer = dancer,
-                                        pose = DanceMotion.pose(
-                                            dancer.profile, positionMs, currentBpm,
-                                            phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
-                                        ),
-                                        frameIndex = PoseCycle.frameIndex(
-                                            positionMs, currentBpm, dancer.frames.size,
-                                            phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
-                                        ),
+                                        pose = if (dancerDancing) {
+                                            DanceMotion.pose(
+                                                dancer.profile, positionMs, currentBpm,
+                                                phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                                            )
+                                        } else {
+                                            // Sung out: neutral stance, no
+                                            // bounce/sway/fall transforms.
+                                            DanceMotion.Pose(
+                                                bounceFraction = 0f, rotationDeg = 0f, scale = 1f,
+                                            )
+                                        },
+                                        frameIndex = if (dancerDancing) {
+                                            PoseCycle.frameIndex(
+                                                positionMs, currentBpm, dancer.frames.size,
+                                                phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                                            )
+                                        } else {
+                                            DancerActivity.STILL_FRAME
+                                        },
                                         heightDp = screenH * if (compact) 0.62f else 0.70f,
                                     )
                                 }
@@ -604,8 +653,40 @@ class MainActivity : ComponentActivity() {
             if (entry != null) {
                 val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
                 append(" · 舞者：").append(dancer.label).append("（").append(entry.orderedBy).append("选的）")
+                val lastEnd = DancerActivity.lastLyricEndMs(lyrics)
+                if (lastEnd != null && !DancerActivity.isDancing(positionMs, lastEnd)) {
+                    append(" · 伴舞：尾奏静止")
+                }
             }
             if (controller.accompanimentUnavailable) append(" · 伴奏不可用（已降级普通播放）")
+        }
+    }
+
+    /**
+     * The always-on corner QR card: a small white rounded card with
+     * the phone-ordering QR and a "扫码点歌" caption, parked at the
+     * bottom-right above the player control bar. Deliberately has no
+     * clickable/focusable modifier — D-pad focus must never land on
+     * it. The QR itself stays pure black on white so it scans; only
+     * the thin border is translucent dark, to blend with the stage.
+     */
+    @Composable
+    private fun CornerQrCard(ip: String, port: Int, compact: Boolean, modifier: Modifier = Modifier) {
+        val qrDp = if (compact) 72.dp else 92.dp
+        val bitmap = remember(ip, port) { Qr.encode("http://$ip:$port/", 220) }
+        Column(
+            modifier = modifier
+                .border(1.dp, Color.Black.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                .background(Color.White, RoundedCornerShape(10.dp))
+                .padding(if (compact) 5.dp else 7.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = "扫码点歌二维码",
+                modifier = Modifier.width(qrDp).height(qrDp),
+            )
+            Text("扫码点歌", color = Color(0xFF26325E), fontSize = (if (compact) 9 else 11).sp)
         }
     }
 

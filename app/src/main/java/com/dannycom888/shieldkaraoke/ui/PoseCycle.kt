@@ -4,17 +4,22 @@ import kotlin.math.floor
 
 /**
  * Which dance-pose frame is on screen, as a pure function of the
- * playback position: one new frame every half beat, cycling through
+ * playback position: one new frame every beat, cycling through
  * the frames in order (0, 1, 2, … N-1, 0, …). Derived only from
  * position + BPM — the same beat phase [DanceMotion] uses — so
  * pausing freezes the current frame, seeking lands on the frame
  * that belongs to that beat, and the frame stepping stays locked
  * to the whole-body bounce/sway layered on top.
+ *
+ * The rate was one frame every half beat up to v1.0.5; the user
+ * found that too frantic, so v1.0.6 halves it to one per beat.
+ * Only the frame stepping slows — the bounce/sway phase is
+ * untouched.
  */
 object PoseCycle {
 
-    /** Frames advanced per beat (2 = one frame every half beat). */
-    const val FRAMES_PER_BEAT = 2
+    /** Frames advanced per beat (1 = one frame every beat). */
+    const val FRAMES_PER_BEAT = 1
 
     fun frameIndex(
         positionMs: Long,

@@ -552,6 +552,6 @@
 
 ### 发布
 
-- GitHub 发布：代码提交与本报告提交已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.13 （附件 `MySing-1.0.13.apk`）。API 回读校验见发布后记录（asset size / digest 与本地逐字一致）。
+- GitHub 发布：代码提交 `020c5d1`、报告提交 `e1d6bcc` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.13 （附件 `MySing-1.0.13.apk`）。API 回读校验：asset size `18831558`、digest `sha256:138f86d961451f7bc77f52b20f4819a73d20fcb2a2cfeccf8e3837a9be2f1ca0`，与本地逐字一致。
 
 待用户真机验：电视首页点「EN」，全界面变英文、重开 App 仍是英文；伟霖的手机在点歌页点「EN」，页面变英文且点歌回提示是英文，其他手机不受影响；电视切回中文一切如旧。

@@ -222,6 +222,11 @@ class MainActivity : ComponentActivity() {
                         },
                 ) {
                     val compact = maxHeight < 500.dp
+                    // Ambient bubbles behind every screen (v1.0.25):
+                    // the first child of the root, so all content —
+                    // screens, corner QR, dialogs — draws over the
+                    // drifting field on the shared navy base.
+                    BubbleBackground(compact, Modifier.fillMaxSize())
                     when (screen) {
                         Screen.HOME -> HomeScreen(compact)
                         Screen.BROWSE -> BrowseScreen(compact)
@@ -1056,7 +1061,13 @@ class MainActivity : ComponentActivity() {
                             if (entry != null && !showCelebration && dancersOn) {
                                 // The dancer belongs to whoever ordered this song.
                                 val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
-                                Box(
+                                // v1.0.25: the zone measures ITSELF —
+                                // the dancer's height is a fraction
+                                // of the stage's real height (it used
+                                // to be a fraction of the full screen
+                                // height, silently coerced down by
+                                // whatever the stage actually got).
+                                BoxWithConstraints(
                                     modifier = Modifier.fillMaxHeight().width(screenW * 0.36f),
                                     contentAlignment = Alignment.BottomCenter,
                                 ) {
@@ -1156,7 +1167,12 @@ class MainActivity : ComponentActivity() {
                                         // (was 0.62/0.70) — the stage
                                         // gives the space the narrower
                                         // floating queue panel freed up.
-                                        heightDp = screenH * if (compact) 0.72f else 0.80f,
+                                        // v1.0.25: of the STAGE height
+                                        // (this zone's own height), feet
+                                        // on the stage floor, spotlight
+                                        // pool under them.
+                                        heightDp = maxHeight * if (compact) 0.72f else 0.80f,
+                                        spotlight = true,
                                     )
                                 }
                             }
@@ -1185,6 +1201,9 @@ class MainActivity : ComponentActivity() {
                                     dancer = dancer,
                                     pose = DanceMotion.clapPose(dancer.profile, clapElapsed),
                                     heightDp = screenH * if (compact) 0.36f else 0.32f,
+                                    // v1.0.25: each of the six stands
+                                    // in their own spotlight pool.
+                                    spotlight = true,
                                 )
                             }
                         }
@@ -1272,35 +1291,45 @@ class MainActivity : ComponentActivity() {
                                 false
                             }
                         },
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    // v1.0.25: tighter spacing + compact chips, so
+                    // the ten chips fit the compact landscape width
+                    // in one row and the bar hugs the screen bottom
+                    // (the old overflow is the v1.0.25 root cause).
+                    horizontalArrangement = Arrangement.spacedBy(
+                        if (compact) 6.dp else 8.dp, Alignment.CenterHorizontally,
+                    ),
                 ) {
                     Chip(
                         if (controller.player.isPlaying) s(TvKey.PAUSE) else s(TvKey.RESUME), false,
                         modifier = Modifier.focusRequester(controlRequester),
                         onFocused = { panelFocused = false },
+                        compact = compact,
                     ) { controller.togglePlayPause() }
-                    Chip(s(TvKey.REPLAY), false, onFocused = { panelFocused = false }) { controller.replay() }
+                    Chip(s(TvKey.REPLAY), false, onFocused = { panelFocused = false }, compact = compact) { controller.replay() }
                     Chip(
                         if (accompaniment) s(TvKey.ACCOMP_ON) else s(TvKey.ACCOMP_OFF), accompaniment,
                         onFocused = { panelFocused = false },
+                        compact = compact,
                     ) {
                         accompaniment = !accompaniment; controller.setAccompaniment(accompaniment)
                     }
-                    Chip(s(TvKey.PITCH_DOWN), false, onFocused = { panelFocused = false }) { controller.shiftPitch(-1); semitoneLabel = controller.semitones }
-                    Chip(s(TvKey.PITCH_LABEL, semitoneLabel), false, onFocused = { panelFocused = false }) { }
-                    Chip(s(TvKey.PITCH_UP), false, onFocused = { panelFocused = false }) { controller.shiftPitch(1); semitoneLabel = controller.semitones }
+                    Chip(s(TvKey.PITCH_DOWN), false, onFocused = { panelFocused = false }, compact = compact) { controller.shiftPitch(-1); semitoneLabel = controller.semitones }
+                    Chip(s(TvKey.PITCH_LABEL, semitoneLabel), false, onFocused = { panelFocused = false }, compact = compact) { }
+                    Chip(s(TvKey.PITCH_UP), false, onFocused = { panelFocused = false }, compact = compact) { controller.shiftPitch(1); semitoneLabel = controller.semitones }
                     Chip(
                         if (dancersOn) s(TvKey.DANCERS_ON) else s(TvKey.DANCERS_OFF), dancersOn,
                         onFocused = { panelFocused = false },
+                        compact = compact,
                     ) {
                         dancersOn = !dancersOn; app.prefs.dancersEnabled = dancersOn
                     }
                     Chip(
                         if (fillerOn) s(TvKey.FILLER_ON) else s(TvKey.FILLER_OFF), fillerOn,
                         onFocused = { panelFocused = false },
+                        compact = compact,
                     ) { toggleFiller() }
-                    Chip(s(TvKey.QUIT), false, onFocused = { panelFocused = false }) { confirmQuit = true }
-                    Chip(s(TvKey.GO_ORDER), false, onFocused = { panelFocused = false }) { screen = Screen.BROWSE }
+                    Chip(s(TvKey.QUIT), false, onFocused = { panelFocused = false }, compact = compact) { confirmQuit = true }
+                    Chip(s(TvKey.GO_ORDER), false, onFocused = { panelFocused = false }, compact = compact) { screen = Screen.BROWSE }
                 }
             }
         }
@@ -1600,6 +1629,9 @@ class MainActivity : ComponentActivity() {
                                 pose = DanceMotion.clapPose(dancer.profile, elapsedMs),
                                 heightDp = rowHeight,
                                 alpha = rowAlpha,
+                                // v1.0.25: a spotlight pool each;
+                                // it melts with the row's alpha.
+                                spotlight = true,
                             )
                             Ceremony.Phase.GROUP_INVITE -> DancerImage(
                                 dancer = dancer,
@@ -1611,6 +1643,7 @@ class MainActivity : ComponentActivity() {
                                 heightDp = rowHeight,
                                 invite = true,
                                 alpha = rowAlpha,
+                                spotlight = true,
                             )
                             else -> DancerImage(
                                 // EXITING: the invite gesture is
@@ -1625,6 +1658,7 @@ class MainActivity : ComponentActivity() {
                                 heightDp = rowHeight,
                                 invite = true,
                                 alpha = rowAlpha,
+                                spotlight = true,
                             )
                         }
                     }
@@ -1637,8 +1671,15 @@ class MainActivity : ComponentActivity() {
             //     starts, so the handover has no jump. ---
             if (phase == Ceremony.Phase.EXITING || phase == Ceremony.Phase.SOLO_INVITE) {
                 val keeper = Dancers.ALL[Ceremony.keeperIndex(ceremonyKeeperKey)]
-                Box(
-                    modifier = Modifier.fillMaxHeight().width(screenW * 0.32f),
+                // v1.0.25: the keeper's zone now matches the
+                // playback dancer zone EXACTLY (width 0.36 of the
+                // screen, height 0.72/0.80 of the stage's own
+                // height — it was 0.32 wide and 0.62/0.70 of the
+                // screen height, so the handover had a small
+                // geometry step after all). Her spotlight pool
+                // stays lit through the solo invite.
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxHeight().width(screenW * 0.36f),
                     contentAlignment = Alignment.BottomCenter,
                 ) {
                     DancerImage(
@@ -1653,9 +1694,10 @@ class MainActivity : ComponentActivity() {
                         } else {
                             Ceremony.invitePose(keeper.profile, 0L, Ceremony.SOLO_INVITE_MS)
                         },
-                        heightDp = screenH * if (compact) 0.62f else 0.70f,
+                        heightDp = maxHeight * if (compact) 0.72f else 0.80f,
                         invite = true,
                         alpha = 0.95f * Ceremony.keeperSoloAlpha(elapsedMs),
+                        spotlight = true,
                     )
                 }
             }
@@ -1675,6 +1717,11 @@ class MainActivity : ComponentActivity() {
          *  the long-standing stage alpha. The v1.0.23 ceremony
          *  drives it for its fade-out / fade-in handover. */
         alpha: Float = 0.95f,
+        /** v1.0.25: the stage spotlight pool under the feet,
+         *  drawn behind the figure inside this wrapper (the
+         *  wrapper IS the figure's rect, so the pool follows its
+         *  position and size, and fades with [alpha]). */
+        spotlight: Boolean = false,
     ) {
         // v1.0.10: while a beat's cross-fade is still running, the
         // previous pose frame is drawn under the current one with
@@ -1683,13 +1730,13 @@ class MainActivity : ComponentActivity() {
         // melts instead of cutting. Once the fade completes (or no
         // blend was supplied: robot, invite/still, applause row)
         // this is exactly the old single-image draw.
-        if (blend != null && !invite &&
-            blend.currentAlpha < 1f &&
-            blend.previousIndex != blend.currentIndex &&
-            blend.previousIndex in dancer.frames.indices &&
-            blend.currentIndex in dancer.frames.indices
-        ) {
-            Box(modifier = modifier) {
+        Box(modifier = if (spotlight) modifier.spotlightPool(alphaScale = alpha) else modifier) {
+            if (blend != null && !invite &&
+                blend.currentAlpha < 1f &&
+                blend.previousIndex != blend.currentIndex &&
+                blend.previousIndex in dancer.frames.indices &&
+                blend.currentIndex in dancer.frames.indices
+            ) {
                 DancerFrame(
                     resId = dancer.frames[blend.previousIndex],
                     label = dancerDisplayName(dancer.key),
@@ -1704,20 +1751,19 @@ class MainActivity : ComponentActivity() {
                     heightDp = heightDp,
                     alpha = alpha * blend.currentAlpha,
                 )
+            } else {
+                DancerFrame(
+                    resId = when {
+                        invite -> dancer.inviteResId
+                        frameIndex in dancer.frames.indices -> dancer.frames[frameIndex]
+                        else -> dancer.resId
+                    },
+                    label = dancerDisplayName(dancer.key),
+                    pose = pose,
+                    heightDp = heightDp,
+                    alpha = alpha,
+                )
             }
-        } else {
-            DancerFrame(
-                resId = when {
-                    invite -> dancer.inviteResId
-                    frameIndex in dancer.frames.indices -> dancer.frames[frameIndex]
-                    else -> dancer.resId
-                },
-                label = dancerDisplayName(dancer.key),
-                pose = pose,
-                heightDp = heightDp,
-                alpha = alpha,
-                modifier = modifier,
-            )
         }
     }
 
@@ -1773,6 +1819,12 @@ class MainActivity : ComponentActivity() {
         selected: Boolean,
         modifier: Modifier = Modifier,
         onFocused: () -> Unit = {},
+        /** v1.0.25: the player control bar passes this — slimmer
+         *  padding and type so all ten chips fit a compact
+         *  landscape's width in ONE row (see the v1.0.25 chapter:
+         *  the old fit overflowed and the last chip wrapped
+         *  vertically, inflating the whole bar). */
+        compact: Boolean = false,
         onClick: () -> Unit,
     ) {
         var focused by remember { mutableStateOf(false) }
@@ -1785,10 +1837,20 @@ class MainActivity : ComponentActivity() {
                 .clickable { onClick() }
                 // v1.0.24: chips sit a touch tighter (vertical
                 // 6dp -> 4dp) so the always-on control bar takes
-                // less of the stage's height; labels stay 13sp.
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                // less of the stage's height.
+                .padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 4.dp),
         ) {
-            Text(label, color = if (selected) Color.Black else Color.White, fontSize = 13.sp)
+            // maxLines = 1 is a hard rule, not a style choice: a
+            // chip label must never wrap character-by-character
+            // and blow up its row's height again (v1.0.25 root
+            // cause) — on an impossibly narrow window it clips
+            // instead.
+            Text(
+                label,
+                color = if (selected) Color.Black else Color.White,
+                fontSize = (if (compact) 12 else 13).sp,
+                maxLines = 1,
+            )
         }
     }
 

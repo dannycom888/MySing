@@ -729,4 +729,6 @@
 
 ### 发布
 
-（发布后回填。）
+- GitHub 发布：代码提交 `6c80d8c` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.17 （附件 `MySing-1.0.17.apk`）。API 回读校验：asset size `19025886`、digest `sha256:9cb5af095a7a35fe9cb654863831baf82e1a678ba2dbb44af337ce04ea486922`，与本地逐字一致。
+
+待用户真机验：唱一首看小人 — 姿势应顺着一条舞步链走，不再前后乱跳；先看工程根的 pose-order-preview.webp（春丽新序循环）也能验个大概。若仍觉跳，说明图集姿势本身跨度太大、靠重排已到上限，下一步就得考虑补画中间姿势（另议）。

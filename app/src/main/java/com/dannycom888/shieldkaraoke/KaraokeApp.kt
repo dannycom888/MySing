@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.dannycom888.shieldkaraoke.server.DancerAnims
 import com.dannycom888.shieldkaraoke.server.DancerImages
 import com.dannycom888.shieldkaraoke.server.KaraokeHttpServer
 import com.dannycom888.shieldkaraoke.state.KaraokeState
@@ -51,6 +52,7 @@ class KaraokeApp : Application() {
                 state.bump() // TV player screen re-reads the current song's dancer live
             },
             dancerImageProvider = { key -> dancerImage(key) },
+            dancerAnimProvider = { key -> dancerAnim(key) },
         ).also { srv ->
             srv.statusListener = { alive, error ->
                 serverAlive = alive
@@ -89,6 +91,24 @@ class KaraokeApp : Application() {
                 null
             }
             dancerImageCache[key] = bytes
+            return bytes
+        }
+    }
+
+    /** Animated picker-card bytes for the phone page (v1.0.11):
+     *  the generated WebP loops bundled in assets, read ONCE per
+     *  dancer and cached, same pattern as the portraits above. */
+    private val dancerAnimCache = mutableMapOf<String, ByteArray?>()
+
+    private fun dancerAnim(key: String): ByteArray? {
+        synchronized(dancerAnimCache) {
+            if (dancerAnimCache.containsKey(key)) return dancerAnimCache[key]
+            val bytes = try {
+                assets.open(DancerAnims.assetPathFor(key)).use { it.readBytes() }
+            } catch (e: Exception) {
+                null
+            }
+            dancerAnimCache[key] = bytes
             return bytes
         }
     }

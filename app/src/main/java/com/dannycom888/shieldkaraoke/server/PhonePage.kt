@@ -68,12 +68,12 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <h1>💃 选伴舞</h1>
 <p class="small">你选的伴舞，只在你点的歌时出来；唱到你的歌时想换人，点一下电视上立刻换。</p>
 <div id="dancers" class="dcards">
-<div class="dcard" data-who="modern"><img src="/dancer-img/modern" alt="现代女"><span>现代女</span></div>
-<div class="dcard" data-who="ancient"><img src="/dancer-img/ancient" alt="古代女"><span>古代女</span></div>
-<div class="dcard" data-who="girl"><img src="/dancer-img/girl" alt="现代女孩"><span>现代女孩</span></div>
-<div class="dcard" data-who="ancient_girl"><img src="/dancer-img/ancient_girl" alt="古代女童"><span>古代女童</span></div>
-<div class="dcard" data-who="baby"><img src="/dancer-img/baby" alt="小婴儿"><span>小婴儿</span></div>
-<div class="dcard" data-who="robot"><img src="/dancer-img/robot" alt="机器人"><span>机器人</span></div>
+<div class="dcard" data-who="modern"><img src="/dancer-anim/modern" onerror="this.onerror=null;this.src='/dancer-img/modern'" alt="现代女"><span>现代女</span></div>
+<div class="dcard" data-who="ancient"><img src="/dancer-anim/ancient" onerror="this.onerror=null;this.src='/dancer-img/ancient'" alt="古代女"><span>古代女</span></div>
+<div class="dcard" data-who="girl"><img src="/dancer-anim/girl" onerror="this.onerror=null;this.src='/dancer-img/girl'" alt="现代女孩"><span>现代女孩</span></div>
+<div class="dcard" data-who="ancient_girl"><img src="/dancer-anim/ancient_girl" onerror="this.onerror=null;this.src='/dancer-img/ancient_girl'" alt="古代女童"><span>古代女童</span></div>
+<div class="dcard" data-who="baby"><img src="/dancer-anim/baby" onerror="this.onerror=null;this.src='/dancer-img/baby'" alt="小婴儿"><span>小婴儿</span></div>
+<div class="dcard" data-who="robot"><img src="/dancer-anim/robot" onerror="this.onerror=null;this.src='/dancer-img/robot'" alt="机器人"><span>机器人</span></div>
 </div>
 <div id="msg" class="small"></div>
 <div id="songs"></div>

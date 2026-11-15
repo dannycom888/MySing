@@ -77,13 +77,18 @@ class PhonePageTest {
     }
 
     @Test
-    fun dancerPickerShowsPortraitsNotJustNames() {
-        // Every dancer is an image card fed by the portrait route,
-        // so guests can recognise who is who (text-only chips were
-        // the v1.0.6 state the user could not identify people in).
+    fun dancerPickerShowsAnimatedCardsNotJustNames() {
+        // Every dancer is an image card, so guests can recognise
+        // who is who (text-only chips were the v1.0.6 state the
+        // user could not identify people in). Since v1.0.11 the
+        // cards are fed by the animation route — each little
+        // dancer dances right in the picker — with an onerror
+        // fallback to the v1.0.7 static portrait route, so a
+        // failed animation never leaves an empty card.
         assertTrue(html.contains("class=\"dcards\""))
         for (key in listOf("modern", "ancient", "girl", "ancient_girl", "baby", "robot")) {
-            assertTrue(html.contains("src=\"/dancer-img/$key\""))
+            assertTrue(html.contains("src=\"/dancer-anim/$key\""))
+            assertTrue(html.contains("this.src='/dancer-img/$key'"))
             // Selection still rides on data-who, so the existing
             // paint/select/submit script keeps working untouched.
             assertTrue(html.contains("data-who=\"$key\""))

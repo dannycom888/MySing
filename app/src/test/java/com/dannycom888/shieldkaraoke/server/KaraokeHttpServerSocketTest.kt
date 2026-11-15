@@ -29,6 +29,16 @@ import java.net.Socket
  */
 class KaraokeHttpServerSocketTest {
 
+    companion object {
+        /** Stand-in animation payload: RIFF/WebP-flavoured bytes
+         *  with non-UTF-8 values, so a byte-mangling transport
+         *  cannot pass the round-trip check by accident. */
+        private val FAKE_ANIM = byteArrayOf(
+            0x52, 0x49, 0x46, 0x46, 0x10, 0x00, 0x00, 0x00,
+            0x57, 0x45, 0x42, 0x50, 0xFF.toByte(), 0x80.toByte(), 0x00, 0x7F,
+        )
+    }
+
     private val chineseSong = Song(
         id = "CHINESE_BOY|张信哲 - 爱如潮水",
         artist = "张信哲",
@@ -55,7 +65,10 @@ class KaraokeHttpServerSocketTest {
         state = KaraokeState()
         state.setCatalog(Catalog(listOf(chineseSong, englishSong)))
         port = freePort()
-        server = KaraokeHttpServer(state, port)
+        server = KaraokeHttpServer(
+            state, port,
+            dancerAnimProvider = { key -> if (key == "modern") FAKE_ANIM else null },
+        )
         server.start()
         awaitAccepting(port)
     }
@@ -101,6 +114,33 @@ class KaraokeHttpServerSocketTest {
     }
 
     @Test
+    fun dancerAnimRouteServesWebpBytes() {
+        // v1.0.11: the picker cards are animated WebP loops. The
+        // transport contract is what matters here — 200, the webp
+        // content type, and the provider's bytes delivered intact
+        // (non-UTF-8 bytes included; fake payload on purpose).
+        val response = rawGet("/dancer-anim/modern")
+        assertEquals(200, response.status)
+        assertEquals("image/webp", response.contentType)
+        assertTrue(FAKE_ANIM.contentEquals(response.bodyBytes))
+    }
+
+    @Test
+    fun dancerAnimUnknownKeyIs404() {
+        val response = rawGet("/dancer-anim/nobody")
+        assertEquals(404, response.status)
+    }
+
+    @Test
+    fun dancerAnimValidKeyWithoutAssetIs404() {
+        // A real dancer whose animation bytes the provider does
+        // not have must 404 (the page then falls back to the
+        // static portrait) — never a 200 with an empty body.
+        val response = rawGet("/dancer-anim/robot")
+        assertEquals(404, response.status)
+    }
+
+    @Test
     fun garbageRequestDoesNotKillServer() {
         rawExchange { out ->
             out.write("GARBAGE\r\n\r\n".toByteArray(Charsets.US_ASCII)); out.flush()
@@ -113,6 +153,47 @@ class KaraokeHttpServerSocketTest {
 
     private fun allEntries() =
         listOfNotNull(state.queue.current) + state.queue.waitingList
+
+    private data class RawResponse(val status: Int, val contentType: String?, val bodyBytes: ByteArray)
+
+    /** One bare GET, response kept as raw bytes so binary routes
+     *  (the dancer artwork) can be checked byte for byte. */
+    private fun rawGet(path: String): RawResponse {
+        Socket().use { sock ->
+            sock.connect(InetSocketAddress("::1", port), 3_000)
+            sock.soTimeout = 5_000
+            val out = sock.getOutputStream()
+            out.write("GET $path HTTP/1.1\r\nHost: ::1:$port\r\nConnection: close\r\n\r\n".toByteArray(Charsets.US_ASCII))
+            out.flush()
+            val all = ByteArrayOutputStream()
+            val buf = ByteArray(4096)
+            val input = sock.getInputStream()
+            while (true) {
+                val r = input.read(buf)
+                if (r < 0) break
+                all.write(buf, 0, r)
+            }
+            val bytes = all.toByteArray()
+            val headEnd = indexOfHeaderEnd(bytes)
+            val head = String(bytes, 0, headEnd, Charsets.ISO_8859_1)
+            val status = head.lineSequence().firstOrNull()
+                ?.split(' ')?.getOrNull(1)?.toIntOrNull() ?: -1
+            val contentType = head.lineSequence()
+                .firstOrNull { it.lowercase().startsWith("content-type:") }
+                ?.substringAfter(':')?.trim()
+            val body = bytes.copyOfRange(headEnd + 4, bytes.size)
+            return RawResponse(status, contentType, body)
+        }
+    }
+
+    private fun indexOfHeaderEnd(bytes: ByteArray): Int {
+        for (i in 0..bytes.size - 4) {
+            if (bytes[i] == '\r'.code.toByte() && bytes[i + 1] == '\n'.code.toByte() &&
+                bytes[i + 2] == '\r'.code.toByte() && bytes[i + 3] == '\n'.code.toByte()
+            ) return i
+        }
+        return bytes.size
+    }
 
     private fun orderJson(id: String, name: String): String =
         """{"id":"$id","name":"$name"}"""

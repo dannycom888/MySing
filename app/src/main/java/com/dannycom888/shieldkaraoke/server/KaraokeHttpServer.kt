@@ -28,6 +28,7 @@ class KaraokeHttpServer(
     private val dancerSelectionsProvider: () -> Map<String, String> = { emptyMap() },
     private val dancerSetter: (String, String) -> Unit = { _, _ -> },
     private val dancerImageProvider: (String) -> ByteArray? = { null },
+    private val dancerAnimProvider: (String) -> ByteArray? = { null },
 ) {
     companion object {
         const val DEFAULT_PORT = 8931
@@ -191,18 +192,27 @@ class KaraokeHttpServer(
             val path = rawPath.substringBefore('?')
             val query = parseQuery(rawPath.substringAfter('?', ""))
 
-            // Dancer portraits are binary PNG; they bypass the
-            // text route table. Key validation is DancerImages'
+            // Dancer artwork is binary; it bypasses the text
+            // route table. Two flavours share this bypass: the
+            // static portraits (PNG, /dancer-img/) and the looping
+            // picker animations (WebP, /dancer-anim/, v1.0.11).
+            // Key validation is DancerImages'/DancerAnims'
             // (unknown keys 404), bytes come from the app's
-            // decode-once cache.
+            // decode-once / read-once caches.
             if (method == "GET") {
                 val imageKey = DancerImages.keyForPath(path)
-                if (imageKey != null) {
-                    val png = dancerImageProvider(imageKey)
+                val animKey = if (imageKey == null) DancerAnims.keyForPath(path) else null
+                if (imageKey != null || animKey != null) {
+                    val bytes = if (imageKey != null) {
+                        dancerImageProvider(imageKey)
+                    } else {
+                        dancerAnimProvider(animKey!!)
+                    }
+                    val contentType = if (imageKey != null) "image/png" else "image/webp"
                     val out = sock.getOutputStream()
-                    if (png != null) {
-                        out.write("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: ${png.size}\r\nConnection: close\r\n\r\n".toByteArray())
-                        out.write(png)
+                    if (bytes != null) {
+                        out.write("HTTP/1.1 200 OK\r\nContent-Type: $contentType\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                        out.write(bytes)
                     } else {
                         val msg = "not found".toByteArray(Charsets.UTF_8)
                         out.write("HTTP/1.1 404 Not Found\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: ${msg.size}\r\nConnection: close\r\n\r\n".toByteArray())

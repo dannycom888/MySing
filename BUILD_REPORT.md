@@ -645,3 +645,32 @@
 - GitHub 发布：代码提交 `cdfdd94`、报告提交 `a8ce540` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.15 （附件 `MySing-1.0.15.apk`）。API 回读校验：asset size `19025594`、digest `sha256:66431371a3ac92faa8285c90722995d8d3cb830f109236b0ec36ad0e618902d4`，与本地逐字一致。
 
 待用户真机验：再遇开播首试失败、自愈切 plain-retry 播好的歌（如截图那首 Youngblood），红字应在开播确认推进后（约一两帧轮询内）自动消失，只剩诊断小字里的 sink=plain-retry；若某首歌备用通道也播不出来，红字应整首保留。
+
+## v1.0.16 真掌声打包（2026-11-15）
+
+构建日期：2026-11-15（America/New_York）。动因：用户 13:35 试听 v1.0.14 的合成掌声后只回了三个字——"掌声不象"。合成路线就此作废，改用真实录音：从 Wikimedia Commons 取两段公有领域真掌声，各剪成 3.8 秒试听（A 大场版、B 小场版），用户 13:36 亲自试听后选定 **A 大场版**。本版只换 asset 一个文件，播放路径与全部对齐常量一律未动。
+
+| 项 | 值 |
+|---|---|
+| 产物 | `~/workspace/shield-karaoke/MySing-1.0.16.apk` |
+| 大小 | 19,025,883 字节（较 v1.0.15 的 19,025,594 仅 +289 B，新 wav 大 288 B + 版本号） |
+| SHA-256 | `6e61e0c827865aa46ce479b4f5821d58336e550472c0d18cf56198a3e02e02a2`（前缀 `6e61e0c8`） |
+| versionName / versionCode | 1.0.16 / 17（aapt badging 实测） |
+| 签名 | 同一把共享 keystore，证书 SHA-256 `1336ee0aefc229c3f0e6c025060ec0267825dbfc83f8799c3981dd74ea2befcc`，与历版逐字一致，可覆盖安装 |
+| 单元测试 | `:app:testDebugUnitTest` **170 个，0 失败**（个数不变，`ApplauseAssetTest` 按真录音口径更新，见下） |
+
+### 掌声来源与加工
+
+- **来源**：Wikimedia Commons 公有领域录音《Slow starting applause》（由 pdsounds.org 提供，Public domain；原始文件 `File:Slow starting applause.ogg`）。用户试听落选的 B 版出自同站《Applause i.ogg》（同为公有领域）。
+- **加工**：截取原录音 12 秒处起 3.8 秒；淡入 0.3 秒、淡出自 2.3 秒起 1.5 秒；转 44.1 kHz / 单声道 / 16-bit WAV；整体响度对齐到 **RMS -16.2 dBFS、峰值 -1.0 dB**，与归一化后歌曲电平齐平。
+- **成品**：工程根 `applause-final-a.wav`（335,492 B，SHA-256 `2076fcf2a872487e28644b395f8471f7557b3047a5d2ad5169dc3f2addc795f3`），已同名替换 `app/src/main/assets/applause.wav`；解包校验 APK 内文件与母带逐字一致。时长仍是 3.8 秒，`APPLAUSE_MS=3800` 等对齐常量未动，触发点不变（整首唱完才有，"不唱了"没有）。
+
+### 测试更新（`audio/ApplauseAssetTest`，仍 2 个）
+
+类注释与断言口径从"离线合成产物"换成真录音母带实测值：时长断言收紧到 3.7–3.9 秒（实测 3.803）；RMS 断言 -20..-13 dBFS（实测 -16.2）、峰值 0.75..0.98（实测 0.891）；收尾保留"尾 0.8 秒 RMS < 中段 70%"（实测比值 0.36），新增"末 100 ms RMS < -35 dBFS"（实测 -40.7），"末 30 ms 最大 < 0.02"照旧（实测 0.0061）。
+
+### 发布
+
+- GitHub 发布：代码提交 `eca9962` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.16 （附件 `MySing-1.0.16.apk`）。API 回读校验：asset size `19025883`、digest `sha256:6e61e0c827865aa46ce479b4f5821d58336e550472c0d18cf56198a3e02e02a2`，与本地逐字一致。
+
+待用户真机验：唱完一首完整的歌，掌声应是真人群鼓掌——他已试听选定的就是这一段；响度应与歌声齐平，不再是合成味。

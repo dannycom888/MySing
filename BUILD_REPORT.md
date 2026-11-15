@@ -434,3 +434,38 @@
 - GitHub 发布：提交 `ebc5307` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.10 （附件 `MySing-1.0.10.apk`）。API 回读校验：asset size `17733103`、digest `sha256:331ab0836ebeb89c58a476fc08f7b8a8e98a96d35274622605658123f8b92b5e`，与本地逐字一致。
 
 待用户真机验：跳舞时帧与帧之间应是“化”过去而不是“跳”过去；机器人仍是干脆的机械步进；暂停时小人连同淡化一起定格。
+
+## v1.0.11 选伴舞卡片动画化（2026-11-15）
+
+### 反馈与定性
+
+- 用户要求（2026-11-15 12:45）：手机点歌页上选伴舞的图片卡做成动画——选人时就能看到每个小人跳舞的样子。v1.0.7 的卡片是静态站立图，本版让卡片本身动起来；点选/高亮/localStorage/提交逻辑、卡片尺寸（图高 96px）全不动。
+
+### 改法
+
+- **构建期合成动画 WebP**：脚本 `dancers/make_anim.py`（留在工程里）用每位角色已有的 40 帧姿势图（`res/drawable-nodpi`，与电视播放页同一套）等距抽 10 帧（第 1/5/9/…/37 帧），PIL 合成无限循环的动画 WebP：每帧 280ms、高度 420px（保持宽高比与透明通道）、有损质量 80。各帧原始宽度不一，统一贴到最宽画布（水平居中、底边对齐，保持共享地板基线）再合成。产物放 `app/src/main/assets/dancer_anim/<key>.webp`，key 与 `DancerKeys` / `/dancer-img` 同口径。
+- **六个动画文件大小**：modern 144,118 B、ancient 145,292 B、girl 82,480 B、ancient_girl 87,104 B、baby 56,950 B、robot 161,748 B，合计 677,692 B（单文件目标 <600KB、合计 <3MB，均大幅达标，未触发减帧/降尺寸）。
+- **服务端**：新增 `DancerAnims`（照 `DancerImages` 模式：key 校验、未知 key 404）与路由 `GET /dancer-anim/<key>`，与静态图共用 handle() 的二进制绕行块，按路由回 `Content-Type: image/webp`。字节由 KaraokeApp 从 assets 读一次并缓存（`dancerAnimProvider`），不逐请求读盘。
+- **点歌页**：六张卡的 `<img>` 改用 `/dancer-anim/<key>`，加 `onerror` 回落到 `/dancer-img/<key>` 静态图（动画加载失败不许开天窗），其余一字未动。
+
+### 新增/更新单测（9 个）
+
+1. **DancerAnimsTest（6 个，新增）**：六个 key 全部解析、pathFor 往返、未知/大写/带后缀 key 不解析、其他路径不解析、动画与静态图两条路由前缀互不相交、asset 路径与打包文件名口径一致。
+2. **KaraokeHttpServerSocketTest（+3，真 socket）**：`GET /dancer-anim/modern` 返回 200 + `image/webp` + 假载荷字节逐字往返（含非 UTF-8 字节）；未知 key 404；合法 key 但服务端无此资源 404（页面据此回落静态图）。
+3. **PhonePageTest（更新 1 个）**：选伴舞卡断言改为动画源 `/dancer-anim/<key>` + `onerror` 回落 `/dancer-img/<key>`，data-who 点选链与旧断言保持。
+
+### 交付
+
+| 项 | 值 |
+|---|---|
+| APK | `MySing-1.0.11.apk`，**18,428,561 字节**，SHA-256 `c6340ea150dc1b0072350aa032ca0fe81f40f17c985722dd80fd6b3becf88fcb` |
+| APK 增量 | 较 v1.0.10（17,733,103 B）+695,458 B ≈ 六个动画 677,692 B + 路由/页面代码增量；aapt 实测六个 `assets/dancer_anim/*.webp` 均在包内、大小与源文件逐字一致 |
+| versionName / versionCode | 1.0.11 / 12（aapt badging 实测） |
+| 签名 | 同一把共享 keystore，证书 SHA-256 `1336ee0aefc229c3f0e6c025060ec0267825dbfc83f8799c3981dd74ea2befcc`，与历版逐字一致，可覆盖安装 |
+| 单元测试 | `:app:testDebugUnitTest` **139 个，0 失败**（130 旧 + 新增 9） |
+
+### 发布
+
+- GitHub 发布：提交 `ebfdb37` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.11 （附件 `MySing-1.0.11.apk`）。API 回读校验：asset size `18428561`、digest `sha256:c6340ea150dc1b0072350aa032ca0fe81f40f17c985722dd80fd6b3becf88fcb`，与本地逐字一致。
+
+待用户真机验：手机重新扫码打开点歌页，选伴舞六张卡应都在循环跳舞；点谁选谁与电视出场规则不变。

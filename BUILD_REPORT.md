@@ -395,3 +395,42 @@
 ### 发布
 
 - GitHub 发布：提交 `0300bc5` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.9 （附件 `MySing-1.0.9.apk`）。API 回读校验：asset size `17733096`、digest `sha256:d97a01a17378576b7a144bf851d7882ce67b991873784f9fec528e06604f28bd`，与本地逐字一致。
+
+## v1.0.10 舞蹈柔化：帧间交叉淡化（2026-11-15）
+
+### 反馈与定性
+
+- 用户反馈（2026-11-15 12:16）：跳舞动作太僵硬。
+- 定性：每人 40 帧姿势、一拍换一帧（v1.0.6 用户定版，此前“动作变化太快”后定的，**本版不动**），帧与帧之间是瞬时硬切——幻灯片感正源于此。本版只治“硬切”：不动节拍数、不动姿势图、不动整体律动（DanceMotion 的弹跳/摇摆本来就是连续的，未改）。
+
+### 改法
+
+- **纯函数**：`PoseCycle` 新增 `FADE_FRACTION = 0.35` 与 `blend(positionMs, bpm, frameCount, phaseOffsetBeats)`，返回 `Blend(previousIndex, currentIndex, currentAlpha)`：由 position 在当前拍内的相位驱动——相位 0 → 全上一帧（alpha 0）；相位 ≥0.35 → 全当前帧（alpha 1）；中间线性。`currentIndex` 的步进公式与 `frameIndex()` 完全同源（单测有全程一致性断言）。纯函数的位置驱动意味着暂停时相位天然冻结，淡化不会在暂停时继续跑（单测 blendFreezesWithPosition + 既有纯函数性保证）。
+- **绘制层**：`MainActivity.DancerImage` 新增可选 `blend` 参数。淡化进行中（alpha < 1）时在同一 Box 里叠画两帧——抽出 `DancerFrame` 承载原有的整图变换（弹跳/摇摆/下沉/缩放），上一帧与当前帧**同 rect、同变换，只差 alpha**（各乘原 0.95 基准：上一帧 0.95×(1−α)、当前帧 0.95×α）。不做预合成，两张图的绘制开销可接受。淡化结束即回到原来的单图绘制，INVITING/STILL/无 blend 时行为与旧版逐字一致。
+- **机器人例外**：调用点只在 `dancerPhase == DANCING && profile != ROBOT` 时传 blend——机器人保持硬切（机械感是它的角色设定，用户定的）。鼓掌画面（庆祝行）不传 blend，全员同步鼓掌保持齐整。小婴儿照常淡化；BabyFall 摔倒那套是整体变换、叠在两帧之上同施，不受影响。
+
+### 新增单测（8 个，PoseCycleTest）
+
+1. **blendStartsFullyOnPreviousFrame**：拍边界相位 0 → 全上一帧；起点处上一帧回绕到末帧。
+2. **blendIsLinearThroughTheFadeWindow**：相位 0.175（窗口正中）→ alpha 0.5。
+3. **blendCompletesAtThirtyFivePercentAndStays**：相位 0.35 起 alpha 恒 1，直到下一拍。
+4. **blendCurrentFrameAlwaysMatchesFrameIndex**：全程扫位断言 currentIndex 与 frameIndex 一致、双索引在界内、alpha ∈ [0,1]。
+5. **blendPreviousIsOneStepBehindAcrossTheWrap**：跨周期回绕处上一帧为末帧而非负数。
+6. **blendDegenerateFrameCountsAreSafe**：帧数 0/1/负 → Blend(0,0,1)。
+7. **blendHonoursPhaseOffset**：整拍偏移整体平移淡化，与帧周期同口径。
+8. **blendFreezesWithPosition**：同位置重复求值恒等——暂停冻结的纯函数性保证。
+
+### 交付
+
+| 项 | 值 |
+|---|---|
+| APK | `MySing-1.0.10.apk`，**17,733,103 字节**，SHA-256 `331ab0836ebeb89c58a476fc08f7b8a8e98a96d35274622605658123f8b92b5e` |
+| versionName / versionCode | 1.0.10 / 11（aapt badging 实测） |
+| 签名 | 同一把共享 keystore，证书 SHA-256 `1336ee0aefc229c3f0e6c025060ec0267825dbfc83f8799c3981dd74ea2befcc`，与历版逐字一致，可覆盖安装 |
+| 单元测试 | `:app:testDebugUnitTest` **130 个，0 失败**（122 旧 + 新增 blend 单测 8） |
+
+### 发布
+
+- GitHub 发布：提交 `ebc5307` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.10 （附件 `MySing-1.0.10.apk`）。API 回读校验：asset size `17733103`、digest `sha256:331ab0836ebeb89c58a476fc08f7b8a8e98a96d35274622605658123f8b92b5e`，与本地逐字一致。
+
+待用户真机验：跳舞时帧与帧之间应是“化”过去而不是“跳”过去；机器人仍是干脆的机械步进；暂停时小人连同淡化一起定格。

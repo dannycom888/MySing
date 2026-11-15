@@ -504,3 +504,54 @@
 - GitHub 发布：代码提交与本报告提交已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.12 （附件 `MySing-1.0.12.apk`）。API 回读校验见发布后记录（asset size / digest 与本地逐字一致）。
 
 待用户真机验：手机点歌页选伴舞第三张卡应是姿三四郎在跳（动画卡）；点他的歌上电视，伴舞是相扑手沉晃踏步；唱完鼓掌排里站的是相扑手；其余五人卡片名字应分别是春丽、林语嫣、小蛮、哪吒、瓦力。
+
+## v1.0.13 中英双语切换（2026-11-15）
+
+构建日期：2026-11-15（America/New_York）。动因：用户的儿子伟霖（William）看不懂中文。用户已确认范围（2026-11-15 13:01–13:02）：电视首页加中英切换、手机点歌页每台手机各自切换、服务端提示跟手机语言走。本版只做语言，不动任何功能行为。
+
+| 项 | 值 |
+|---|---|
+| 产物 | `~/workspace/shield-karaoke/MySing-1.0.13.apk` |
+| 大小 | 18,831,558 字节（较 v1.0.12 的 18,831,550 仅 +8 B：纯文案/逻辑增量，无新素材） |
+| SHA-256 | `138f86d961451f7bc77f52b20f4819a73d20fcb2a2cfeccf8e3837a9be2f1ca0`（前缀 `138f86d9`） |
+| versionName / versionCode | 1.0.13 / 14（aapt badging 实测） |
+| 签名 | 同一把共享 keystore，证书 SHA-256 `1336ee0aefc229c3f0e6c025060ec0267825dbfc83f8799c3981dd74ea2befcc`，与历版逐字一致，可覆盖安装 |
+| 单元测试 | `:app:testDebugUnitTest` **160 个，0 失败**（145 旧 + 新增 15；PhonePage 旧断言 1 处随卡片结构同步更新） |
+
+### 电视端
+
+- **字符串表**：新建 `i18n` 包——`UiLang`（zh/en + parse，缺省/未知一律中文）、`TvStrings`（**49 个 key**，zh/en 两张表 key 对齐，缺 key 由测试守红）。MainActivity 全部用户文案改走 `s(TvKey.…)`：首页入口与状态行、选歌页 chips、播放页控制条/下一首横幅/正在唱行/换歌倒计时/播放错误行、不唱了确认框、鼓掌空档页、常驻二维码角标、页脚 credit。**诊断行按规格保留中文现状**（技术小字）。
+- **切换开关**：首页标题行右侧（大二维码左侧）竖排两个 chip「中文 / EN」，各自用自己的语言标注、当前语言金色高亮，与既有状态区不冲突；选择写入 `Prefs.uiLangCode` 持久化，重启保持，切换即时全界面生效。
+- **细节**：下一首横幅改由 `PlayQueue.nextUpText(lang)` 从字符串表生成（中文格式与旧版逐字一致，旧测试不改即过）；电视自点歌的点歌人显示名随语言（电视 / TV）；**歌名、歌手名是文件名数据，一律不翻译**，只经模板的 %s 槽位原样穿过。
+
+### 手机点歌页
+
+- 页面顶部（名字门与主区之外，两阶段都够得着）加「中文 / EN」小开关；选择存本机 `localStorage mysing_lang`，**每台手机独立**——伟霖的手机切英文，其他客人的手机仍是中文，互不影响，也不读电视的设置。
+- 全页文案进 JS 内 `I18N` 字典（zh/en 各 **32 个文案键 + 6 个伴舞名**）：标题、名字门、已点歌单面板（含我的位次/徽章/删按钮/空状态）、搜索占位、筛选 chips、选伴舞区、点歌按钮、重复点歌提醒、发送失败提示、电视重启刷新提示，切换时静态文案（data-i / data-iph / data-dancer）与队列面板一并重渲染。
+- 伴舞英文名与电视端共用同一套映射（权威在 `DancerKeys.LABELS_EN`，页面内联同名表、测试双边钉死）：Chun-Li / Lin Yuyan / Sanshiro / Xiaoman / Nezha / WALL-E。
+
+### 服务端提示双语清单（`ServerStrings`，5 条）
+
+点歌/删歌/选伴舞请求在 JSON 里带 `lang` 字段（删歌、收藏无回执文案，不带），服务端按语言回提示；没带 lang 的老页面照旧中文。
+
+| 场景 | 中文 | English |
+|---|---|---|
+| 点歌成功（马上轮到） | 马上开唱！ | You're up — singing now! |
+| 点歌成功（排队） | 已加入，前面还有 X 首 | Added — X song(s) ahead of you |
+| 没填名字点歌 | 请先输入你的名字 | Please enter your name first |
+| 歌不存在 | 找不到这首歌 | Song not found |
+| 选伴舞参数不对 | 名字或伴舞选择不对 | Invalid name or dancer choice |
+
+### 新增/更新单测（15 个）
+
+1. **StringTablesTest（6 个，新增）**：TvStrings / ServerStrings 的 zh、en 两表 key 集合与枚举全集逐一相等（缺 key 即红）、双侧无空串、带参模板渲染抽查（歌库数/调值/倒计时/正在唱行含中文歌名原样穿过）、服务端 5 条提示中英逐条断言、UiLang.parse 缺省中文。
+2. **KaraokeHttpServerSocketTest（+4，真 socket）**：不带 lang 点歌回中文「马上开唱！」；`lang=en` 回「You're up — singing now!」；排队计数中英各一条（「已加入，前面还有 1 首」/「Added — 2 song(s) ahead of you」）；404 错误文案跟语言走（找不到这首歌 / Song not found）。
+3. **PhonePageTest（+3、更新 1）**：语言开关存在且在名字门之前、`mysing_lang` 读写、双语字典关键文案抽查（每区至少一条 × 两语）、英文伴舞名与 DancerKeys 口径一致、点歌/选伴舞请求体带 `lang:ui`；伴舞卡断言随 data-dancer 结构更新。
+4. **DancerKeysTest（+1）**：LABELS_EN 六名齐全、未知 key 回落 Chun-Li。
+5. **PlayQueueTest（+1）**：英文横幅 `Next up: … (ordered by …)`，中文歌名原样不译。
+
+### 发布
+
+- GitHub 发布：代码提交与本报告提交已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.13 （附件 `MySing-1.0.13.apk`）。API 回读校验见发布后记录（asset size / digest 与本地逐字一致）。
+
+待用户真机验：电视首页点「EN」，全界面变英文、重开 App 仍是英文；伟霖的手机在点歌页点「EN」，页面变英文且点歌回提示是英文，其他手机不受影响；电视切回中文一切如旧。

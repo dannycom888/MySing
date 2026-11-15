@@ -536,12 +536,17 @@ class MainActivity : ComponentActivity() {
                             Text("${state.interludeSeconds} 秒后开始", color = soft, fontSize = (if (compact) 14 else 18).sp)
                         }
                     } else {
-                        // Outro rule: once the last lyric line has been
-                        // sung only music remains, and the dancer stands
-                        // still until the song ends. A song without an
-                        // LRC has no such moment and dances throughout.
+                        // Three dancer phases (DancerActivity): the
+                        // intro invites (invite frame + slow bow),
+                        // the sung part dances, and once the last
+                        // lyric line has been sung only music
+                        // remains — the dancer stands in its neutral
+                        // frame, only breathing slowly. A song
+                        // without an LRC has neither boundary and
+                        // dances throughout.
                         val lastLyricEnd = remember(lyrics) { DancerActivity.lastLyricEndMs(lyrics) }
-                        val dancerDancing = DancerActivity.isDancing(positionMs, lastLyricEnd)
+                        val firstLyricStart = remember(lyrics) { DancerActivity.firstLyricStartMs(lyrics) }
+                        val dancerPhase = DancerActivity.phase(positionMs, firstLyricStart, lastLyricEnd)
                         // --- dancer LEFT of the lyrics, lyrics column gives
                         //     up the left zone and takes the rest ---
                         Row(modifier = Modifier.fillMaxSize()) {
@@ -554,19 +559,22 @@ class MainActivity : ComponentActivity() {
                                 ) {
                                     DancerImage(
                                         dancer = dancer,
-                                        pose = if (dancerDancing) {
-                                            DanceMotion.pose(
+                                        pose = when (dancerPhase) {
+                                            DancerActivity.Phase.DANCING -> DanceMotion.pose(
                                                 dancer.profile, positionMs, currentBpm,
                                                 phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
                                             )
-                                        } else {
+                                            // Intro: the invite frame and
+                                            // a slow "please sing" bow.
+                                            DancerActivity.Phase.INVITING ->
+                                                DancerActivity.invitePose(positionMs, dancer.profile)
                                             // Sung out: neutral stance, no
-                                            // bounce/sway/fall transforms.
-                                            DanceMotion.Pose(
-                                                bounceFraction = 0f, rotationDeg = 0f, scale = 1f,
-                                            )
+                                            // bounce/sway/fall — only a
+                                            // slow breath (v1.0.7).
+                                            DancerActivity.Phase.STILL ->
+                                                DancerActivity.breathPose(positionMs, dancer.profile)
                                         },
-                                        frameIndex = if (dancerDancing) {
+                                        frameIndex = if (dancerPhase == DancerActivity.Phase.DANCING) {
                                             PoseCycle.frameIndex(
                                                 positionMs, currentBpm, dancer.frames.size,
                                                 phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
@@ -574,6 +582,7 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             DancerActivity.STILL_FRAME
                                         },
+                                        invite = dancerPhase == DancerActivity.Phase.INVITING,
                                         heightDp = screenH * if (compact) 0.62f else 0.70f,
                                     )
                                 }
@@ -654,8 +663,11 @@ class MainActivity : ComponentActivity() {
                 val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
                 append(" · 舞者：").append(dancer.label).append("（").append(entry.orderedBy).append("选的）")
                 val lastEnd = DancerActivity.lastLyricEndMs(lyrics)
-                if (lastEnd != null && !DancerActivity.isDancing(positionMs, lastEnd)) {
-                    append(" · 伴舞：尾奏静止")
+                val firstStart = DancerActivity.firstLyricStartMs(lyrics)
+                when (DancerActivity.phase(positionMs, firstStart, lastEnd)) {
+                    DancerActivity.Phase.INVITING -> append(" · 伴舞：前奏邀请")
+                    DancerActivity.Phase.STILL -> append(" · 伴舞：尾奏静止")
+                    DancerActivity.Phase.DANCING -> {}
                 }
             }
             if (controller.accompanimentUnavailable) append(" · 伴奏不可用（已降级普通播放）")
@@ -697,11 +709,16 @@ class MainActivity : ComponentActivity() {
         heightDp: Dp,
         modifier: Modifier = Modifier,
         frameIndex: Int = -1,
+        invite: Boolean = false,
     ) {
         val heightPx = with(LocalDensity.current) { heightDp.toPx() }
         Image(
             painter = painterResource(
-                if (frameIndex in dancer.frames.indices) dancer.frames[frameIndex] else dancer.resId,
+                when {
+                    invite -> dancer.inviteResId
+                    frameIndex in dancer.frames.indices -> dancer.frames[frameIndex]
+                    else -> dancer.resId
+                },
             ),
             contentDescription = dancer.label,
             modifier = modifier

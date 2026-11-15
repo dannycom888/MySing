@@ -27,6 +27,11 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 .badge{background:#FFD54F;color:#111;border-radius:8px;padding:1px 6px;font-size:12px;font-weight:bold;white-space:nowrap}
 .del{background:#a33;color:#fff}
 .hidden{display:none}
+.dcards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.dcard{background:#16295c;border:3px solid #446;border-radius:12px;padding:6px 2px;text-align:center;cursor:pointer}
+.dcard img{height:96px;max-width:100%;object-fit:contain}
+.dcard span{display:block;margin-top:2px;font-size:14px}
+.dcard.on{border-color:#FFD54F;background:#4a3a08}
 </style></head><body>
 <div id="nameGate">
 <h1>🎤 MySing</h1>
@@ -54,13 +59,13 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 </div>
 <h1>💃 选伴舞</h1>
 <p class="small">你选的伴舞，只在你点的歌时出来；唱到你的歌时想换人，点一下电视上立刻换。</p>
-<div id="dancers" style="margin:8px 0">
-<button class="chip" data-who="modern">现代女</button>
-<button class="chip" data-who="ancient">古代女</button>
-<button class="chip" data-who="girl">现代女孩</button>
-<button class="chip" data-who="ancient_girl">古代女童</button>
-<button class="chip" data-who="baby">小婴儿</button>
-<button class="chip" data-who="robot">机器人</button>
+<div id="dancers" class="dcards">
+<div class="dcard" data-who="modern"><img src="/dancer-img/modern" alt="现代女"><span>现代女</span></div>
+<div class="dcard" data-who="ancient"><img src="/dancer-img/ancient" alt="古代女"><span>古代女</span></div>
+<div class="dcard" data-who="girl"><img src="/dancer-img/girl" alt="现代女孩"><span>现代女孩</span></div>
+<div class="dcard" data-who="ancient_girl"><img src="/dancer-img/ancient_girl" alt="古代女童"><span>古代女童</span></div>
+<div class="dcard" data-who="baby"><img src="/dancer-img/baby" alt="小婴儿"><span>小婴儿</span></div>
+<div class="dcard" data-who="robot"><img src="/dancer-img/robot" alt="机器人"><span>机器人</span></div>
 </div>
 <div id="msg" class="small"></div>
 <div id="songs"></div>

@@ -25,6 +25,7 @@ class KaraokeHttpServer(
     private val favoriteToggle: (String, Boolean) -> Unit = { _, _ -> },
     private val dancerSelectionsProvider: () -> Map<String, String> = { emptyMap() },
     private val dancerSetter: (String, String) -> Unit = { _, _ -> },
+    private val dancerImageProvider: (String) -> ByteArray? = { null },
 ) {
     companion object {
         const val DEFAULT_PORT = 8931
@@ -85,6 +86,29 @@ class KaraokeHttpServer(
 
             val path = rawPath.substringBefore('?')
             val query = parseQuery(rawPath.substringAfter('?', ""))
+
+            // Dancer portraits are binary PNG; they bypass the
+            // text route table. Key validation is DancerImages'
+            // (unknown keys 404), bytes come from the app's
+            // decode-once cache.
+            if (method == "GET") {
+                val imageKey = DancerImages.keyForPath(path)
+                if (imageKey != null) {
+                    val png = dancerImageProvider(imageKey)
+                    val out = sock.getOutputStream()
+                    if (png != null) {
+                        out.write("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: ${png.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                        out.write(png)
+                    } else {
+                        val msg = "not found".toByteArray(Charsets.UTF_8)
+                        out.write("HTTP/1.1 404 Not Found\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: ${msg.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                        out.write(msg)
+                    }
+                    out.flush()
+                    return
+                }
+            }
+
             val (status, contentType, response) = route(method, path, query, body)
             val out = sock.getOutputStream()
             val bytes = response.toByteArray(Charsets.UTF_8)

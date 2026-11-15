@@ -51,4 +51,22 @@ class PhonePageTest {
         assertTrue(html.contains("/api/queue"))
         assertTrue(html.contains("setInterval(loadQueue, 5000)"))
     }
+
+    @Test
+    fun dancerPickerShowsPortraitsNotJustNames() {
+        // Every dancer is an image card fed by the portrait route,
+        // so guests can recognise who is who (text-only chips were
+        // the v1.0.6 state the user could not identify people in).
+        assertTrue(html.contains("class=\"dcards\""))
+        for (key in listOf("modern", "ancient", "girl", "ancient_girl", "baby", "robot")) {
+            assertTrue(html.contains("src=\"/dancer-img/$key\""))
+            // Selection still rides on data-who, so the existing
+            // paint/select/submit script keeps working untouched.
+            assertTrue(html.contains("data-who=\"$key\""))
+        }
+        assertTrue(html.contains("class=\"dcard\""))
+        assertTrue(html.contains(".dcard.on"))
+        // The old text-only dancer chips are gone.
+        assertFalse(html.contains("<button class=\"chip\" data-who="))
+    }
 }

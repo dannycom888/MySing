@@ -34,6 +34,14 @@ class PoseCycleTest {
     }
 
     @Test
+    fun cyclesThroughAllFortyFrames() {
+        // v1.0.7: every dancer carries 40 frames; at 120 BPM one
+        // beat (500 ms) advances exactly one frame, wrapping after 40.
+        val seen = (0 until 42).map { PoseCycle.frameIndex(it * 500L, 120.0, 40) }
+        assertEquals((0 until 40).toList() + listOf(0, 1), seen)
+    }
+
+    @Test
     fun pauseFreezesFrame() {
         // Pure function of position: same position, same frame, always.
         repeat(3) {

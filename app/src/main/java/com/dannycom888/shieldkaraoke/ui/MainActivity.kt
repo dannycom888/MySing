@@ -100,8 +100,11 @@ private val soft = Color(0xFF9DB4E8)
 /** Dance tempo when a song has not been measured (yet). */
 private const val DEFAULT_BPM = 96.0
 
-/** applause.wav is exactly 3.2 s. */
-private const val APPLAUSE_MS = 3200L
+/** applause.wav is exactly 3.8 s (v1.0.14 crowd synthesis; see
+ *  audio/make_applause.py). The celebration stays up for
+ *  APPLAUSE_MS + a small margin so the thinning tail is never cut;
+ *  with a next song queued, the 5 s interlude covers it fully. */
+private const val APPLAUSE_MS = 3800L
 
 class MainActivity : ComponentActivity() {
 

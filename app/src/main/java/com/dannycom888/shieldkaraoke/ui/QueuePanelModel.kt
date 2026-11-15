@@ -25,12 +25,19 @@ object QueuePanelModel {
         val number: Int?,
         /** Index into the waiting list; -1 for the current row. */
         val waitingIndex: Int,
+        /** True when the current row is an idle filler song
+         *  (v1.0.20): the panel labels it 随机/Random instead of an
+         *  orderer name. Waiting rows are always real orders. */
+        val isFiller: Boolean = false,
     )
 
     fun rows(current: QueueEntry?, waiting: List<QueueEntry>): List<Row> {
         val out = ArrayList<Row>(waiting.size + 1)
         if (current != null) {
-            out += Row(entry = current, isCurrent = true, number = null, waitingIndex = -1)
+            out += Row(
+                entry = current, isCurrent = true, number = null,
+                waitingIndex = -1, isFiller = current.isFiller,
+            )
         }
         waiting.forEachIndexed { index, entry ->
             out += Row(entry = entry, isCurrent = false, number = index + 1, waitingIndex = index)

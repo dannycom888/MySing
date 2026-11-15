@@ -5,8 +5,26 @@ import com.dannycom888.shieldkaraoke.i18n.TvStrings
 import com.dannycom888.shieldkaraoke.i18n.UiLang
 import com.dannycom888.shieldkaraoke.library.Song
 
-/** One queued song and who ordered it (name from the phone page). */
-data class QueueEntry(val song: Song, val orderedBy: String)
+/**
+ * Where a now-playing entry came from (v1.0.20). The distinction
+ * drives real behaviour — applause, the next-up banner, the queue
+ * panel's label and whether a new order cuts it off — so it is a
+ * typed marker on the entry, never a guess from the orderer name.
+ */
+enum class EntrySource { ORDERED, FILLER }
+
+/** One queued song and who ordered it (name from the phone page).
+ *  Filler entries (idle random background songs) carry
+ *  [EntrySource.FILLER] and an empty orderer; they are constructed
+ *  standalone and never added to the [PlayQueue], so the phones'
+ *  queue view never sees them. */
+data class QueueEntry(
+    val song: Song,
+    val orderedBy: String,
+    val source: EntrySource = EntrySource.ORDERED,
+) {
+    val isFiller: Boolean get() = source == EntrySource.FILLER
+}
 
 /** Result of adding a song: where it landed and whether it was
  *  already in the queue (the phone page turns that into a warning). */

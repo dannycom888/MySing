@@ -36,6 +36,22 @@ class QueuePanelModelTest {
     }
 
     @Test
+    fun `filler current row is flagged for the random label`() {
+        // v1.0.20: an idle filler song shown as the panel's current
+        // row carries the filler flag (panel prints 随机/Random
+        // instead of an orderer); ordered rows never do.
+        val filler = QueueEntry(
+            Song("9", "歌手9", "歌9", Category.CHINESE_BOY, "uri://9", null),
+            "", com.dannycom888.shieldkaraoke.queue.EntrySource.FILLER,
+        )
+        val rows = QueuePanelModel.rows(filler, listOf(entry("2")))
+        assertTrue(rows[0].isCurrent)
+        assertTrue(rows[0].isFiller)
+        assertFalse(rows[1].isFiller)
+        assertTrue(QueuePanelModel.isVisible(filler, emptyList()))
+    }
+
+    @Test
     fun `nothing at all gives no rows and hides the panel`() {
         assertTrue(QueuePanelModel.rows(null, emptyList()).isEmpty())
         assertFalse(QueuePanelModel.isVisible(null, emptyList()))

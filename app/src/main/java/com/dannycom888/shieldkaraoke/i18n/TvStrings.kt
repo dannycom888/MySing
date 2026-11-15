@@ -18,9 +18,13 @@ enum class TvKey {
     PITCH_DOWN, PITCH_LABEL, PITCH_UP, DANCERS_ON, DANCERS_OFF,
     QUIT, GO_ORDER, QUIT_TITLE, QUIT_TEXT, QUIT_CONFIRM, QUIT_CANCEL,
     PLAY_ERROR, CORNER_QR_CAPTION, CORNER_QR_DESC,
+    // Idle filler playback switch (v1.0.20)
+    FILLER_ON, FILLER_OFF,
     // Queue panel on the player screen (v1.0.19)
     QUEUE_PANEL_TITLE, QUEUE_PANEL_NEXT, QUEUE_PANEL_DELETE,
     QUEUE_PANEL_NO_WAITING,
+    // The current-row label for a filler song (v1.0.20)
+    QUEUE_PANEL_RANDOM,
     // The orderer name shown for songs ordered from the TV itself.
     TV_ORDERER,
 }
@@ -76,6 +80,8 @@ object TvStrings {
         TvKey.PITCH_UP to "升调 ＋",
         TvKey.DANCERS_ON to "💃 小人开",
         TvKey.DANCERS_OFF to "💃 小人关",
+        TvKey.FILLER_ON to "🎲 随机开",
+        TvKey.FILLER_OFF to "🎲 随机关",
         TvKey.QUIT to "🚪 不唱了",
         TvKey.GO_ORDER to "🎵 去点歌",
         TvKey.QUIT_TITLE to "不唱了？",
@@ -89,6 +95,7 @@ object TvStrings {
         TvKey.QUEUE_PANEL_NEXT to "下一首唱",
         TvKey.QUEUE_PANEL_DELETE to "删除",
         TvKey.QUEUE_PANEL_NO_WAITING to "暂无排队",
+        TvKey.QUEUE_PANEL_RANDOM to "随机",
         TvKey.TV_ORDERER to "电视",
     )
 
@@ -131,6 +138,8 @@ object TvStrings {
         TvKey.PITCH_UP to "Key ＋",
         TvKey.DANCERS_ON to "💃 Dancers on",
         TvKey.DANCERS_OFF to "💃 Dancers off",
+        TvKey.FILLER_ON to "🎲 Random on",
+        TvKey.FILLER_OFF to "🎲 Random off",
         TvKey.QUIT to "🚪 End song",
         TvKey.GO_ORDER to "🎵 Order songs",
         TvKey.QUIT_TITLE to "End this song?",
@@ -144,6 +153,7 @@ object TvStrings {
         TvKey.QUEUE_PANEL_NEXT to "Play next",
         TvKey.QUEUE_PANEL_DELETE to "Delete",
         TvKey.QUEUE_PANEL_NO_WAITING to "Nothing queued",
+        TvKey.QUEUE_PANEL_RANDOM to "Random",
         TvKey.TV_ORDERER to "TV",
     )
 

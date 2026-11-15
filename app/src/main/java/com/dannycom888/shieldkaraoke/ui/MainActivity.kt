@@ -85,6 +85,9 @@ import com.dannycom888.shieldkaraoke.library.SafLibrarySource
 import com.dannycom888.shieldkaraoke.library.Song
 import com.dannycom888.shieldkaraoke.lyrics.LrcParser
 import com.dannycom888.shieldkaraoke.lyrics.LyricLine
+import com.dannycom888.shieldkaraoke.queue.EntrySource
+import com.dannycom888.shieldkaraoke.queue.FillerPicker
+import com.dannycom888.shieldkaraoke.queue.FillerPolicy
 import com.dannycom888.shieldkaraoke.queue.QueueEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -134,6 +137,9 @@ class MainActivity : ComponentActivity() {
     private var errorBanner by mutableStateOf<String?>(null)
     private var tickMs by mutableStateOf(0L)
     private var dancersOn by mutableStateOf(true)
+    /** Idle filler playback switch (v1.0.20), persisted in prefs. */
+    private var fillerOn by mutableStateOf(true)
+    private val fillerPicker = FillerPicker()
     private var currentBpm by mutableStateOf(DEFAULT_BPM)
     private var celebrating by mutableStateOf(false)
     private var applauseStartMs by mutableStateOf(0L)
@@ -167,6 +173,7 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         app = application as KaraokeApp
         dancersOn = app.prefs.dancersEnabled
+        fillerOn = app.prefs.randomFillerEnabled
         uiLang = UiLang.parse(app.prefs.uiLangCode)
         controller = PlayerController(this)
         controller.onEnded = { onSongEndedNaturally() }
@@ -256,6 +263,9 @@ class MainActivity : ComponentActivity() {
             }
             if (cached != null && !freshScanDone && app.state.catalog.songs.isEmpty()) {
                 app.state.setCatalog(Catalog(cached))
+                // Library is usable: if nobody has ordered anything,
+                // the idle filler may start (v1.0.20 trigger a).
+                maybeStartFiller()
             }
         }
         rescan(treeUri)
@@ -270,6 +280,7 @@ class MainActivity : ComponentActivity() {
             app.state.setCatalog(Catalog(songs))
             freshScanDone = true
             scanning = false
+            maybeStartFiller()
             withContext(Dispatchers.IO) {
                 LibraryCacheStore(this@MainActivity).save(treeUri.toString(), songs)
             }
@@ -280,7 +291,9 @@ class MainActivity : ComponentActivity() {
 
     private fun startSong(entry: QueueEntry) {
         app.state.nowPlaying = entry
-        app.prefs.pushRecent(entry.song.id)
+        // Filler songs were sung by nobody: they stay out of the
+        // "recently sung" list just as they stay out of the queue.
+        if (!entry.isFiller) app.prefs.pushRecent(entry.song.id)
         lyrics = emptyList()
         positionMs = 0
         errorBanner = null
@@ -332,9 +345,85 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // ---------- idle filler playback (v1.0.20) ----------
+
+    /** A standalone filler entry: typed source marker, no orderer
+     *  (the dancer lookup falls back to the default dancer, exactly
+     *  like an order with no dancer choice on file). Never added
+     *  to the PlayQueue, so it leaves no trace in any queue view. */
+    private fun pickFillerEntry(): QueueEntry? {
+        val song = fillerPicker.pick(app.state.catalog.songs) ?: return null
+        return QueueEntry(song, "", EntrySource.FILLER)
+    }
+
+    /**
+     * Start a filler song if the policy says the stage is free for
+     * one. Returns true when a song was started. Called when the
+     * library becomes ready, when the real queue drains, and when
+     * the filler switch is turned on. With [moveToPlayer] the start
+     * also brings the player screen forward from Home (the launch
+     * case); without it the song starts behind whatever screen the
+     * TV user is on — a filler song rolling over must never yank
+     * them out of Home or Browse.
+     */
+    private fun maybeStartFiller(moveToPlayer: Boolean = true): Boolean {
+        val canStart = FillerPolicy.shouldAutoStart(
+            enabled = fillerOn,
+            catalogReady = app.state.catalog.songs.isNotEmpty(),
+            queueIdle = app.state.queue.isIdle,
+            somethingPlaying = app.state.nowPlaying != null || celebrating,
+        )
+        if (!canStart) return false
+        val entry = pickFillerEntry() ?: return false
+        startSong(entry)
+        if (moveToPlayer && screen == Screen.HOME) screen = Screen.PLAYER
+        return true
+    }
+
+    /** A filler song ended (or was quit): no applause, no interlude
+     *  countdown — straight to the next random pick, or back to the
+     *  idle home screen when filler is off / the library is empty. */
+    private fun startNextFillerOrHome() {
+        app.state.nowPlaying = null
+        if (!maybeStartFiller(moveToPlayer = false) && screen == Screen.PLAYER) {
+            screen = Screen.HOME
+        }
+    }
+
+    /** The control-bar 随机 switch. Turning it off mid-filler stops
+     *  the song and returns to the idle home screen (the pre-v1.0.20
+     *  behaviour); turning it on starts filler if the stage is free. */
+    private fun toggleFiller() {
+        fillerOn = !fillerOn
+        app.prefs.randomFillerEnabled = fillerOn
+        if (!fillerOn) {
+            if (app.state.nowPlaying?.isFiller == true) {
+                quitting = true
+                controller.stop()
+                quitting = false
+                celebrating = false
+                celebrationToken++
+                app.state.interludeSeconds = 0
+                app.state.nowPlaying = null
+                screen = Screen.HOME
+            }
+        } else {
+            maybeStartFiller()
+        }
+    }
+
     private fun onSongEndedNaturally() {
         if (quitting) return
         runOnUiThread {
+            // A filler song ending is not a performance ending:
+            // no applause, no queue advance (it was never in the
+            // queue) — just the next random pick. A real order that
+            // arrived meanwhile would already have cut the filler
+            // off via onShouldStart, so the queue is idle here.
+            if (app.state.nowPlaying?.isFiller == true) {
+                startNextFillerOrHome()
+                return@runOnUiThread
+            }
             val next = app.state.advanceAfterFinish()
             // Applause celebration: all six dancers come out and clap
             // along with the applause sound — with or without a next
@@ -352,7 +441,11 @@ class MainActivity : ComponentActivity() {
                     if (celebrationToken == token && celebrating) {
                         celebrating = false
                         app.state.nowPlaying = null
-                        screen = Screen.HOME
+                        // The applause belonged to that last ordered
+                        // song; with the real queue drained, the idle
+                        // filler takes over from here (v1.0.20
+                        // trigger b) — or home when filler is off.
+                        if (!maybeStartFiller()) screen = Screen.HOME
                     }
                 }
             } else {
@@ -376,6 +469,13 @@ class MainActivity : ComponentActivity() {
         celebrating = false
         celebrationToken++
         app.state.interludeSeconds = 0
+        if (app.state.nowPlaying?.isFiller == true) {
+            // Cutting a filler song (the remote holder's 切歌 on a
+            // background song): it was never in the queue, so there
+            // is nothing to advance — just deal the next random one.
+            startNextFillerOrHome()
+            return
+        }
         val next = app.state.advanceAfterQuit()
         if (next == null) {
             app.state.nowPlaying = null
@@ -597,8 +697,14 @@ class MainActivity : ComponentActivity() {
         // a target here and one effect performs the move after the
         // recomposition that the queue change caused. ---
         val waiting = state.queue.waitingList
-        val panelRows = QueuePanelModel.rows(state.queue.current, waiting)
-        val panelVisible = QueuePanelModel.isVisible(state.queue.current, waiting)
+        // The panel's "current" is what is actually singing: the
+        // queue's current song, or — while idle filler is playing
+        // (v1.0.20) — the filler entry, which the panel labels
+        // 随机/Random via the row model. Filler never appears as a
+        // waiting row: it is not in the queue at all.
+        val panelCurrent = state.queue.current ?: entry?.takeIf { it.isFiller }
+        val panelRows = QueuePanelModel.rows(panelCurrent, waiting)
+        val panelVisible = QueuePanelModel.isVisible(panelCurrent, waiting)
         val qrPresent = remember(state.version) { Qr.lanIpAddress() } != null
         var actionIndex by remember { mutableStateOf<Int?>(null) }
         var panelFocused by remember { mutableStateOf(false) }
@@ -750,7 +856,12 @@ class MainActivity : ComponentActivity() {
                             }
                             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                 Text(
-                                    entry?.let { s(TvKey.NOW_SINGING_LINE, it.song.displayName, it.orderedBy) } ?: "",
+                                    // A filler song has no orderer to
+                                    // credit: just its name (v1.0.20).
+                                    entry?.let {
+                                        if (it.isFiller) it.song.displayName
+                                        else s(TvKey.NOW_SINGING_LINE, it.song.displayName, it.orderedBy)
+                                    } ?: "",
                                     color = soft, fontSize = (if (compact) 12 else 15).sp,
                                 )
                                 LyricsView(lyrics, positionMs, compact, modifier = Modifier.weight(1f))
@@ -870,6 +981,10 @@ class MainActivity : ComponentActivity() {
                     ) {
                         dancersOn = !dancersOn; app.prefs.dancersEnabled = dancersOn
                     }
+                    Chip(
+                        if (fillerOn) s(TvKey.FILLER_ON) else s(TvKey.FILLER_OFF), fillerOn,
+                        onFocused = { panelFocused = false },
+                    ) { toggleFiller() }
                     Chip(s(TvKey.QUIT), false, onFocused = { panelFocused = false }) { confirmQuit = true }
                     Chip(s(TvKey.GO_ORDER), false, onFocused = { panelFocused = false }) { screen = Screen.BROWSE }
                 }
@@ -895,7 +1010,8 @@ class MainActivity : ComponentActivity() {
             append(" · bpm=").append(currentBpm.toInt())
             if (entry != null) {
                 val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
-                append(" · 舞者：").append(dancer.label).append("（").append(entry.orderedBy).append("选的）")
+                append(" · 舞者：").append(dancer.label).append("（")
+                    .append(if (entry.isFiller) "随机" else entry.orderedBy).append("选的）")
                 val lastEnd = DancerActivity.lastLyricEndMs(lyrics)
                 val firstStart = DancerActivity.firstLyricStartMs(lyrics)
                 when (DancerActivity.phase(positionMs, firstStart, lastEnd)) {
@@ -989,7 +1105,10 @@ class MainActivity : ComponentActivity() {
                                 fontSize = (if (compact) 12 else 14).sp, maxLines = 2,
                             )
                             Text(
-                                row.entry.orderedBy, color = soft,
+                                // Filler current row: labelled as a
+                                // random pick, never a person's name.
+                                if (row.isFiller) s(TvKey.QUEUE_PANEL_RANDOM) else row.entry.orderedBy,
+                                color = soft,
                                 fontSize = (if (compact) 10 else 11).sp, maxLines = 1,
                             )
                         }

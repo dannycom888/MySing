@@ -65,6 +65,14 @@ class StringTablesTest {
         assertEquals("Play next", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_NEXT))
         assertEquals("删除", TvStrings.get(UiLang.ZH, TvKey.QUEUE_PANEL_DELETE))
         assertEquals("Delete", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_DELETE))
+        // v1.0.20 filler strings: the switch chip and the panel's
+        // label for a random background song.
+        assertEquals("随机", TvStrings.get(UiLang.ZH, TvKey.QUEUE_PANEL_RANDOM))
+        assertEquals("Random", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_RANDOM))
+        assertTrue(TvStrings.get(UiLang.ZH, TvKey.FILLER_ON).contains("随机"))
+        assertTrue(TvStrings.get(UiLang.EN, TvKey.FILLER_ON).contains("Random"))
+        assertTrue(TvStrings.get(UiLang.ZH, TvKey.FILLER_OFF).contains("随机"))
+        assertTrue(TvStrings.get(UiLang.EN, TvKey.FILLER_OFF).contains("Random"))
         assertEquals("暂无排队", TvStrings.get(UiLang.ZH, TvKey.QUEUE_PANEL_NO_WAITING))
         assertEquals("Nothing queued", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_NO_WAITING))
     }

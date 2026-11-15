@@ -391,3 +391,7 @@
 | versionName / versionCode | 1.0.9 / 10（aapt badging 实测） |
 | 签名 | 同一把共享 keystore，证书 SHA-256 `1336ee0aefc229c3f0e6c025060ec0267825dbfc83f8799c3981dd74ea2befcc`，与历版逐字一致，可覆盖安装 |
 | 单元测试 | `:app:testDebugUnitTest` **122 个，0 失败**（118 旧 + 新增 socket 级回归 4） |
+
+### 发布
+
+- GitHub 发布：提交 `0300bc5` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.9 （附件 `MySing-1.0.9.apk`）。API 回读校验：asset size `17733096`、digest `sha256:d97a01a17378576b7a144bf851d7882ce67b991873784f9fec528e06604f28bd`，与本地逐字一致。

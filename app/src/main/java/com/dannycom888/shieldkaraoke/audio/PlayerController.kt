@@ -24,9 +24,12 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
  * v1.0.3 self-healing: if playback errors out (the custom AudioSink /
  * vocal-processor chain is the prime suspect), the player is rebuilt
  * ONCE with the plain default renderer and the song retried — see
- * [FallbackStateMachine]. The error and the active sink path stay
- * visible in the player screen's diagnostics line. Music-stream
- * audio focus is requested before playback and abandoned on release.
+ * [FallbackStateMachine]. The active sink path stays visible in
+ * the player screen's diagnostics line; the error banner shows
+ * while the fault is live and clears once a plain-retry recovery
+ * is confirmed progressing (v1.0.15, see [ErrorDisplayPolicy]).
+ * Music-stream audio focus is requested before playback and
+ * abandoned on release.
  */
 class PlayerController(private val context: Context) {
 
@@ -56,6 +59,11 @@ class PlayerController(private val context: Context) {
     // declared after `player` and was still null in buildPlayer.)
     private val fallback = FallbackStateMachine()
 
+    /** Whether [lastError] still deserves its red banner — a
+     *  self-healed error clears once the retry is confirmed
+     *  progressing (v1.0.15, see [ErrorDisplayPolicy]). */
+    private val errorDisplay = ErrorDisplayPolicy()
+
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(state: Int) {
             if (state == Player.STATE_ENDED) onEnded?.invoke()
@@ -76,10 +84,31 @@ class PlayerController(private val context: Context) {
     var semitones: Int = 0
         private set
 
-    /** Last playback error (code name + first message line), shown
-     *  permanently in the diagnostics line; null when none this song. */
+    /** Last playback error (code name + first message line) this
+     *  song; null when none. Whether it is currently displayed is
+     *  [visibleError]'s call, not this field's. */
     var lastError: String? = null
         private set
+
+    /**
+     * The error text for the red banner right now, or null when the
+     * banner should be hidden. The banner survives a real failure
+     * (FAILED path) but clears once a plain-retry recovery is
+     * confirmed progressing — see [ErrorDisplayPolicy]. Reads the
+     * live player, so call it from a poll loop, not composition.
+     */
+    fun visibleError(): String? {
+        val err = lastError ?: return null
+        val p = player
+        val show = errorDisplay.shouldShowError(
+            hasError = true,
+            path = fallback.path,
+            ready = p.playbackState == Player.STATE_READY,
+            playing = p.isPlaying,
+            positionMs = try { p.currentPosition } catch (e: Exception) { 0L },
+        )
+        return if (show) err else null
+    }
 
     /** Which audio path is live: "custom" / "plain-retry" / "plain-failed". */
     val sinkLabel: String get() = fallback.sinkLabel
@@ -116,6 +145,7 @@ class PlayerController(private val context: Context) {
         }
         fallback.onNewLoad()
         lastError = null
+        errorDisplay.reset()
         accompanimentUnavailable = false
         wantAccompaniment = false
         currentUri = uri
@@ -137,6 +167,9 @@ class PlayerController(private val context: Context) {
             val firstLine = error.message?.lineSequence()?.firstOrNull()?.trim().orEmpty()
             if (firstLine.isNotEmpty()) append(": ").append(firstLine)
         }
+        // A fresh error re-arms the banner until this error's own
+        // recovery (if any) is confirmed progressing.
+        errorDisplay.reset()
         if (!fallback.onError()) return // second error: stay put, error stays visible
         val uri = currentUri ?: return
         val resumeAt = try { player.currentPosition } catch (e: Exception) { 0L }

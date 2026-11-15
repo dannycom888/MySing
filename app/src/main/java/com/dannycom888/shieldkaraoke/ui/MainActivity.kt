@@ -115,6 +115,9 @@ class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf(Screen.HOME)
     private var lyrics by mutableStateOf<List<LyricLine>>(emptyList())
     private var positionMs by mutableStateOf(0L)
+    /** Red error banner text, refreshed by the player poll loop
+     *  from [PlayerController.visibleError] (v1.0.15). */
+    private var errorBanner by mutableStateOf<String?>(null)
     private var tickMs by mutableStateOf(0L)
     private var dancersOn by mutableStateOf(true)
     private var currentBpm by mutableStateOf(DEFAULT_BPM)
@@ -261,6 +264,7 @@ class MainActivity : ComponentActivity() {
         app.prefs.pushRecent(entry.song.id)
         lyrics = emptyList()
         positionMs = 0
+        errorBanner = null
         accompaniment = false
         semitoneLabel = 0
         celebrating = false
@@ -554,6 +558,7 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(entry?.song?.id) {
             while (true) {
                 positionMs = try { controller.player.currentPosition } catch (e: Exception) { 0L }
+                errorBanner = controller.visibleError()
                 tickMs = SystemClock.elapsedRealtime()
                 // ~30 fps so the karaoke sweep's gold boundary
                 // travels continuously through each character.
@@ -677,8 +682,11 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                // --- diagnostics: always visible; an error never auto-hides ---
-                controller.lastError?.let { err ->
+                // --- diagnostics: always visible. A real failure's
+                // error banner stays up; a self-healed one clears
+                // once the plain retry is confirmed playing (v1.0.15,
+                // see ErrorDisplayPolicy). ---
+                errorBanner?.let { err ->
                     Text(s(TvKey.PLAY_ERROR, err), color = Color(0xFFFF7043), fontSize = (if (compact) 11 else 12).sp)
                 }
                 Text(

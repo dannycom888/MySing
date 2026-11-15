@@ -155,4 +155,73 @@ class PlayQueueTest {
         // Positions renumber cleanly: the new front has nothing waiting ahead.
         assertEquals(1, q.aheadCountFor(0))
     }
+
+    // --- v1.0.27: TV remote play-now （现在唱） ---
+
+    @Test
+    fun `jump takes a waiting song out and makes it current, others keep their order`() {
+        val q = PlayQueue()
+        q.add(song("1"), "a"); q.add(song("2"), "b"); q.add(song("3"), "c"); q.add(song("4"), "d")
+        val jumped = q.jumpWaitingAt(1)
+        assertEquals("3", jumped?.song?.id)
+        assertEquals("3", q.current?.song?.id) // the cut song "1" is simply gone
+        assertEquals(listOf("2", "4"), q.waitingList.map { it.song.id })
+    }
+
+    @Test
+    fun `jump to the first waiting song skips the rest of the current song`() {
+        val q = PlayQueue()
+        q.add(song("1"), "a"); q.add(song("2"), "b"); q.add(song("3"), "c")
+        val jumped = q.jumpWaitingAt(0)
+        assertEquals("2", jumped?.song?.id)
+        assertEquals("2", q.current?.song?.id)
+        assertEquals(listOf("3"), q.waitingList.map { it.song.id })
+    }
+
+    @Test
+    fun `jump to the last waiting song leaves the rest in line`() {
+        val q = PlayQueue()
+        q.add(song("1"), "a"); q.add(song("2"), "b"); q.add(song("3"), "c")
+        val jumped = q.jumpWaitingAt(1)
+        assertEquals("3", jumped?.song?.id)
+        assertEquals("3", q.current?.song?.id)
+        assertEquals(listOf("2"), q.waitingList.map { it.song.id })
+    }
+
+    @Test
+    fun `jump out of range changes nothing`() {
+        val q = PlayQueue()
+        q.add(song("1"), "a"); q.add(song("2"), "b")
+        assertNull(q.jumpWaitingAt(1))
+        assertNull(q.jumpWaitingAt(-1))
+        assertEquals("1", q.current?.song?.id)
+        assertEquals(listOf("2"), q.waitingList.map { it.song.id })
+        // And on a fully idle queue.
+        val idle = PlayQueue()
+        assertNull(idle.jumpWaitingAt(0))
+        assertTrue(idle.isIdle)
+    }
+
+    @Test
+    fun `after a jump the queue advances from the jumped song`() {
+        val q = PlayQueue()
+        q.add(song("1"), "a"); q.add(song("2"), "b"); q.add(song("3"), "c"); q.add(song("4"), "d")
+        q.jumpWaitingAt(1) // "3" sings now; "1" was cut, "2" and "4" still wait in order
+        assertEquals("2", q.finishCurrent()?.song?.id)
+        assertEquals(listOf("4"), q.waitingList.map { it.song.id })
+        assertEquals("4", q.quitCurrent()?.song?.id)
+        assertNull(q.finishCurrent())
+        assertTrue(q.isIdle)
+    }
+
+    @Test
+    fun `jumped song keeps its orderer for the banner and the dancer`() {
+        val q = PlayQueue()
+        q.add(song("1", "周杰伦", "晴天"), "小明")
+        q.add(song("2", "凤凰传奇", "最炫民族风"), "小红")
+        q.add(song("3", "张信哲", "爱如潮水"), "小刚")
+        val jumped = q.jumpWaitingAt(1)
+        assertEquals("小刚", jumped?.orderedBy)
+        assertEquals("下一首：小红点的 凤凰传奇 - 最炫民族风", q.nextUpText())
+    }
 }

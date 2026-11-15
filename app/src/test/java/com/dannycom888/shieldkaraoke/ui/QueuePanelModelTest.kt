@@ -81,4 +81,15 @@ class QueuePanelModelTest {
         assertTrue(QueuePanelModel.canPromote(1))
         assertTrue(QueuePanelModel.canPromote(5))
     }
+
+    @Test
+    fun `play now is offered for every waiting row, first included`() {
+        // v1.0.27: unlike promote, 现在唱 makes sense even for the
+        // song already first in line — it skips the current song's
+        // remainder instead of waiting for it to end.
+        assertFalse(QueuePanelModel.canPlayNow(-1)) // the current row
+        assertTrue(QueuePanelModel.canPlayNow(0))
+        assertTrue(QueuePanelModel.canPlayNow(1))
+        assertTrue(QueuePanelModel.canPlayNow(5))
+    }
 }

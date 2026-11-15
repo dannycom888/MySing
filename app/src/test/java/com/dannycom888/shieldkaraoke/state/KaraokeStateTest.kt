@@ -53,4 +53,31 @@ class KaraokeStateTest {
         assertEquals(listOf("2"), state.queue.waitingList.map { it.song.id })
         assertNull(state.queue.waitingList.first().takeIf { it.isFiller })
     }
+
+    @Test
+    fun `jump hands the chosen entry to the caller and makes it current`() {
+        // v1.0.27: the panel's 现在唱 seam. The state layer only
+        // moves the queue — starting playback is the Activity's job
+        // (it must stop the cut song first), so onShouldStart must
+        // NOT fire here.
+        val state = KaraokeState()
+        var starts = 0
+        state.onShouldStart = { starts++ }
+        state.order(song("1"), "小明")
+        state.order(song("2"), "小红")
+        state.order(song("3"), "小刚")
+        assertEquals(1, starts)
+
+        val jumped = state.jumpWaitingAt(1)
+
+        assertEquals("3", jumped?.song?.id)
+        assertEquals("小刚", jumped?.orderedBy)
+        assertEquals("3", state.queue.current?.song?.id)
+        assertEquals(listOf("2"), state.queue.waitingList.map { it.song.id })
+        assertEquals(1, starts) // unchanged: no implicit start
+
+        // A stale index (the row was deleted meanwhile) is a no-op.
+        assertNull(state.jumpWaitingAt(5))
+        assertEquals("3", state.queue.current?.song?.id)
+    }
 }

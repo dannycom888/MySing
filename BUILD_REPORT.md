@@ -1026,3 +1026,32 @@
 
 - MySing-1.0.26.apk：22,279,535 字节，SHA-256 0957f9e3a7e78466f41379f2334af6b26d4a8c37c88d6681be2412a64442bbc3，versionName 1.0.26 / versionCode 27，共享 keystore 签名（1336ee0a…befcc）。
 - 待用户真机验：① 首页右上是小齿轮（语言键下方），点/OK 进后台，首页不再有选文件夹/重扫两颗大卡；② 后台歌库区显示当前文件夹，选文件夹与重扫可用（流程与旧首页一致），服务异常时后台同样有橙红警告；③ 全新安装（未选过文件夹）时首页有指引卡直达后台；④ 后台「扫光颜色」切浅绿/浅粉后回播放页，正在唱的歌词扫色立即变色、重启不丢；⑤ 后台底部有小字「版本 v1.0.26」（英文模式为 Version 1.0.26）。
+
+## v1.0.27 — 遥控「现在唱」随意切歌（2026-11-15）
+
+用户定调（2026-11-15）：18:29「前台左边做个已点歌排队，遥控可以随意切歌」，18:30 更正「右边，我说错了」——队列面板位置不变（播放页右侧浮层，v1.0.24 的形态原样未动），本版只加遥控特权：在面板里对任意一首等待歌曲可以立即切过去唱。
+
+### 新动作「现在唱」
+
+- 右侧队列面板里，等待歌曲展开的动作行由两样（「下一首唱」置顶、「删除」）变三样，新「现在唱」排第一（TvKey.QUEUE_PANEL_PLAY_NOW，zh「现在唱」/ en「Play now」，双语 parity 由既有测试自动覆盖）。对队列第一首同样可用——等于跳过当前歌的剩余部分直接唱它（QueuePanelModel.canPlayNow 对所有等待行恒真，与 canPromote 的 index>0 口径刻意不同）。
+- 两段式口径不变：OK 展开动作行 → 焦点移入 → 再 OK 才执行；返回两段收起/回控制条。焦点路径补齐第三个动作：新增 PanelFocusTarget.PlayNowAction + playNowRequester，展开行时焦点落在打头的「现在唱」上，D-pad 右行依次是「下一首唱」「删除」。执行后动作行收起，焦点回控制条（如同删空列表后的落点）。
+
+### 切歌语义
+
+- 纯逻辑：PlayQueue.jumpWaitingAt(index) 与 promote/remove 并列——摘出目标条目成为新 current 并返回它，其余等待顺序原样保留，被替换的旧 current 直接丢弃（切掉的歌不走 finish 语义）；索引越界返回 null 且什么都不改。KaraokeState.jumpWaitingAt(index) 同构暴露给 TV UI（bump + onQueueChanged，返回待开唱条目），且刻意不触发 onShouldStart——开唱由 Activity 驱动。
+- MainActivity.jumpToWaiting：先做状态摘歌，摘不到（那一行已被手机删掉）就直接返回、当前歌照唱不动；摘到才停播——被切的当前歌与「不唱了」完全同待遇：quitting 守卫下 controller.stop()、无鼓掌、清仪式（celebrationToken++ + clearCeremony）、interlude 清零，随后走普通 startSong 开唱选中歌，其伴舞按它点歌人的既有选择解析。
+- 当前是垫场歌时同样立即让位：垫场条目本就不在队列里，无物可清；startSong 的既有逻辑会结束垫场会话（onOrderedStarted），垫场不进队列、不进最近唱过的口径与既有一致。
+- 面板只出现在播放页，理论上不存在「无歌在唱」的时刻；万一发生，队列摘歌本身即完成兜底（目标成为 current 并被开唱）。
+
+### 手机零特权（硬核查）
+
+- 服务端与手机点歌页未加任何「现在唱」接口或按钮。对 server 源码整目录 grep `jump|playNow|play_now|PLAY_NOW`（含注释）：**0 命中**。KaraokeState 的接缝注释按既有 promote 的写法注明「TV UI only — the phone server never calls this」，该方法只被 MainActivity 调用。
+
+### 测试
+
+- 新增单测 8 个：PlayQueueTest 6（摘任意位成 current 且余序不变、摘第一首、摘最后一首、越界不变含空队列、摘后 advance 自新 current 继续、被摘条目保留点歌人且横幅指向新的下一首）+ QueuePanelModelTest 1（canPlayNow 每个等待行都给、当前行不给）+ KaraokeStateTest 1（接缝返回条目并成 current、不触发 onShouldStart、过期索引 no-op）。全量 **287 个 0 失败**（v1.0.26 为 279）。
+
+### 产物与发布
+
+- MySing-1.0.27.apk：22,279,543 字节，SHA-256 bbcb23e4ddc93cf53fc255cb9e503f18e4a0fa60c95b14ad59963e0aa5852627，versionName 1.0.27 / versionCode 28，共享 keystore 签名（1336ee0a…befcc）。
+- 待用户真机验：① 唱着歌时遥控上键进右侧面板，OK 展开任意一首等待歌曲，动作行是「现在唱 / 下一首唱 / 删除」三颗（第一首只有「现在唱 / 删除」），焦点落在「现在唱」；② 对第二、三首执行「现在唱」——当前歌立刻停（无鼓掌无仪式），选中歌开唱，其余排队顺序不变；③ 对第一首执行「现在唱」等于直接跳过当前歌；④ 垫场在唱、队列里有歌时执行「现在唱」，垫场立即让位；⑤ 手机点歌页无任何「现在唱」入口（预期如此）。

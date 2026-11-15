@@ -69,6 +69,21 @@ class KaraokeState {
         onQueueChanged?.invoke()
     }
 
+    /** TV queue panel's "现在唱" (v1.0.27): cut straight to a waiting
+     *  song — it leaves the waiting list and becomes the queue's
+     *  current at once. Returns the entry the Activity must start
+     *  (after stopping the cut song), or null when the index no
+     *  longer exists (the row vanished under the panel), in which
+     *  case nothing has changed. TV UI only — the phone server
+     *  never calls this. */
+    @Synchronized
+    fun jumpWaitingAt(index: Int): QueueEntry? {
+        val entry = queue.jumpWaitingAt(index)
+        bump()
+        onQueueChanged?.invoke()
+        return entry
+    }
+
     @Synchronized
     fun clearWaiting() {
         queue.clearWaiting()

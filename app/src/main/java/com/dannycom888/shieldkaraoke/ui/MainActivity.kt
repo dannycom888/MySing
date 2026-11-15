@@ -116,6 +116,7 @@ private enum class Special { NONE, FAVORITES, RECENTS }
 private sealed interface PanelFocusTarget {
     object None : PanelFocusTarget
     data class Row(val index: Int) : PanelFocusTarget
+    object PlayNowAction : PanelFocusTarget
     object PromoteAction : PanelFocusTarget
     object DeleteAction : PanelFocusTarget
     object ControlBar : PanelFocusTarget
@@ -641,6 +642,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** The queue panel's "现在唱" (v1.0.27): the remote holder cuts
+     *  straight to a waiting song. The state change happens first —
+     *  if the row has already vanished (a phone deleted that song),
+     *  nothing is touched and the current song plays on. Otherwise
+     *  the cut song gets exactly the 不唱了 treatment — stopped
+     *  dead, no applause, no handover ceremony — and the chosen
+     *  song starts at once, with its own orderer's dancer (the
+     *  plain [startSong] path resolves it). A filler song on the
+     *  stage is cut the same way: it never entered the queue, so
+     *  there is nothing of it to clean up, and [startSong] ends
+     *  its filler session like any ordered start. */
+    private fun jumpToWaiting(index: Int) {
+        val entry = app.state.jumpWaitingAt(index) ?: return
+        quitting = true
+        controller.stop()
+        quitting = false
+        celebrating = false
+        celebrationToken++
+        clearCeremony()
+        app.state.interludeSeconds = 0
+        startSong(entry)
+    }
+
     /** End the handover ceremony's state (its driver coroutine is
      *  separately retired by the celebration token). */
     private fun clearCeremony() {
@@ -1088,6 +1112,7 @@ class MainActivity : ComponentActivity() {
         var panelFocused by remember { mutableStateOf(false) }
         var focusTarget by remember { mutableStateOf<PanelFocusTarget>(PanelFocusTarget.None) }
         val rowRequesters = remember { mutableStateMapOf<Int, FocusRequester>() }
+        val playNowRequester = remember { FocusRequester() }
         val promoteRequester = remember { FocusRequester() }
         val deleteRequester = remember { FocusRequester() }
         val controlRequester = remember { FocusRequester() }
@@ -1105,6 +1130,7 @@ class MainActivity : ComponentActivity() {
                 try {
                     when (target) {
                         is PanelFocusTarget.Row -> rowRequesters[target.index]?.requestFocus()
+                        PanelFocusTarget.PlayNowAction -> playNowRequester.requestFocus()
                         PanelFocusTarget.PromoteAction -> promoteRequester.requestFocus()
                         PanelFocusTarget.DeleteAction -> deleteRequester.requestFocus()
                         PanelFocusTarget.ControlBar -> controlRequester.requestFocus()
@@ -1370,6 +1396,7 @@ class MainActivity : ComponentActivity() {
                             topPad = if (qrPresent) (if (compact) 70.dp else 88.dp) else 0.dp,
                             actionIndex = actionIndex,
                             rowRequesters = rowRequesters,
+                            playNowRequester = playNowRequester,
                             promoteRequester = promoteRequester,
                             deleteRequester = deleteRequester,
                             onRowClick = { idx ->
@@ -1378,12 +1405,21 @@ class MainActivity : ComponentActivity() {
                                     focusTarget = PanelFocusTarget.Row(idx)
                                 } else {
                                     actionIndex = idx
-                                    focusTarget = if (QueuePanelModel.canPromote(idx)) {
-                                        PanelFocusTarget.PromoteAction
-                                    } else {
-                                        PanelFocusTarget.DeleteAction
-                                    }
+                                    // "现在唱" leads the action row and
+                                    // is offered for every waiting song
+                                    // (v1.0.27), so expansion always
+                                    // lands focus on it; D-pad Right
+                                    // walks on to 下一首唱 / 删除.
+                                    focusTarget = PanelFocusTarget.PlayNowAction
                                 }
+                            },
+                            onPlayNow = { idx ->
+                                jumpToWaiting(idx)
+                                actionIndex = null
+                                // The chosen song is singing now; the
+                                // panel's business is done — hand focus
+                                // back to the control bar.
+                                focusTarget = PanelFocusTarget.ControlBar
                             },
                             onPromote = { idx ->
                                 app.state.promoteWaitingAt(idx)
@@ -1546,9 +1582,10 @@ class MainActivity : ComponentActivity() {
      * below the top-right QR card ([topPad] clears it). Lists the
      * shared queue exactly as [QueuePanelModel] builds it — current
      * song with ▶ and no number, waiting songs numbered — and gives
-     * the remote holder the two queue actions. It renders only the
-     * model; every mutation goes through KaraokeState, so the phone
-     * pages see the same queue change from the same state bump.
+     * the remote holder the queue actions （现在唱 since v1.0.27,
+     * plus 下一首唱 / 删除）. It renders only the model; every
+     * mutation goes through KaraokeState, so the phone pages see
+     * the same queue change from the same state bump.
      */
     @Composable
     private fun QueuePanel(
@@ -1558,9 +1595,11 @@ class MainActivity : ComponentActivity() {
         topPad: Dp,
         actionIndex: Int?,
         rowRequesters: MutableMap<Int, FocusRequester>,
+        playNowRequester: FocusRequester,
         promoteRequester: FocusRequester,
         deleteRequester: FocusRequester,
         onRowClick: (Int) -> Unit,
+        onPlayNow: (Int) -> Unit,
         onPromote: (Int) -> Unit,
         onDelete: (Int) -> Unit,
         onPanelFocus: () -> Unit,
@@ -1604,9 +1643,11 @@ class MainActivity : ComponentActivity() {
                             compact = compact,
                             expanded = actionIndex == row.waitingIndex,
                             focusRequester = rowRequesters.getOrPut(row.waitingIndex) { FocusRequester() },
+                            playNowRequester = playNowRequester,
                             promoteRequester = promoteRequester,
                             deleteRequester = deleteRequester,
                             onClick = { onRowClick(row.waitingIndex) },
+                            onPlayNow = { onPlayNow(row.waitingIndex) },
                             onPromote = { onPromote(row.waitingIndex) },
                             onDelete = { onDelete(row.waitingIndex) },
                             onPanelFocus = onPanelFocus,
@@ -1624,18 +1665,21 @@ class MainActivity : ComponentActivity() {
     }
 
     /** One waiting-song row of the queue panel: number, song, who
-     *  ordered it — and, once OK expands it, the two action chips.
-     *  Nothing is executed from the row itself: an action runs only
-     *  when its own chip takes the second OK. */
+     *  ordered it — and, once OK expands it, the action chips
+     *  （现在唱 / 下一首唱 / 删除）. Nothing is executed from the
+     *  row itself: an action runs only when its own chip takes
+     *  the second OK. */
     @Composable
     private fun QueuePanelRowItem(
         row: QueuePanelModel.Row,
         compact: Boolean,
         expanded: Boolean,
         focusRequester: FocusRequester,
+        playNowRequester: FocusRequester,
         promoteRequester: FocusRequester,
         deleteRequester: FocusRequester,
         onClick: () -> Unit,
+        onPlayNow: () -> Unit,
         onPromote: () -> Unit,
         onDelete: () -> Unit,
         onPanelFocus: () -> Unit,
@@ -1667,6 +1711,11 @@ class MainActivity : ComponentActivity() {
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.padding(top = 4.dp),
                 ) {
+                    if (QueuePanelModel.canPlayNow(row.waitingIndex)) {
+                        PanelActionChip(
+                            s(TvKey.QUEUE_PANEL_PLAY_NOW), compact, playNowRequester, onPanelFocus, onPlayNow,
+                        )
+                    }
                     if (QueuePanelModel.canPromote(row.waitingIndex)) {
                         PanelActionChip(
                             s(TvKey.QUEUE_PANEL_NEXT), compact, promoteRequester, onPanelFocus, onPromote,

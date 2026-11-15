@@ -10,7 +10,7 @@ import com.dannycom888.shieldkaraoke.queue.QueueEntry
  * "in line" — it is already singing), then the waiting songs
  * numbered 1, 2, 3… in singing order. Each waiting row remembers
  * its index into [PlayQueue.waitingList] so the remote actions
- * （下一首唱 / 删除） can call the queue with it directly.
+ * （现在唱 / 下一首唱 / 删除） can call the queue with it directly.
  *
  * Kept free of Compose so the numbering / action rules are unit
  * tested; the composable only renders what this builds.
@@ -56,4 +56,12 @@ object QueuePanelModel {
      * not offered for it (deleting it stays available).
      */
     fun canPromote(waitingIndex: Int): Boolean = waitingIndex > 0
+
+    /**
+     * "现在唱" is offered for every waiting row (v1.0.27) —
+     * including the song already first in line, where it means
+     * "skip the rest of the current song and sing this one right
+     * away" instead of waiting for the current song to end.
+     */
+    fun canPlayNow(waitingIndex: Int): Boolean = waitingIndex >= 0
 }

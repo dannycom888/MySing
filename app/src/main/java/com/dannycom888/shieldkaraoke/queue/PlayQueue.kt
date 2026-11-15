@@ -48,6 +48,13 @@ data class AddResult(
  * waiting song, or promote one to the front ("下一首唱"). Promote is
  * a TV-remote privilege only: the phone API has no such endpoint.
  * Neither operation ever touches the current song.
+ *
+ * v1.0.27 (the user's follow-up call, same day): the panel gains a
+ * third remote action, "现在唱" — cut straight to a waiting song.
+ * That one DOES replace the current song, deliberately: the cut
+ * song is dropped unfinished (the UI treats it like 不唱了 — no
+ * applause, no ceremony) and the chosen song becomes current at
+ * once. Still a TV-remote privilege only.
  */
 class PlayQueue {
 
@@ -121,6 +128,27 @@ class PlayQueue {
         if (index == 0) return waiting[0]
         val entry = waiting.removeAt(index)
         waiting.add(0, entry)
+        return entry
+    }
+
+    /**
+     * Take the waiting song at [index] out of the waiting list and
+     * make it the current song at once — the TV panel's "现在唱"
+     * (v1.0.27): the remote holder cuts straight to this song,
+     * including the one already first in line (that simply skips
+     * the rest of the current song). The previous current song is
+     * dropped unfinished — it was cut, not completed, so it gets
+     * no finish semantics — and every other waiting song keeps its
+     * relative order. When nothing is current (an idle filler song
+     * is on the stage — filler never enters this queue), the chosen
+     * song simply becomes current. Out-of-range indices return
+     * null and change nothing.
+     */
+    @Synchronized
+    fun jumpWaitingAt(index: Int): QueueEntry? {
+        if (index !in waiting.indices) return null
+        val entry = waiting.removeAt(index)
+        current = entry
         return entry
     }
 

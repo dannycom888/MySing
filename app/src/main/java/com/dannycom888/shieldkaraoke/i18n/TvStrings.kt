@@ -23,6 +23,8 @@ enum class TvKey {
     // Queue panel on the player screen (v1.0.19)
     QUEUE_PANEL_TITLE, QUEUE_PANEL_NEXT, QUEUE_PANEL_DELETE,
     QUEUE_PANEL_NO_WAITING,
+    // The panel's third action (v1.0.27): cut straight to this song.
+    QUEUE_PANEL_PLAY_NOW,
     // The current-row label for a filler song (v1.0.20)
     QUEUE_PANEL_RANDOM,
     // The orderer name shown for songs ordered from the TV itself.
@@ -104,6 +106,7 @@ object TvStrings {
         TvKey.CORNER_QR_DESC to "扫码点歌二维码",
         TvKey.QUEUE_PANEL_TITLE to "已点歌单",
         TvKey.QUEUE_PANEL_NEXT to "下一首唱",
+        TvKey.QUEUE_PANEL_PLAY_NOW to "现在唱",
         TvKey.QUEUE_PANEL_DELETE to "删除",
         TvKey.QUEUE_PANEL_NO_WAITING to "暂无排队",
         TvKey.QUEUE_PANEL_RANDOM to "随机",
@@ -184,6 +187,7 @@ object TvStrings {
         TvKey.CORNER_QR_DESC to "Scan-to-order QR code",
         TvKey.QUEUE_PANEL_TITLE to "Queue",
         TvKey.QUEUE_PANEL_NEXT to "Play next",
+        TvKey.QUEUE_PANEL_PLAY_NOW to "Play now",
         TvKey.QUEUE_PANEL_DELETE to "Delete",
         TvKey.QUEUE_PANEL_NO_WAITING to "Nothing queued",
         TvKey.QUEUE_PANEL_RANDOM to "Random",

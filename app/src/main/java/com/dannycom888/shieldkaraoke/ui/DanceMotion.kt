@@ -43,23 +43,28 @@ object DanceMotion {
     }
 
     private fun humanPose(beats: Double, bpm: Double, bounceHeavy: Boolean): Pose {
+        // v1.0.5: the pose FRAMES do the dancing now (see PoseCycle),
+        // so the whole-body transform is only a gentle assist —
+        // amplitudes roughly halved versus v1.0.3.
         val slow = if (bpm < 80.0) 0.7f else 1.0f // slow songs: bounce one notch down
-        val bounceAmp = (if (bounceHeavy) 1.0f else 0.45f) * slow
-        val swayAmp = if (bounceHeavy) 3.0f else 5.0f
+        val bounceAmp = (if (bounceHeavy) 0.55f else 0.28f) * slow
+        val swayAmp = if (bounceHeavy) 2.0f else 3.5f
         val bounce = abs(sin(PI * beats)) * bounceAmp
         val rotation = sin(2 * PI * beats) * swayAmp
         val frac = beats - floor(beats)
-        val pulse = exp(-frac * 5.0) * (if (bounceHeavy) 0.05 else 0.03)
+        val pulse = exp(-frac * 5.0) * (if (bounceHeavy) 0.03 else 0.02)
         return Pose(bounce.toFloat(), rotation.toFloat(), (1.0 + pulse).toFloat())
     }
 
     /** The robot dances in mechanical steps: the pose is quantised
-     *  to quarter-beat steps from lookup tables — no sine smoothing. */
+     *  to quarter-beat steps from lookup tables — no sine smoothing.
+     *  Bounce reduced in v1.0.5 like the humans'; the stepped
+     *  rotations stay (the frame stepping is itself stepped). */
     private fun robotPose(beats: Double, bpm: Double): Pose {
         val slow = if (bpm < 80.0) 0.7f else 1.0f
         val step = (floor(beats * 4).toInt() % 4 + 4) % 4
         val rotations = floatArrayOf(-5f, -5f, 5f, 5f)
-        val bounces = floatArrayOf(0f, 1f, 0.35f, 0f)
+        val bounces = floatArrayOf(0f, 0.55f, 0.2f, 0f)
         val scales = floatArrayOf(1f, 1.04f, 1.04f, 1f)
         return Pose(bounces[step] * slow, rotations[step], scales[step])
     }
@@ -142,10 +147,12 @@ object BabyFall {
         val state = stateAt(beats, bpm)
         return when (state.phase) {
             Phase.DANCING -> {
-                // Unsteady toddler: faster, bigger sway + a slow extra wobble.
+                // Unsteady toddler: faster, bigger sway + a slow extra
+                // wobble. Amplitudes trimmed in v1.0.5 (the pose
+                // frames dance too) but still the wobbliest dancer.
                 val wobble = beats * 1.5
-                val bounce = abs(sin(PI * wobble)) * 0.5f
-                val rotation = sin(2 * PI * wobble) * 7.0 + sin(PI * beats) * 2.5
+                val bounce = abs(sin(PI * wobble)) * 0.35f
+                val rotation = sin(2 * PI * wobble) * 5.0 + sin(PI * beats) * 1.8
                 DanceMotion.Pose(bounce.toFloat(), rotation.toFloat(), 1.0f)
             }
             Phase.FALLING -> {

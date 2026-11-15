@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -69,6 +70,7 @@ import com.dannycom888.shieldkaraoke.audio.TempoAnalyzer
 import com.dannycom888.shieldkaraoke.library.Catalog
 import com.dannycom888.shieldkaraoke.library.Gender
 import com.dannycom888.shieldkaraoke.library.Language
+import com.dannycom888.shieldkaraoke.library.LibraryCacheStore
 import com.dannycom888.shieldkaraoke.library.LibraryScanner
 import com.dannycom888.shieldkaraoke.library.SafLibrarySource
 import com.dannycom888.shieldkaraoke.library.Song
@@ -125,7 +127,7 @@ class MainActivity : ComponentActivity() {
         app.state.onShouldStart = { entry ->
             runOnUiThread { startSong(entry); screen = Screen.PLAYER }
         }
-        app.prefs.libraryTreeUri?.let { rescan(Uri.parse(it)) }
+        app.prefs.libraryTreeUri?.let { loadLibrary(Uri.parse(it)) }
 
         setContent {
             MaterialTheme {
@@ -170,6 +172,28 @@ class MainActivity : ComponentActivity() {
 
     // ---------- library ----------
 
+    /** True once a real SAF scan has landed in this process; the
+     *  cached catalog may only fill the state before that. */
+    private var freshScanDone = false
+
+    /**
+     * Two-stage library load: the last scan's cached catalog fills
+     * the lists immediately (singers appear at once instead of
+     * waiting for the whole SAF tree walk), then the normal full
+     * scan runs and replaces it wholesale.
+     */
+    private fun loadLibrary(treeUri: Uri) {
+        lifecycleScope.launch {
+            val cached = withContext(Dispatchers.IO) {
+                LibraryCacheStore(this@MainActivity).load(treeUri.toString())
+            }
+            if (cached != null && !freshScanDone && app.state.catalog.songs.isEmpty()) {
+                app.state.setCatalog(Catalog(cached))
+            }
+        }
+        rescan(treeUri)
+    }
+
     private fun rescan(treeUri: Uri) {
         scanning = true
         lifecycleScope.launch {
@@ -177,7 +201,11 @@ class MainActivity : ComponentActivity() {
                 LibraryScanner.scan(SafLibrarySource.listFiles(this@MainActivity, treeUri))
             }
             app.state.setCatalog(Catalog(songs))
+            freshScanDone = true
             scanning = false
+            withContext(Dispatchers.IO) {
+                LibraryCacheStore(this@MainActivity).save(treeUri.toString(), songs)
+            }
         }
     }
 
@@ -362,7 +390,7 @@ class MainActivity : ComponentActivity() {
                             )
                         } catch (e: Exception) { /* still usable this session */ }
                         app.prefs.libraryTreeUri = uri.toString()
-                        rescan(uri)
+                        loadLibrary(uri)
                     }
                 }
                 EntryCard("📁 选择歌库文件夹", compact) { picker.launch(null) }
@@ -453,6 +481,7 @@ class MainActivity : ComponentActivity() {
         }
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val screenH = maxHeight
+            val screenW = maxWidth
             Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
                 val nextUp = state.queue.nextUpText()
                 Box(modifier = Modifier.fillMaxWidth().height(if (compact) 26.dp else 36.dp)) {
@@ -461,10 +490,54 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    // --- dancer layer: bottom of the stage, below the lyrics ---
                     val clapElapsed = tickMs - applauseStartMs
                     val showCelebration = celebrating && entry != null &&
                         clapElapsed in 0..(APPLAUSE_MS + 200)
+                    if (state.interludeSeconds > 0) {
+                        // --- interlude: centred text over the whole stage ---
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text("👏", fontSize = (if (compact) 30 else 48).sp)
+                            Text(nextUp ?: "", color = Color.White, fontSize = (if (compact) 18 else 26).sp, fontWeight = FontWeight.Bold)
+                            Text("${state.interludeSeconds} 秒后开始", color = soft, fontSize = (if (compact) 14 else 18).sp)
+                        }
+                    } else {
+                        // --- dancer LEFT of the lyrics, lyrics column gives
+                        //     up the left zone and takes the rest ---
+                        Row(modifier = Modifier.fillMaxSize()) {
+                            if (entry != null && !showCelebration && dancersOn) {
+                                // The dancer belongs to whoever ordered this song.
+                                val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
+                                Box(
+                                    modifier = Modifier.fillMaxHeight().width(screenW * 0.32f),
+                                    contentAlignment = Alignment.BottomCenter,
+                                ) {
+                                    DancerImage(
+                                        dancer = dancer,
+                                        pose = DanceMotion.pose(
+                                            dancer.profile, positionMs, currentBpm,
+                                            phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                                        ),
+                                        frameIndex = PoseCycle.frameIndex(
+                                            positionMs, currentBpm, dancer.frames.size,
+                                            phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                                        ),
+                                        heightDp = screenH * if (compact) 0.62f else 0.70f,
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                                Text(
+                                    entry?.let { "正在唱：${it.song.displayName}（${it.orderedBy}点的）" } ?: "",
+                                    color = soft, fontSize = (if (compact) 12 else 15).sp,
+                                )
+                                LyricsView(lyrics, positionMs, compact, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
                     if (showCelebration) {
                         // Song finished: all six come out and clap together.
                         Row(
@@ -478,38 +551,6 @@ class MainActivity : ComponentActivity() {
                                     heightDp = screenH * if (compact) 0.36f else 0.32f,
                                 )
                             }
-                        }
-                    } else if (entry != null && state.interludeSeconds == 0 && dancersOn) {
-                        // The dancer belongs to whoever ordered this song.
-                        val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
-                        DancerImage(
-                            dancer = dancer,
-                            pose = DanceMotion.pose(
-                                dancer.profile, positionMs, currentBpm,
-                                phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
-                            ),
-                            heightDp = screenH * if (compact) 0.44f else 0.50f,
-                            modifier = Modifier.align(Alignment.BottomCenter),
-                        )
-                    }
-                    // --- foreground: interlude text or lyrics ---
-                    if (state.interludeSeconds > 0) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            Text("👏", fontSize = (if (compact) 30 else 48).sp)
-                            Text(nextUp ?: "", color = Color.White, fontSize = (if (compact) 18 else 26).sp, fontWeight = FontWeight.Bold)
-                            Text("${state.interludeSeconds} 秒后开始", color = soft, fontSize = (if (compact) 14 else 18).sp)
-                        }
-                    } else {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            Text(
-                                entry?.let { "正在唱：${it.song.displayName}（${it.orderedBy}点的）" } ?: "",
-                                color = soft, fontSize = (if (compact) 12 else 15).sp,
-                            )
-                            LyricsView(lyrics, positionMs, compact, modifier = Modifier.weight(1f))
                         }
                     }
                 }
@@ -569,10 +610,18 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun DancerImage(dancer: Dancer, pose: DanceMotion.Pose, heightDp: Dp, modifier: Modifier = Modifier) {
+    private fun DancerImage(
+        dancer: Dancer,
+        pose: DanceMotion.Pose,
+        heightDp: Dp,
+        modifier: Modifier = Modifier,
+        frameIndex: Int = -1,
+    ) {
         val heightPx = with(LocalDensity.current) { heightDp.toPx() }
         Image(
-            painter = painterResource(dancer.resId),
+            painter = painterResource(
+                if (frameIndex in dancer.frames.indices) dancer.frames[frameIndex] else dancer.resId,
+            ),
             contentDescription = dancer.label,
             modifier = modifier
                 .height(heightDp)

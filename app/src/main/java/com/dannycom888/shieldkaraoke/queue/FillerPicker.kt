@@ -43,6 +43,58 @@ object FillerPolicy {
 }
 
 /**
+ * Filler *session* tracking (v1.0.24 — the fix for the user's
+ * "随机唱没画面，没歌词": a filler song was singing while the TV
+ * showed no player screen and no lyrics).
+ *
+ * Root cause: the v1.0.20 code knew only individual filler starts,
+ * never a session. Its screen rule was "move to the player screen
+ * only from Home" on starts it considered entries, and "never
+ * move" on rollovers — so a filler session that began while the TV
+ * sat on Browse/Admin (the queue drained while the host was
+ * browsing), or that simply continued after the host backed out to
+ * Home mid-session, played invisibly forever: audio on, no
+ * singing screen, no lyrics. Playback itself was never forked —
+ * [com.dannycom888.shieldkaraoke.ui.MainActivity.startSong] loads
+ * audio, LRC and dancer for filler and ordered entries alike; only
+ * the screen navigation forked.
+ *
+ * The session model: the FIRST filler song of a session is an
+ * entry edge — it brings the player screen forward from wherever
+ * the TV is. Rollovers inside the session never touch the screen
+ * (a host who backed out on purpose is not yanked back). The
+ * session ends when an ordered song takes the stage, when filler
+ * is switched off mid-session, or when a filler start fails and
+ * the stage falls idle — the next filler start after any of those
+ * is a fresh entry edge.
+ */
+class FillerSession {
+
+    var active: Boolean = false
+        private set
+
+    /** A filler song is starting. Returns true when this start
+     *  opens a new session — the entry edge, the one moment the
+     *  player screen comes forward. */
+    fun onFillerStarted(): Boolean {
+        val edge = !active
+        active = true
+        return edge
+    }
+
+    /** An ordered song took the stage: the filler session is over. */
+    fun onOrderedStarted() {
+        active = false
+    }
+
+    /** Filler stopped (switch turned off, or no filler song could
+     *  be started and the stage fell idle): session over. */
+    fun onStopped() {
+        active = false
+    }
+}
+
+/**
  * Random song picker with a no-repeat window: a song just played
  * cannot come back until at least [RECENT_WINDOW] other songs have
  * played (the window shrinks to catalog size − 1 for small

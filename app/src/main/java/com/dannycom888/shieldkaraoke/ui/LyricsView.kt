@@ -44,8 +44,12 @@ private val dimColor = Color(0xFF8FA3C8)
 @Composable
 fun LyricsView(lines: List<LyricLine>, positionMs: Long, compact: Boolean, modifier: Modifier = Modifier) {
     val current = LrcParser.currentIndex(lines, positionMs)
-    val currentSize = if (compact) 27 else 40
-    val sideSize = if (compact) 17 else 25
+    // v1.0.24: a touch larger now the stage is wider (the queue
+    // panel floats instead of taking a column): current line
+    // 27/40 -> 28/42sp, side lines 17/25 -> 18/26sp. Line spacing
+    // and the sweep rendering are untouched.
+    val currentSize = if (compact) 28 else 42
+    val sideSize = if (compact) 18 else 26
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         for (offset in -2..3) {
             val idx = current + offset

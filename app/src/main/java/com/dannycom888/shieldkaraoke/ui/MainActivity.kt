@@ -90,6 +90,7 @@ import com.dannycom888.shieldkaraoke.lyrics.LyricLine
 import com.dannycom888.shieldkaraoke.queue.EntrySource
 import com.dannycom888.shieldkaraoke.queue.FillerPicker
 import com.dannycom888.shieldkaraoke.queue.FillerPolicy
+import com.dannycom888.shieldkaraoke.queue.FillerSession
 import com.dannycom888.shieldkaraoke.queue.QueueEntry
 import com.dannycom888.shieldkaraoke.state.DancerNames
 import kotlinx.coroutines.Dispatchers
@@ -144,6 +145,10 @@ class MainActivity : ComponentActivity() {
     /** Idle filler playback switch (v1.0.20), persisted in prefs. */
     private var fillerOn by mutableStateOf(true)
     private val fillerPicker = FillerPicker()
+
+    /** Filler session tracking (v1.0.24): only the first filler
+     *  song of a session brings the player screen forward. */
+    private val fillerSession = FillerSession()
     private var currentBpm by mutableStateOf(DEFAULT_BPM)
     private var celebrating by mutableStateOf(false)
     private var applauseStartMs by mutableStateOf(0L)
@@ -315,6 +320,11 @@ class MainActivity : ComponentActivity() {
 
     private fun startSong(entry: QueueEntry) {
         app.state.nowPlaying = entry
+        // An ordered song taking the stage ends any filler session
+        // (v1.0.24): the next filler start after it drains is a
+        // fresh session-entry edge that brings the player screen
+        // forward again.
+        if (!entry.isFiller) fillerSession.onOrderedStarted()
         // Filler songs were sung by nobody: they stay out of the
         // "recently sung" list just as they stay out of the queue.
         if (!entry.isFiller) app.prefs.pushRecent(entry.song.id)
@@ -384,14 +394,23 @@ class MainActivity : ComponentActivity() {
     /**
      * Start a filler song if the policy says the stage is free for
      * one. Returns true when a song was started. Called when the
-     * library becomes ready, when the real queue drains, and when
-     * the filler switch is turned on. With [moveToPlayer] the start
-     * also brings the player screen forward from Home (the launch
-     * case); without it the song starts behind whatever screen the
-     * TV user is on — a filler song rolling over must never yank
-     * them out of Home or Browse.
+     * library becomes ready, when the real queue drains (naturally
+     * or by quit), and when the filler switch is turned on.
+     *
+     * Screen rule (v1.0.24): the first filler song of a session —
+     * the [FillerSession] entry edge — brings the player screen
+     * forward from wherever the TV is (Home, Browse, Admin), so a
+     * filler session can never sing invisibly behind another
+     * screen. Rollovers inside the session never touch the screen:
+     * a host who backed out to Home on purpose stays there, and
+     * opens the player screen (the home screen's now-singing card)
+     * to find the filler song's full picture — lyrics, dancer,
+     * title — because [startSong] loaded it exactly like an
+     * ordered song. (Before v1.0.24 the entry edge fired only from
+     * Home and rollovers never fired at all, which is how filler
+     * ended up singing with no picture and no lyrics.)
      */
-    private fun maybeStartFiller(moveToPlayer: Boolean = true): Boolean {
+    private fun maybeStartFiller(): Boolean {
         val canStart = FillerPolicy.shouldAutoStart(
             enabled = fillerOn,
             catalogReady = app.state.catalog.songs.isNotEmpty(),
@@ -401,7 +420,7 @@ class MainActivity : ComponentActivity() {
         if (!canStart) return false
         val entry = pickFillerEntry() ?: return false
         startSong(entry)
-        if (moveToPlayer && screen == Screen.HOME) screen = Screen.PLAYER
+        if (fillerSession.onFillerStarted()) screen = Screen.PLAYER
         return true
     }
 
@@ -410,8 +429,11 @@ class MainActivity : ComponentActivity() {
      *  idle home screen when filler is off / the library is empty. */
     private fun startNextFillerOrHome() {
         app.state.nowPlaying = null
-        if (!maybeStartFiller(moveToPlayer = false) && screen == Screen.PLAYER) {
-            screen = Screen.HOME
+        if (!maybeStartFiller()) {
+            // No next filler could start: the session is over, and
+            // the stage falls back to the idle home screen.
+            fillerSession.onStopped()
+            if (screen == Screen.PLAYER) screen = Screen.HOME
         }
     }
 
@@ -430,6 +452,7 @@ class MainActivity : ComponentActivity() {
                 celebrationToken++
                 app.state.interludeSeconds = 0
                 app.state.nowPlaying = null
+                fillerSession.onStopped()
                 screen = Screen.HOME
             }
         } else {
@@ -546,7 +569,12 @@ class MainActivity : ComponentActivity() {
         val next = app.state.advanceAfterQuit()
         if (next == null) {
             app.state.nowPlaying = null
-            screen = Screen.HOME
+            // The stage is idle: the filler takes over (v1.0.24 —
+            // quitting the last ordered song used to strand the TV
+            // on a silent home screen even with the filler switch
+            // on, unlike the natural-end drain). Home only when no
+            // filler can start (switch off / library empty).
+            if (!maybeStartFiller()) screen = Screen.HOME
         } else {
             startSong(next)
         }
@@ -980,8 +1008,8 @@ class MainActivity : ComponentActivity() {
                         Text(nextUp, color = gold, fontSize = (if (compact) 14 else 19).sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                  Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                  Box(modifier = Modifier.fillMaxSize()) {
                     val clapElapsed = tickMs - applauseStartMs
                     // The v1.0.23 handover ceremony owns the stage
                     // while it runs; the plain applause celebration
@@ -1029,7 +1057,7 @@ class MainActivity : ComponentActivity() {
                                 // The dancer belongs to whoever ordered this song.
                                 val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
                                 Box(
-                                    modifier = Modifier.fillMaxHeight().width(screenW * 0.32f),
+                                    modifier = Modifier.fillMaxHeight().width(screenW * 0.36f),
                                     contentAlignment = Alignment.BottomCenter,
                                 ) {
                                     DancerImage(
@@ -1124,7 +1152,11 @@ class MainActivity : ComponentActivity() {
                                             null
                                         },
                                         invite = dancerPhase == DancerActivity.Phase.INVITING,
-                                        heightDp = screenH * if (compact) 0.62f else 0.70f,
+                                        // v1.0.24: the dancer stands taller
+                                        // (was 0.62/0.70) — the stage
+                                        // gives the space the narrower
+                                        // floating queue panel freed up.
+                                        heightDp = screenH * if (compact) 0.72f else 0.80f,
                                     )
                                 }
                             }
@@ -1158,15 +1190,22 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                   }
-                    // --- queue panel: right side, under the QR card.
-                    // The stage (dancer + lyrics) keeps the rest; the
-                    // dancer's own 32%-of-screen zone is untouched,
-                    // only the lyrics column narrows. ---
+                    // --- queue panel: a floating, semi-transparent
+                    // overlay on the stage's right edge, under the QR
+                    // card (v1.0.24 — until now it was a fixed 23%
+                    // column stealing width from the lyrics for the
+                    // whole song; as an overlay the stage keeps its
+                    // full width and the panel just floats over the
+                    // lyrics' right edge, narrower at 19%). Focus and
+                    // actions are unchanged: explicit requesters and
+                    // the control bar's D-pad Up handler never cared
+                    // where in the tree the panel sits. ---
                     if (panelVisible) {
+                      Box(modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight()) {
                         QueuePanel(
                             rows = panelRows,
                             compact = compact,
-                            width = screenW * 0.23f,
+                            width = screenW * 0.19f,
                             topPad = if (qrPresent) (if (compact) 70.dp else 88.dp) else 0.dp,
                             actionIndex = actionIndex,
                             rowRequesters = rowRequesters,
@@ -1203,6 +1242,7 @@ class MainActivity : ComponentActivity() {
                             },
                             onPanelFocus = { panelFocused = true },
                         )
+                      }
                     }
                 }
                 // --- diagnostics: always visible. A real failure's
@@ -1357,7 +1397,7 @@ class MainActivity : ComponentActivity() {
         Column(
             modifier = Modifier.width(width).fillMaxHeight()
                 .padding(start = if (compact) 8.dp else 12.dp, top = topPad)
-                .background(cardBg.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
+                .background(cardBg.copy(alpha = 0.65f), RoundedCornerShape(10.dp))
                 .padding(if (compact) 8.dp else 10.dp),
         ) {
             Text(
@@ -1743,7 +1783,10 @@ class MainActivity : ComponentActivity() {
                 .focusable()
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
                 .clickable { onClick() }
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                // v1.0.24: chips sit a touch tighter (vertical
+                // 6dp -> 4dp) so the always-on control bar takes
+                // less of the stage's height; labels stay 13sp.
+                .padding(horizontal = 12.dp, vertical = 4.dp),
         ) {
             Text(label, color = if (selected) Color.Black else Color.White, fontSize = 13.sp)
         }

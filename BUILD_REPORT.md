@@ -828,3 +828,7 @@
 
 - **新增 13 个**：`FillerPickerTest` 10 个（空曲库无歌、单曲库恒放、双曲库严格交替、20 首曲库 200 连抽窗口内零重复、5 首曲库窗口缩至 4 且无饿死、reset 清历史；策略门：四道门缺一不可、鼓掌只给 ORDERED、只有 FILLER 让路、QueueEntry 默认 ORDERED）；`KaraokeStateTest` 2 个（垫场在播时来单经 onShouldStart 立即开唱且队列无垫场残影；真人歌在唱时点歌只排队不重复开唱）；`QueuePanelModelTest` +1（垫场当前行 isFiller 标记与可见性）；`StringTablesTest` 既有对等测试自动覆盖新 key，另补新文案渲染断言。
 - 待用户真机验：① 冷启动 App、歌库就绪后应自动开始随机放歌并切到播放页；② 垫场中手机点一首中文歌 → 垫场歌立刻被切、真人歌开唱，回执照旧；③ 垫场歌放完不鼓掌、直接接下一首随机，面板当前行标「随机」、手机已点歌单里始终看不到垫场歌；④ 真人歌唱完 → 鼓掌 → 队列空了接随机；⑤ 控制条关掉「随机」→ 垫场歌停、回首页，重开 App 不自动播；再打开开关 → 空闲时立即开始垫场；⑥ 连放十几首垫场，留意不应短期内重歌。
+
+### 发布
+
+- GitHub 发布：代码提交 `8521130` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.20 （附件 `MySing-1.0.20.apk`）。API 回读校验：asset size `19058643`、digest `sha256:ceccca8f8e6ec52a5ae1ec4ce67e1a0358347b0502d0d8ebe4a844efa3d7eb31`，与本地逐字一致。

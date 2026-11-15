@@ -319,3 +319,43 @@
 ### 发布
 
 - GitHub 发布：提交 `51c2a08` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.7 （附件 `MySing-1.0.7.apk`）。API 回读校验：asset size `17733098`、digest `sha256:3b20d14c3f68e85039fdf6c625eec3a6308ae451ac722cb9d945c30eda58e24f`，与本地逐字一致。
+
+## v1.0.8 防呆修复：旧点歌页静默失败 + 服务启动健壮性 + 屏幕常亮（2026-11-15）
+
+构建日期：2026-11-15（America/New_York）。本版专治一类已确诊的“静默失败”，功能行为不变。根因：用户手机上留着旧会话的点歌页，在电视（试唱手机）上点歌后电视无反应、手机也无任何提示；关掉旧页、重新扫码开新页立即恢复——断点在旧页面一侧，而旧版页面所有 fetch 都没有失败处理，请求发不出去就被静默吞掉，电视端自然“什么都没有，停在主页不动”。
+
+| 项 | 值 |
+|---|---|
+| 产物 | `~/workspace/shield-karaoke/MySing-1.0.8.apk` |
+| 大小 | 17,733,106 字节 |
+| SHA-256 | `7866a776853ba382cf88d8fbaea1b222f3cc0faa7bc61141209e9982e102a996`（前缀 `7866a776`） |
+| versionName / versionCode | 1.0.8 / 9（aapt badging 实测） |
+| 签名 | 同一把共享 keystore，证书 SHA-256 `1336ee0aefc229c3f0e6c025060ec0267825dbfc83f8799c3981dd74ea2befcc`，与历版逐字一致，可覆盖安装 |
+| 单元测试 | `:app:testDebugUnitTest` **118 个，0 失败**（111 旧 + BootSession 5 + PhonePage 防呆 2；常亮一项无可测纯逻辑，未硬凑测试） |
+
+### 会话标识防旧页（boot id）
+
+- 新增纯函数 `server/BootSession.kt`（+5 个单测）：`newId(nowMs, randomBits)` 以启动毫秒 + 随机数生成 base36 短串（只含 `[0-9a-z-]`，可安全裸嵌进 JS 字符串/JSON/URL）；`isStale(pageBoot, currentBoot)` 判定旧页——页面 id 为空/未知时**不判旧**（太老的页面根本没有比对脚本，判旧也只会造成刷新循环）。
+- `KaraokeHttpServer` 在构造时（即每次 App 启动）生成 `bootId`；点歌页 HTML 嵌入门时 id（`var bootId = '…'`）；`/api/queue` 响应带上当前 `boot`。
+- 手机页沿用现有 5 秒 `loadQueue` 轮询：每次比对响应里的 boot 与页面内嵌 id，不一致（=电视 App 已重启/换版）先在 `#msg` 显示「电视已重启，正在刷新页面…」，800ms 后 `location.reload()` 自愈成新页面（带 `reloading` 一次性闩，不会循环刷新）。页面的 JS 比对与 `BootSession.isStale` 同口径。
+
+### 发送失败要出字
+
+- PhonePage 全部 6 处 fetch（歌曲加载、点歌 order、收藏 fav、删歌 remove、选伴舞 dancer、队列轮询 queue）统一补 `.catch(netErr)`：网络级失败时在页面 `#msg` 区显示「发送失败：连不上电视，请确认同一个 WiFi，或关掉页面重新扫码」。此前任何一处失败都是无声无息——这正是本次故障“什么都没有”的直接来源。HTTP 层面的业务错误（400/404）原本就有 `d.error` 文案，不受影响。
+
+### HTML 禁缓存
+
+- 最终采用**真实 HTTP 响应头**（未用 meta 兜底）：`handle()` 写 socket 时对 `GET /` 与 `/index.html` 的响应追加 `Cache-Control: no-store`。现有 Triple(status, contentType, body) 路由结构未动——响应头本来就写在 handle() 里，按路径判定即可，不需要为加一个头改结构。杜绝手机浏览器把旧版页面从 HTTP 缓存里端出来。
+
+### 服务启动健壮性
+
+- `KaraokeHttpServer.start()` 改为先建未绑定 `ServerSocket`、开 `reuseAddress` 再 `bind`；bind 失败隔 500ms 重试，最多 5 次（常量 `MAX_BIND_ATTEMPTS` / `BIND_RETRY_DELAY_MS`）。场景：App 重启/覆盖安装时旧进程刚死、端口短暂被占，旧版一次失败就整场无声死亡。
+- 最终仍失败（或 accept 循环中途死亡）时，状态经 `@Volatile alive / lastError` + `statusListener` 暴露到 App 层：`KaraokeApp` 把它镜像为 Compose 状态 `serverAlive / serverError`，**显示位置：电视首页标题下方的状态区**——歌库状态行下面追加一行橙红字「⚠ 点歌服务未启动，手机暂时扫不了码（原因）」，服务恢复/绑定成功即自动消失。未新造 UI。
+
+### 屏幕常亮（用户追加）
+
+- 用户问电视（试唱手机）怎么保持常亮——此前 App 没有任何 KEEP_SCREEN_ON 处理，只能跟系统超时走。`MainActivity.onCreate` 加 `window.addFlags(FLAG_KEEP_SCREEN_ON)`：App 在前台期间屏幕常亮，退到后台/关 App 即恢复系统行为。**不加设置开关**（点歌机就该开着常亮，简单防呆），manifest 无需新权限（该 flag 不是权限）。
+
+### 发布
+
+- GitHub 发布：提交 `deba1e2` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.8 （附件 `MySing-1.0.8.apk`）。API 回读校验：asset size `17733106`、digest `sha256:7866a776853ba382cf88d8fbaea1b222f3cc0faa7bc61141209e9982e102a996`，与本地逐字一致。

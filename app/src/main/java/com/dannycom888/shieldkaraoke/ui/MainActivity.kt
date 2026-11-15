@@ -5,6 +5,7 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -121,6 +122,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A karaoke box must not go dark mid-party (v1.0.8): keep
+        // the screen on for as long as the app is in the
+        // foreground. No setting for this — it is simply what a
+        // song-ordering TV does — and the flag is not a permission;
+        // leaving the app restores the system's own timeout.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         app = application as KaraokeApp
         dancersOn = app.prefs.dancersEnabled
         controller = PlayerController(this)
@@ -373,6 +380,13 @@ class MainActivity : ComponentActivity() {
                         },
                         color = soft, fontSize = (if (compact) 13 else 17).sp,
                     )
+                    if (!app.serverAlive) {
+                        Text(
+                            "⚠ 点歌服务未启动，手机暂时扫不了码" +
+                                (app.serverError?.let { "（$it）" } ?: ""),
+                            color = Color(0xFFFF7043), fontSize = (if (compact) 12 else 15).sp,
+                        )
+                    }
                 }
                 if (ip != null) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {

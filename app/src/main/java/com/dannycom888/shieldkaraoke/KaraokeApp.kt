@@ -3,6 +3,9 @@ package com.dannycom888.shieldkaraoke
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.dannycom888.shieldkaraoke.server.DancerImages
 import com.dannycom888.shieldkaraoke.server.KaraokeHttpServer
 import com.dannycom888.shieldkaraoke.state.KaraokeState
@@ -23,6 +26,15 @@ class KaraokeApp : Application() {
 
     private var server: KaraokeHttpServer? = null
 
+    /** Phone-ordering service status, mirrored from the HTTP
+     *  server's status listener into Compose state so the home
+     *  screen can say out loud when phone ordering is down
+     *  (v1.0.8: a bind failure must never be a silent death). */
+    var serverAlive by mutableStateOf(false)
+        private set
+    var serverError: String? by mutableStateOf(null)
+        private set
+
     override fun onCreate() {
         super.onCreate()
         state = KaraokeState()
@@ -39,7 +51,13 @@ class KaraokeApp : Application() {
                 state.bump() // TV player screen re-reads the current song's dancer live
             },
             dancerImageProvider = { key -> dancerImage(key) },
-        ).also { it.start() }
+        ).also { srv ->
+            srv.statusListener = { alive, error ->
+                serverAlive = alive
+                serverError = error
+            }
+            srv.start()
+        }
     }
 
     /** Portrait bytes for the phone page's dancer picker, decoded

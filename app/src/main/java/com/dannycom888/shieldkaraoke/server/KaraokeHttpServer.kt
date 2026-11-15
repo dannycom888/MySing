@@ -7,9 +7,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URLDecoder
 import kotlin.concurrent.thread
+import kotlin.random.Random
 
 /**
  * The phone-ordering web service: a tiny HTTP server on the LAN.
@@ -29,6 +31,44 @@ class KaraokeHttpServer(
 ) {
     companion object {
         const val DEFAULT_PORT = 8931
+
+        /** Bind attempts before giving up (v1.0.8): an app restart
+         *  or upgrade can leave the port briefly held by the dying
+         *  previous process, and one failed bind used to kill the
+         *  phone service for the whole session — silently. */
+        const val MAX_BIND_ATTEMPTS = 5
+        const val BIND_RETRY_DELAY_MS = 500L
+    }
+
+    /** Identity of this server session, minted once per start of
+     *  the app. Served pages carry it and /api/queue echoes it, so
+     *  a page left over from a previous session detects the
+     *  mismatch and reloads itself (see [BootSession]). */
+    val bootId: String = BootSession.newId(System.currentTimeMillis(), Random.nextLong())
+
+    /** True once the socket is bound and accepting. */
+    @Volatile
+    var alive: Boolean = false
+        private set
+
+    /** Why the server is not alive, when it isn't (bind failure
+     *  after all retries, or the accept loop dying). Surfaced on
+     *  the TV home screen — never a silent death again. */
+    @Volatile
+    var lastError: String? = null
+        private set
+
+    /** Notified on every alive/error transition so the app layer
+     *  can mirror the status into UI state. */
+    @Volatile
+    var statusListener: ((alive: Boolean, error: String?) -> Unit)? = null
+
+    private fun publishStatus(isAlive: Boolean, error: String?) {
+        alive = isAlive
+        lastError = error
+        try {
+            statusListener?.invoke(isAlive, error)
+        } catch (e: Exception) { /* a listener must never kill the server */ }
     }
 
     @Volatile
@@ -39,15 +79,40 @@ class KaraokeHttpServer(
         if (running) return
         running = true
         thread(name = "karaoke-http", isDaemon = true) {
+            var server: ServerSocket? = null
+            var attempt = 0
+            while (server == null && running && attempt < MAX_BIND_ATTEMPTS) {
+                attempt++
+                try {
+                    val s = ServerSocket()
+                    s.reuseAddress = true
+                    s.bind(InetSocketAddress(port))
+                    server = s
+                } catch (e: Exception) {
+                    publishStatus(false, "端口 $port 被占用：${e.message ?: e.javaClass.simpleName}")
+                    if (attempt < MAX_BIND_ATTEMPTS) {
+                        try { Thread.sleep(BIND_RETRY_DELAY_MS) } catch (ie: InterruptedException) { break }
+                    }
+                }
+            }
+            if (server == null) {
+                // All retries spent: stay visibly down (lastError is
+                // already published) instead of dying in silence.
+                return@thread
+            }
+            socket = server
+            publishStatus(true, null)
             try {
-                val server = ServerSocket(port)
-                socket = server
                 while (running) {
                     val client = server.accept()
                     thread(isDaemon = true) { handle(client) }
                 }
             } catch (e: Exception) {
-                // Port busy or socket closed: the TV UI still works.
+                if (running) {
+                    publishStatus(false, "点歌服务中断：${e.message ?: e.javaClass.simpleName}")
+                }
+            } finally {
+                if (!running) publishStatus(false, lastError)
             }
         }
     }
@@ -55,6 +120,7 @@ class KaraokeHttpServer(
     fun stop() {
         running = false
         try { socket?.close() } catch (_: Exception) {}
+        publishStatus(false, lastError)
     }
 
     private fun handle(client: java.net.Socket) {
@@ -113,7 +179,15 @@ class KaraokeHttpServer(
             val out = sock.getOutputStream()
             val bytes = response.toByteArray(Charsets.UTF_8)
             val statusText = when (status) { 200 -> "OK"; 400 -> "Bad Request"; 404 -> "Not Found"; else -> "Error" }
-            out.write("HTTP/1.1 $status $statusText\r\nContent-Type: $contentType\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray())
+            // The ordering page must never come from a phone's HTTP
+            // cache: a cached copy is exactly the stale page this
+            // release defends against (old boot id, old script).
+            val cacheHeader = if (method == "GET" && (path == "/" || path == "/index.html")) {
+                "Cache-Control: no-store\r\n"
+            } else {
+                ""
+            }
+            out.write("HTTP/1.1 $status $statusText\r\nContent-Type: $contentType\r\nContent-Length: ${bytes.size}\r\n${cacheHeader}Connection: close\r\n\r\n".toByteArray())
             out.write(bytes)
             out.flush()
         }
@@ -133,7 +207,7 @@ class KaraokeHttpServer(
     ): Triple<Int, String, String> {
         return when {
             method == "GET" && (path == "/" || path == "/index.html") ->
-                Triple(200, "text/html; charset=utf-8", PhonePage.html())
+                Triple(200, "text/html; charset=utf-8", PhonePage.html(bootId))
 
             method == "GET" && path == "/api/songs" -> {
                 val lang = when (query["lang"]) {
@@ -171,6 +245,7 @@ class KaraokeHttpServer(
                     })
                 }
                 obj.put("waiting", arr)
+                obj.put("boot", bootId)
                 obj.put("nextUp", state.queue.nextUpText() ?: "")
                 obj.put("favorites", JSONArray(favoritesProvider().toList()))
                 obj.put("recents", JSONArray(recentsProvider()))

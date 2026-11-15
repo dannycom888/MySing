@@ -53,6 +53,30 @@ class PhonePageTest {
     }
 
     @Test
+    fun pageCarriesBootIdAndReloadsWhenTvRestarts() {
+        // v1.0.8 stale-page defence: the served page embeds the
+        // server's boot id, the queue poll compares it against the
+        // live one in every /api/queue response, and a mismatch
+        // reloads the page instead of silently swallowing orders.
+        val booted = PhonePage.html("boot-xyz789")
+        assertTrue(booted.contains("var bootId = 'boot-xyz789'"))
+        assertTrue(booted.contains("d.boot !== bootId"))
+        assertTrue(booted.contains("电视已重启，正在刷新页面…"))
+        assertTrue(booted.contains("location.reload()"))
+    }
+
+    @Test
+    fun noFetchFailsSilently() {
+        // Every request the page makes (songs, order, fav, remove,
+        // dancer, queue poll) ends in the shared failure handler,
+        // which puts a plain-language reason in the #msg area —
+        // v1.0.7 and earlier swallowed network failures whole.
+        assertTrue(html.contains("function netErr()"))
+        assertTrue(html.contains("发送失败：连不上电视，请确认同一个 WiFi，或关掉页面重新扫码"))
+        assertTrue(html.split(".catch(netErr)").size - 1 >= 6)
+    }
+
+    @Test
     fun dancerPickerShowsPortraitsNotJustNames() {
         // Every dancer is an image card fed by the portrait route,
         // so guests can recognise who is who (text-only chips were

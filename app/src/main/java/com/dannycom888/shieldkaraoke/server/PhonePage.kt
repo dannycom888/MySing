@@ -3,7 +3,15 @@ package com.dannycom888.shieldkaraoke.server
 /** The single-file phone ordering page served by [KaraokeHttpServer]. */
 object PhonePage {
 
-    fun html(): String = """<!DOCTYPE html>
+    /**
+     * [bootId] is the serving server's [BootSession] id, embedded
+     * into the page so its queue poll can spot a page left over
+     * from a previous TV-app session and reload itself (v1.0.8).
+     * The default keeps plain `html()` calls (tests, previews)
+     * working; an empty id disables the staleness check, matching
+     * [BootSession.isStale]'s "unknown is not stale" rule.
+     */
+    fun html(bootId: String = ""): String = """<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MySing 点歌</title>
@@ -75,6 +83,9 @@ var name = localStorage.getItem('sk_name') || '';
 var lang='', gender='', mode='all', favs=[], recents=[];
 var myDancer = localStorage.getItem('sk_dancer') || 'modern';
 var qOpen = true, qSig = '';
+var bootId = '$bootId';
+var reloading = false;
+function netErr(){ document.getElementById('msg').textContent = '发送失败：连不上电视，请确认同一个 WiFi，或关掉页面重新扫码'; }
 function paintDancers(){ document.querySelectorAll('[data-who]').forEach(function(c){
   c.classList.toggle('on', c.getAttribute('data-who')===myDancer); }); }
 function show(){ document.getElementById('nameGate').classList.toggle('hidden', !!name);
@@ -105,7 +116,7 @@ function loadSongs(){
       var wrap=document.createElement('span'); wrap.appendChild(f); wrap.appendChild(b);
       row.appendChild(wrap); el.appendChild(row);
     });
-  });
+  }).catch(netErr);
 }
 function order(id){
   fetch('/api/order',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -113,11 +124,11 @@ function order(id){
     var m = d.message || d.error || '';
     if(d.duplicate) m += '（提醒：这首已经在队列里了）';
     document.getElementById('msg').textContent = m; loadQueue();
-  });
+  }).catch(netErr);
 }
 function toggleFav(id, fav){
   fetch('/api/fav',{method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({id:id, fav:fav})}).then(function(){ loadQueue(); });
+    body: JSON.stringify({id:id, fav:fav})}).then(function(){ loadQueue(); }).catch(netErr);
 }
 function paintQPanel(){
   document.getElementById('qlist').style.display = qOpen ? '' : 'none';
@@ -159,7 +170,7 @@ function renderQueue(d){
     row.appendChild(document.createTextNode(' '));
     var del = document.createElement('button'); del.textContent = '删'; del.className = 'del';
     del.onclick = function(){ fetch('/api/remove',{method:'POST',headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({index:i})}).then(loadQueue); };
+      body: JSON.stringify({index:i})}).then(loadQueue).catch(netErr); };
     row.appendChild(del); el.appendChild(row);
   });
   if(!d.current && !waiting.length) el.innerHTML = '<div class="small">还没有人点歌</div>';
@@ -167,12 +178,18 @@ function renderQueue(d){
 }
 function loadQueue(){
   fetch('/api/queue').then(function(r){return r.json()}).then(function(d){
+    if(d.boot && bootId && d.boot !== bootId && !reloading){
+      reloading = true;
+      document.getElementById('msg').textContent = '电视已重启，正在刷新页面…';
+      setTimeout(function(){ location.reload(); }, 800);
+      return;
+    }
     favs = d.favorites||[]; recents = d.recents||[];
     var ds = d.dancers||{};
     if(ds[name] && ds[name]!==myDancer){ myDancer=ds[name]; localStorage.setItem('sk_dancer', myDancer); }
     paintDancers();
     renderQueue(d);
-  });
+  }).catch(netErr);
 }
 document.getElementById('q').addEventListener('input', function(){ mode='all'; loadSongs(); });
 document.querySelectorAll('[data-lang]').forEach(function(c){ c.onclick=function(){
@@ -184,7 +201,7 @@ document.querySelectorAll('[data-g]').forEach(function(c){ c.onclick=function(){
 document.querySelectorAll('[data-who]').forEach(function(c){ c.onclick=function(){
   myDancer=c.getAttribute('data-who'); localStorage.setItem('sk_dancer', myDancer); paintDancers();
   fetch('/api/dancer',{method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({name:name, who:myDancer})});
+    body: JSON.stringify({name:name, who:myDancer})}).catch(netErr);
 }; });
 document.getElementById('favTab').onclick=function(){ mode='fav'; loadSongs(); };
 document.getElementById('recentTab').onclick=function(){ mode='recent'; loadSongs(); };

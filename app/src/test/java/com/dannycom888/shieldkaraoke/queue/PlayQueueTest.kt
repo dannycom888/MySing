@@ -97,4 +97,62 @@ class PlayQueueTest {
         assertEquals("1", q.current?.song?.id)
         assertNull(q.removeWaitingAt(5))
     }
+
+    // --- v1.0.19: TV remote promote （下一首唱） ---
+
+    @Test
+    fun `promote moves a waiting song to the front, others keep their order`() {
+        val q = PlayQueue()
+        q.add(song("1"), "a"); q.add(song("2"), "b"); q.add(song("3"), "c"); q.add(song("4"), "d")
+        val promoted = q.promoteWaitingAt(2)
+        assertEquals("4", promoted?.song?.id)
+        assertEquals(listOf("4", "2", "3"), q.waitingList.map { it.song.id })
+        assertEquals("1", q.current?.song?.id) // current never touched
+    }
+
+    @Test
+    fun `promote the song already first is a no-op`() {
+        val q = PlayQueue()
+        q.add(song("1"), "a"); q.add(song("2"), "b"); q.add(song("3"), "c")
+        val promoted = q.promoteWaitingAt(0)
+        assertEquals("2", promoted?.song?.id)
+        assertEquals(listOf("2", "3"), q.waitingList.map { it.song.id })
+    }
+
+    @Test
+    fun `promote out of range changes nothing`() {
+        val q = PlayQueue()
+        q.add(song("1"), "a"); q.add(song("2"), "b")
+        assertNull(q.promoteWaitingAt(1))
+        assertNull(q.promoteWaitingAt(-1))
+        assertEquals(listOf("2"), q.waitingList.map { it.song.id })
+        // And on a fully idle queue.
+        val idle = PlayQueue()
+        assertNull(idle.promoteWaitingAt(0))
+        assertTrue(idle.isIdle)
+    }
+
+    @Test
+    fun `promoted song is what the banner and the advance see`() {
+        val q = PlayQueue()
+        q.add(song("1", "周杰伦", "晴天"), "小明")
+        q.add(song("2", "凤凰传奇", "最炫民族风"), "小红")
+        q.add(song("3", "张信哲", "爱如潮水"), "小明")
+        q.promoteWaitingAt(1)
+        assertEquals("下一首：小明点的 张信哲 - 爱如潮水", q.nextUpText())
+        assertEquals("3", q.finishCurrent()?.song?.id)
+        assertEquals(listOf("2"), q.waitingList.map { it.song.id })
+    }
+
+    @Test
+    fun `remove then promote keeps the remaining order straight`() {
+        val q = PlayQueue()
+        q.add(song("1"), "a"); q.add(song("2"), "b"); q.add(song("3"), "c"); q.add(song("4"), "d")
+        q.removeWaitingAt(0) // drop "2" — indices shift
+        assertEquals(listOf("3", "4"), q.waitingList.map { it.song.id })
+        q.promoteWaitingAt(1) // "4" to the front
+        assertEquals(listOf("4", "3"), q.waitingList.map { it.song.id })
+        // Positions renumber cleanly: the new front has nothing waiting ahead.
+        assertEquals(1, q.aheadCountFor(0))
+    }
 }

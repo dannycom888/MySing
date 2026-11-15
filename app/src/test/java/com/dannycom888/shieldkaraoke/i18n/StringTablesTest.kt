@@ -58,6 +58,15 @@ class StringTablesTest {
         )
         assertEquals("电视", TvStrings.get(UiLang.ZH, TvKey.TV_ORDERER))
         assertEquals("TV", TvStrings.get(UiLang.EN, TvKey.TV_ORDERER))
+        // v1.0.19 queue panel wording.
+        assertEquals("已点歌单", TvStrings.get(UiLang.ZH, TvKey.QUEUE_PANEL_TITLE))
+        assertEquals("Queue", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_TITLE))
+        assertEquals("下一首唱", TvStrings.get(UiLang.ZH, TvKey.QUEUE_PANEL_NEXT))
+        assertEquals("Play next", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_NEXT))
+        assertEquals("删除", TvStrings.get(UiLang.ZH, TvKey.QUEUE_PANEL_DELETE))
+        assertEquals("Delete", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_DELETE))
+        assertEquals("暂无排队", TvStrings.get(UiLang.ZH, TvKey.QUEUE_PANEL_NO_WAITING))
+        assertEquals("Nothing queued", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_NO_WAITING))
     }
 
     @Test

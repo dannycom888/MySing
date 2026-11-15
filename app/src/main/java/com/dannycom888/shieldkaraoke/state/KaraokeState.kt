@@ -60,6 +60,15 @@ class KaraokeState {
         onQueueChanged?.invoke()
     }
 
+    /** TV queue panel's "下一首唱" (v1.0.19): promote a waiting song
+     *  to the front. TV UI only — the phone server never calls this. */
+    @Synchronized
+    fun promoteWaitingAt(index: Int) {
+        queue.promoteWaitingAt(index)
+        bump()
+        onQueueChanged?.invoke()
+    }
+
     @Synchronized
     fun clearWaiting() {
         queue.clearWaiting()

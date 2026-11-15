@@ -19,10 +19,17 @@ data class AddResult(
 )
 
 /**
- * The shared KTV queue. The one inviolable rule: ordering a song only
- * ever appends — it never interrupts the song being sung. The current
- * song ends only by finishing (applause, auto-advance) or by the
- * singer pressing 不唱了 (no applause).
+ * The shared KTV queue. Ordering a song — from a phone or the TV
+ * browse screen — only ever appends; it never interrupts the song
+ * being sung. The current song ends only by finishing (applause,
+ * auto-advance) or by the singer pressing 不唱了 (no applause).
+ *
+ * v1.0.19 (the user's call, 2026-11-15, replacing the old
+ * phone-only-queue / no-promote rules): the TV remote holder manages
+ * the waiting list from the on-screen queue panel — delete any
+ * waiting song, or promote one to the front ("下一首唱"). Promote is
+ * a TV-remote privilege only: the phone API has no such endpoint.
+ * Neither operation ever touches the current song.
  */
 class PlayQueue {
 
@@ -81,6 +88,23 @@ class PlayQueue {
     @Synchronized
     fun removeWaitingAt(index: Int): QueueEntry? =
         if (index in waiting.indices) waiting.removeAt(index) else null
+
+    /**
+     * Move the waiting song at [index] to the front of the waiting
+     * list — the TV panel's "下一首唱" (v1.0.19): once the current
+     * song ends, this one sings. The current song is untouched and
+     * every other waiting song keeps its relative order. Promoting
+     * the song already at the front is a no-op that returns it.
+     * Out-of-range indices return null and change nothing.
+     */
+    @Synchronized
+    fun promoteWaitingAt(index: Int): QueueEntry? {
+        if (index !in waiting.indices) return null
+        if (index == 0) return waiting[0]
+        val entry = waiting.removeAt(index)
+        waiting.add(0, entry)
+        return entry
+    }
 
     @Synchronized
     fun clearWaiting() = waiting.clear()

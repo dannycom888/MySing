@@ -42,11 +42,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -91,6 +94,17 @@ import kotlinx.coroutines.withContext
 private enum class Screen { HOME, BROWSE, PLAYER }
 private enum class ListType { SONGS, SINGERS }
 private enum class Special { NONE, FAVORITES, RECENTS }
+
+/** Where the player queue panel's focus plumbing moves D-pad focus
+ *  next (v1.0.19); set by panel / control-bar events, consumed once
+ *  by a LaunchedEffect in PlayerScreen. */
+private sealed interface PanelFocusTarget {
+    object None : PanelFocusTarget
+    data class Row(val index: Int) : PanelFocusTarget
+    object PromoteAction : PanelFocusTarget
+    object DeleteAction : PanelFocusTarget
+    object ControlBar : PanelFocusTarget
+}
 
 private val bg = Color(0xFF0D1B3E)
 private val cardBg = Color(0xFF16295C)
@@ -178,19 +192,24 @@ class MainActivity : ComponentActivity() {
                         Screen.BROWSE -> BrowseScreen(compact)
                         Screen.PLAYER -> PlayerScreen(compact)
                     }
-                    // Corner QR: on screen at all times so a phone can
-                    // join in mid-song — except on Home, whose header
-                    // already carries the big QR (never both).
+                    // Corner QR: pinned to the TOP-RIGHT corner at
+                    // all times so a phone can join in mid-song
+                    // (v1.0.19 — it lived bottom-right before, and
+                    // Home had its own big QR; now every screen uses
+                    // this one card in this one corner. Home renders
+                    // the same card in-flow in its header instead of
+                    // this overlay, so the language chips next to it
+                    // are never covered.)
                     val cornerIp = remember(app.state.version) { Qr.lanIpAddress() }
                     if (cornerIp != null && screen != Screen.HOME) {
                         CornerQrCard(
                             ip = cornerIp,
                             port = app.localServerPort(),
                             compact = compact,
-                            modifier = Modifier.align(Alignment.BottomEnd)
+                            modifier = Modifier.align(Alignment.TopEnd)
                                 .padding(
                                     end = if (compact) 12.dp else 24.dp,
-                                    bottom = if (compact) 70.dp else 88.dp,
+                                    top = if (compact) 12.dp else 24.dp,
                                 ),
                         )
                     }
@@ -429,12 +448,11 @@ class MainActivity : ComponentActivity() {
                     Chip("EN", uiLang == UiLang.EN) { switchUiLang(UiLang.EN) }
                 }
                 if (ip != null) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        val qr = remember(ip, port) { Qr.encode("http://$ip:$port/", if (compact) 110 else 170) }
-                        Image(bitmap = qr.asImageBitmap(), contentDescription = s(TvKey.QR_DESC),
-                            modifier = Modifier.height(if (compact) 62.dp else 110.dp).width(if (compact) 62.dp else 110.dp))
-                        Text(s(TvKey.SCAN_QR), color = Color.White, fontSize = (if (compact) 11 else 14).sp)
-                    }
+                    // v1.0.19: the home header's big QR is gone — the
+                    // header carries the same corner card as every
+                    // other screen, in-flow at the row's right end
+                    // (the top-right corner), so nothing overlaps.
+                    CornerQrCard(ip = ip, port = port, compact = compact)
                 }
             }
             Spacer(Modifier.height(if (compact) 10.dp else 20.dp))
@@ -493,15 +511,23 @@ class MainActivity : ComponentActivity() {
         BackHandler { screen = Screen.HOME }
         @Suppress("UNUSED_VARIABLE") val versionTick = app.state.version
         val catalog = app.state.catalog
-        // Bottom scroll clearance so the last list row can be scrolled
-        // fully clear of the always-on corner QR card (bottom offset
-        // + card height + a margin); no card without a LAN address.
-        val qrClearance = if (remember(app.state.version) { Qr.lanIpAddress() } != null) {
-            if (compact) 186.dp else 224.dp
+        // The corner QR is pinned top-right (v1.0.19): browse content
+        // reserves the card's width on the right so neither the
+        // filter chips nor the list rows slide under it. No reserve
+        // without a LAN address (no card is drawn then).
+        val qrEndReserve = if (remember(app.state.version) { Qr.lanIpAddress() } != null) {
+            if (compact) 88.dp else 112.dp
         } else {
-            8.dp
+            0.dp
         }
-        Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(
+                start = if (compact) 12.dp else 24.dp,
+                top = if (compact) 12.dp else 24.dp,
+                bottom = if (compact) 12.dp else 24.dp,
+                end = (if (compact) 12.dp else 24.dp) + qrEndReserve,
+            ),
+        ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip(s(TvKey.TAB_SONGS), listType == ListType.SONGS) { listType = ListType.SONGS }
                 Chip(s(TvKey.TAB_SINGERS), listType == ListType.SINGERS) { listType = ListType.SINGERS }
@@ -522,7 +548,7 @@ class MainActivity : ComponentActivity() {
                 val singers = catalog.singers(filterLang, filterGender)
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
-                    contentPadding = PaddingValues(bottom = qrClearance),
+                    contentPadding = PaddingValues(bottom = 8.dp),
                 ) {
                     items(singers) { singer ->
                         ListRow("🎤 $singer", compact) {
@@ -539,7 +565,7 @@ class MainActivity : ComponentActivity() {
                 }
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
-                    contentPadding = PaddingValues(bottom = qrClearance),
+                    contentPadding = PaddingValues(bottom = 8.dp),
                 ) {
                     items(songs) { song ->
                         ListRow("🎵 ${song.displayName}", compact) { orderFromTv(song) }
@@ -565,17 +591,77 @@ class MainActivity : ComponentActivity() {
                 delay(33)
             }
         }
+        // --- queue panel (v1.0.19): the remote holder manages the
+        // waiting list from the player screen. Focus plumbing: rows
+        // and their action chips own FocusRequesters; events ask for
+        // a target here and one effect performs the move after the
+        // recomposition that the queue change caused. ---
+        val waiting = state.queue.waitingList
+        val panelRows = QueuePanelModel.rows(state.queue.current, waiting)
+        val panelVisible = QueuePanelModel.isVisible(state.queue.current, waiting)
+        val qrPresent = remember(state.version) { Qr.lanIpAddress() } != null
+        var actionIndex by remember { mutableStateOf<Int?>(null) }
+        var panelFocused by remember { mutableStateOf(false) }
+        var focusTarget by remember { mutableStateOf<PanelFocusTarget>(PanelFocusTarget.None) }
+        val rowRequesters = remember { mutableStateMapOf<Int, FocusRequester>() }
+        val promoteRequester = remember { FocusRequester() }
+        val deleteRequester = remember { FocusRequester() }
+        val controlRequester = remember { FocusRequester() }
+        // The expanded row may vanish under the panel (a phone
+        // deleted that song): collapse its actions instead of
+        // pointing at a song that is no longer there.
+        LaunchedEffect(state.version) {
+            val ai = actionIndex
+            if (ai != null && ai !in waiting.indices) actionIndex = null
+        }
+        LaunchedEffect(focusTarget, state.version) {
+            val target = focusTarget
+            if (target != PanelFocusTarget.None) {
+                focusTarget = PanelFocusTarget.None
+                try {
+                    when (target) {
+                        is PanelFocusTarget.Row -> rowRequesters[target.index]?.requestFocus()
+                        PanelFocusTarget.PromoteAction -> promoteRequester.requestFocus()
+                        PanelFocusTarget.DeleteAction -> deleteRequester.requestFocus()
+                        PanelFocusTarget.ControlBar -> controlRequester.requestFocus()
+                        PanelFocusTarget.None -> Unit
+                    }
+                } catch (e: Exception) {
+                    // Target row not composed (scrolled off / just
+                    // removed): focus stays where it is.
+                }
+            }
+        }
+        // Back while working the panel: collapse the row actions,
+        // or hand focus back to the control bar — never leave the
+        // player screen mid-queue-management. (The plain BackHandler
+        // above still owns Back everywhere else on this screen.)
+        BackHandler(enabled = panelFocused || actionIndex != null) {
+            val ai = actionIndex
+            if (ai != null) {
+                actionIndex = null
+                focusTarget = PanelFocusTarget.Row(ai)
+            } else {
+                focusTarget = PanelFocusTarget.ControlBar
+            }
+        }
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val screenH = maxHeight
             val screenW = maxWidth
             Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
                 val nextUp = state.queue.nextUpText(uiLang)
-                Box(modifier = Modifier.fillMaxWidth().height(if (compact) 26.dp else 36.dp)) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(if (compact) 26.dp else 36.dp)
+                        // The banner runs along the top: keep its
+                        // right end clear of the top-right QR card.
+                        .padding(end = if (qrPresent) (if (compact) 90.dp else 114.dp) else 0.dp),
+                ) {
                     if (nextUp != null) {
                         Text(nextUp, color = gold, fontSize = (if (compact) 14 else 19).sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                  Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                     val clapElapsed = tickMs - applauseStartMs
                     val showCelebration = celebrating && entry != null &&
                         clapElapsed in 0..(APPLAUSE_MS + 200)
@@ -686,6 +772,53 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                  }
+                    // --- queue panel: right side, under the QR card.
+                    // The stage (dancer + lyrics) keeps the rest; the
+                    // dancer's own 32%-of-screen zone is untouched,
+                    // only the lyrics column narrows. ---
+                    if (panelVisible) {
+                        QueuePanel(
+                            rows = panelRows,
+                            compact = compact,
+                            width = screenW * 0.23f,
+                            topPad = if (qrPresent) (if (compact) 70.dp else 88.dp) else 0.dp,
+                            actionIndex = actionIndex,
+                            rowRequesters = rowRequesters,
+                            promoteRequester = promoteRequester,
+                            deleteRequester = deleteRequester,
+                            onRowClick = { idx ->
+                                if (actionIndex == idx) {
+                                    actionIndex = null
+                                    focusTarget = PanelFocusTarget.Row(idx)
+                                } else {
+                                    actionIndex = idx
+                                    focusTarget = if (QueuePanelModel.canPromote(idx)) {
+                                        PanelFocusTarget.PromoteAction
+                                    } else {
+                                        PanelFocusTarget.DeleteAction
+                                    }
+                                }
+                            },
+                            onPromote = { idx ->
+                                app.state.promoteWaitingAt(idx)
+                                actionIndex = null
+                                // The promoted song is now first in line.
+                                focusTarget = PanelFocusTarget.Row(0)
+                            },
+                            onDelete = { idx ->
+                                app.state.removeWaitingAt(idx)
+                                actionIndex = null
+                                val remaining = app.state.queue.waitingList
+                                focusTarget = if (remaining.isEmpty()) {
+                                    PanelFocusTarget.ControlBar
+                                } else {
+                                    PanelFocusTarget.Row(minOf(idx, remaining.lastIndex))
+                                }
+                            },
+                            onPanelFocus = { panelFocused = true },
+                        )
+                    }
                 }
                 // --- diagnostics: always visible. A real failure's
                 // error banner stays up; a self-healed one clears
@@ -700,22 +833,45 @@ class MainActivity : ComponentActivity() {
                 )
                 // --- control bar: permanently visible, never auto-hides ---
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth()
+                        // D-pad Up from the control bar steps into the
+                        // queue panel's first waiting row (v1.0.19);
+                        // the panel's own Back returns focus here.
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown &&
+                                event.key == Key.DirectionUp && waiting.isNotEmpty()
+                            ) {
+                                focusTarget = PanelFocusTarget.Row(0)
+                                true
+                            } else {
+                                false
+                            }
+                        },
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 ) {
-                    Chip(if (controller.player.isPlaying) s(TvKey.PAUSE) else s(TvKey.RESUME), false) { controller.togglePlayPause() }
-                    Chip(s(TvKey.REPLAY), false) { controller.replay() }
-                    Chip(if (accompaniment) s(TvKey.ACCOMP_ON) else s(TvKey.ACCOMP_OFF), accompaniment) {
+                    Chip(
+                        if (controller.player.isPlaying) s(TvKey.PAUSE) else s(TvKey.RESUME), false,
+                        modifier = Modifier.focusRequester(controlRequester),
+                        onFocused = { panelFocused = false },
+                    ) { controller.togglePlayPause() }
+                    Chip(s(TvKey.REPLAY), false, onFocused = { panelFocused = false }) { controller.replay() }
+                    Chip(
+                        if (accompaniment) s(TvKey.ACCOMP_ON) else s(TvKey.ACCOMP_OFF), accompaniment,
+                        onFocused = { panelFocused = false },
+                    ) {
                         accompaniment = !accompaniment; controller.setAccompaniment(accompaniment)
                     }
-                    Chip(s(TvKey.PITCH_DOWN), false) { controller.shiftPitch(-1); semitoneLabel = controller.semitones }
-                    Chip(s(TvKey.PITCH_LABEL, semitoneLabel), false) { }
-                    Chip(s(TvKey.PITCH_UP), false) { controller.shiftPitch(1); semitoneLabel = controller.semitones }
-                    Chip(if (dancersOn) s(TvKey.DANCERS_ON) else s(TvKey.DANCERS_OFF), dancersOn) {
+                    Chip(s(TvKey.PITCH_DOWN), false, onFocused = { panelFocused = false }) { controller.shiftPitch(-1); semitoneLabel = controller.semitones }
+                    Chip(s(TvKey.PITCH_LABEL, semitoneLabel), false, onFocused = { panelFocused = false }) { }
+                    Chip(s(TvKey.PITCH_UP), false, onFocused = { panelFocused = false }) { controller.shiftPitch(1); semitoneLabel = controller.semitones }
+                    Chip(
+                        if (dancersOn) s(TvKey.DANCERS_ON) else s(TvKey.DANCERS_OFF), dancersOn,
+                        onFocused = { panelFocused = false },
+                    ) {
                         dancersOn = !dancersOn; app.prefs.dancersEnabled = dancersOn
                     }
-                    Chip(s(TvKey.QUIT), false) { confirmQuit = true }
-                    Chip(s(TvKey.GO_ORDER), false) { screen = Screen.BROWSE }
+                    Chip(s(TvKey.QUIT), false, onFocused = { panelFocused = false }) { confirmQuit = true }
+                    Chip(s(TvKey.GO_ORDER), false, onFocused = { panelFocused = false }) { screen = Screen.BROWSE }
                 }
             }
         }
@@ -754,11 +910,14 @@ class MainActivity : ComponentActivity() {
 
     /**
      * The always-on corner QR card: a small white rounded card with
-     * the phone-ordering QR and a "扫码点歌" caption, parked at the
-     * bottom-right above the player control bar. Deliberately has no
-     * clickable/focusable modifier — D-pad focus must never land on
-     * it. The QR itself stays pure black on white so it scans; only
-     * the thin border is translucent dark, to blend with the stage.
+     * the phone-ordering QR and a "扫码点歌" caption, pinned to the
+     * top-right corner of every screen (v1.0.19; it sat bottom-right
+     * until then, and Home used to draw a bigger copy in its header —
+     * the header now embeds this same card in-flow). Deliberately
+     * has no clickable/focusable modifier — D-pad focus must never
+     * land on it. The QR itself stays pure black on white so it
+     * scans; only the thin border is translucent dark, to blend
+     * with the stage.
      */
     @Composable
     private fun CornerQrCard(ip: String, port: Int, compact: Boolean, modifier: Modifier = Modifier) {
@@ -777,6 +936,172 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.width(qrDp).height(qrDp),
             )
             Text(s(TvKey.CORNER_QR_CAPTION), color = Color(0xFF26325E), fontSize = (if (compact) 9 else 11).sp)
+        }
+    }
+
+    /**
+     * The queue panel (v1.0.19): right side of the player screen,
+     * below the top-right QR card ([topPad] clears it). Lists the
+     * shared queue exactly as [QueuePanelModel] builds it — current
+     * song with ▶ and no number, waiting songs numbered — and gives
+     * the remote holder the two queue actions. It renders only the
+     * model; every mutation goes through KaraokeState, so the phone
+     * pages see the same queue change from the same state bump.
+     */
+    @Composable
+    private fun QueuePanel(
+        rows: List<QueuePanelModel.Row>,
+        compact: Boolean,
+        width: Dp,
+        topPad: Dp,
+        actionIndex: Int?,
+        rowRequesters: MutableMap<Int, FocusRequester>,
+        promoteRequester: FocusRequester,
+        deleteRequester: FocusRequester,
+        onRowClick: (Int) -> Unit,
+        onPromote: (Int) -> Unit,
+        onDelete: (Int) -> Unit,
+        onPanelFocus: () -> Unit,
+    ) {
+        Column(
+            modifier = Modifier.width(width).fillMaxHeight()
+                .padding(start = if (compact) 8.dp else 12.dp, top = topPad)
+                .background(cardBg.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
+                .padding(if (compact) 8.dp else 10.dp),
+        ) {
+            Text(
+                s(TvKey.QUEUE_PANEL_TITLE), color = gold,
+                fontSize = (if (compact) 13 else 16).sp, fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(6.dp))
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                items(rows, key = { row -> if (row.isCurrent) "current" else "w${row.waitingIndex}" }) { row ->
+                    if (row.isCurrent) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                "▶ ${row.entry.song.displayName}", color = gold,
+                                fontSize = (if (compact) 12 else 14).sp, maxLines = 2,
+                            )
+                            Text(
+                                row.entry.orderedBy, color = soft,
+                                fontSize = (if (compact) 10 else 11).sp, maxLines = 1,
+                            )
+                        }
+                    } else {
+                        QueuePanelRowItem(
+                            row = row,
+                            compact = compact,
+                            expanded = actionIndex == row.waitingIndex,
+                            focusRequester = rowRequesters.getOrPut(row.waitingIndex) { FocusRequester() },
+                            promoteRequester = promoteRequester,
+                            deleteRequester = deleteRequester,
+                            onClick = { onRowClick(row.waitingIndex) },
+                            onPromote = { onPromote(row.waitingIndex) },
+                            onDelete = { onDelete(row.waitingIndex) },
+                            onPanelFocus = onPanelFocus,
+                        )
+                    }
+                }
+            }
+            if (rows.none { !it.isCurrent }) {
+                Text(
+                    s(TvKey.QUEUE_PANEL_NO_WAITING), color = soft,
+                    fontSize = (if (compact) 11 else 12).sp,
+                )
+            }
+        }
+    }
+
+    /** One waiting-song row of the queue panel: number, song, who
+     *  ordered it — and, once OK expands it, the two action chips.
+     *  Nothing is executed from the row itself: an action runs only
+     *  when its own chip takes the second OK. */
+    @Composable
+    private fun QueuePanelRowItem(
+        row: QueuePanelModel.Row,
+        compact: Boolean,
+        expanded: Boolean,
+        focusRequester: FocusRequester,
+        promoteRequester: FocusRequester,
+        deleteRequester: FocusRequester,
+        onClick: () -> Unit,
+        onPromote: () -> Unit,
+        onDelete: () -> Unit,
+        onPanelFocus: () -> Unit,
+    ) {
+        var focused by remember { mutableStateOf(false) }
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .border(2.dp, if (focused) gold else Color.Transparent, RoundedCornerShape(8.dp))
+                .background(if (focused) cardBg else Color.Transparent, RoundedCornerShape(8.dp))
+                .focusRequester(focusRequester)
+                .focusable()
+                .onFocusChanged {
+                    focused = it.isFocused
+                    if (it.isFocused) onPanelFocus()
+                }
+                .clickable { onClick() }
+                .padding(horizontal = 8.dp, vertical = if (compact) 4.dp else 6.dp),
+        ) {
+            Text(
+                "${row.number}. ${row.entry.song.displayName}", color = Color.White,
+                fontSize = (if (compact) 12 else 14).sp, maxLines = 2,
+            )
+            Text(
+                row.entry.orderedBy, color = soft,
+                fontSize = (if (compact) 10 else 11).sp, maxLines = 1,
+            )
+            if (expanded) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    if (QueuePanelModel.canPromote(row.waitingIndex)) {
+                        PanelActionChip(
+                            s(TvKey.QUEUE_PANEL_NEXT), compact, promoteRequester, onPanelFocus, onPromote,
+                        )
+                    }
+                    PanelActionChip(
+                        s(TvKey.QUEUE_PANEL_DELETE), compact, deleteRequester, onPanelFocus, onDelete,
+                    )
+                }
+            }
+        }
+    }
+
+    /** A gold action chip inside an expanded queue-panel row. */
+    @Composable
+    private fun PanelActionChip(
+        label: String,
+        compact: Boolean,
+        requester: FocusRequester,
+        onPanelFocus: () -> Unit,
+        onClick: () -> Unit,
+    ) {
+        var focused by remember { mutableStateOf(false) }
+        Box(
+            modifier = Modifier
+                .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(12.dp))
+                .background(gold, RoundedCornerShape(12.dp))
+                .focusRequester(requester)
+                .focusable()
+                .onFocusChanged {
+                    focused = it.isFocused
+                    if (it.isFocused) onPanelFocus()
+                }
+                .clickable { onClick() }
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+        ) {
+            Text(
+                label, color = Color.Black,
+                fontSize = (if (compact) 11 else 12).sp, fontWeight = FontWeight.Bold,
+            )
         }
     }
 
@@ -882,14 +1207,20 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+    private fun Chip(
+        label: String,
+        selected: Boolean,
+        modifier: Modifier = Modifier,
+        onFocused: () -> Unit = {},
+        onClick: () -> Unit,
+    ) {
         var focused by remember { mutableStateOf(false) }
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(16.dp))
                 .background(if (selected) gold else cardBg, RoundedCornerShape(16.dp))
                 .focusable()
-                .onFocusChanged { focused = it.isFocused }
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
                 .clickable { onClick() }
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         ) {

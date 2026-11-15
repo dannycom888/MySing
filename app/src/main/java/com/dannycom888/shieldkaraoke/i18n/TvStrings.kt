@@ -18,6 +18,9 @@ enum class TvKey {
     PITCH_DOWN, PITCH_LABEL, PITCH_UP, DANCERS_ON, DANCERS_OFF,
     QUIT, GO_ORDER, QUIT_TITLE, QUIT_TEXT, QUIT_CONFIRM, QUIT_CANCEL,
     PLAY_ERROR, CORNER_QR_CAPTION, CORNER_QR_DESC,
+    // Queue panel on the player screen (v1.0.19)
+    QUEUE_PANEL_TITLE, QUEUE_PANEL_NEXT, QUEUE_PANEL_DELETE,
+    QUEUE_PANEL_NO_WAITING,
     // The orderer name shown for songs ordered from the TV itself.
     TV_ORDERER,
 }
@@ -82,6 +85,10 @@ object TvStrings {
         TvKey.PLAY_ERROR to "⚠ 播放错误：%s",
         TvKey.CORNER_QR_CAPTION to "扫码点歌",
         TvKey.CORNER_QR_DESC to "扫码点歌二维码",
+        TvKey.QUEUE_PANEL_TITLE to "已点歌单",
+        TvKey.QUEUE_PANEL_NEXT to "下一首唱",
+        TvKey.QUEUE_PANEL_DELETE to "删除",
+        TvKey.QUEUE_PANEL_NO_WAITING to "暂无排队",
         TvKey.TV_ORDERER to "电视",
     )
 
@@ -133,6 +140,10 @@ object TvStrings {
         TvKey.PLAY_ERROR to "⚠ Playback error: %s",
         TvKey.CORNER_QR_CAPTION to "Scan to order",
         TvKey.CORNER_QR_DESC to "Scan-to-order QR code",
+        TvKey.QUEUE_PANEL_TITLE to "Queue",
+        TvKey.QUEUE_PANEL_NEXT to "Play next",
+        TvKey.QUEUE_PANEL_DELETE to "Delete",
+        TvKey.QUEUE_PANEL_NO_WAITING to "Nothing queued",
         TvKey.TV_ORDERER to "TV",
     )
 

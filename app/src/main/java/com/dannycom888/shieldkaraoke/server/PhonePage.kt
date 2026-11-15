@@ -41,6 +41,16 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <button class="chip" id="favTab">❤ 收藏</button>
 <button class="chip" id="recentTab">🕘 最近唱过</button>
 </div>
+<h1>💃 选伴舞</h1>
+<p class="small">你选的伴舞，只在你点的歌时出来；唱到你的歌时想换人，点一下电视上立刻换。</p>
+<div id="dancers" style="margin:8px 0">
+<button class="chip" data-who="modern">现代女</button>
+<button class="chip" data-who="ancient">古代女</button>
+<button class="chip" data-who="girl">现代女孩</button>
+<button class="chip" data-who="ancient_girl">古代女童</button>
+<button class="chip" data-who="baby">小婴儿</button>
+<button class="chip" data-who="robot">机器人</button>
+</div>
 <div id="msg" class="small"></div>
 <div id="songs"></div>
 <h1>📋 已点顺序</h1>
@@ -49,9 +59,12 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <script>
 var name = localStorage.getItem('sk_name') || '';
 var lang='', gender='', mode='all', favs=[], recents=[];
+var myDancer = localStorage.getItem('sk_dancer') || 'modern';
+function paintDancers(){ document.querySelectorAll('[data-who]').forEach(function(c){
+  c.classList.toggle('on', c.getAttribute('data-who')===myDancer); }); }
 function show(){ document.getElementById('nameGate').classList.toggle('hidden', !!name);
   document.getElementById('main').classList.toggle('hidden', !name);
-  document.getElementById('who').textContent = name ? ('（'+name+'）') : ''; if(name){loadSongs(); loadQueue();} }
+  document.getElementById('who').textContent = name ? ('（'+name+'）') : ''; if(name){paintDancers(); loadSongs(); loadQueue();} }
 document.getElementById('enterBtn').onclick = function(){
   var v = document.getElementById('nameInput').value.trim();
   if(!v){ alert('请输入名字'); return; }
@@ -94,6 +107,9 @@ function toggleFav(id, fav){
 function loadQueue(){
   fetch('/api/queue').then(function(r){return r.json()}).then(function(d){
     favs = d.favorites||[]; recents = d.recents||[];
+    var ds = d.dancers||{};
+    if(ds[name] && ds[name]!==myDancer){ myDancer=ds[name]; localStorage.setItem('sk_dancer', myDancer); }
+    paintDancers();
     var el=document.getElementById('queue'); el.innerHTML='';
     if(d.current) el.innerHTML += '<div>▶ 正在唱：'+d.current.artist+' - '+d.current.title+'（'+d.current.by+'点的）</div>';
     (d.waiting||[]).forEach(function(e,i){
@@ -114,6 +130,11 @@ document.querySelectorAll('[data-lang]').forEach(function(c){ c.onclick=function
 document.querySelectorAll('[data-g]').forEach(function(c){ c.onclick=function(){
   document.querySelectorAll('[data-g]').forEach(function(x){x.classList.remove('on')});
   c.classList.add('on'); gender=c.getAttribute('data-g'); mode='all'; loadSongs(); }; });
+document.querySelectorAll('[data-who]').forEach(function(c){ c.onclick=function(){
+  myDancer=c.getAttribute('data-who'); localStorage.setItem('sk_dancer', myDancer); paintDancers();
+  fetch('/api/dancer',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name:name, who:myDancer})});
+}; });
 document.getElementById('favTab').onclick=function(){ mode='fav'; loadSongs(); };
 document.getElementById('recentTab').onclick=function(){ mode='recent'; loadSongs(); };
 setInterval(loadQueue, 5000);

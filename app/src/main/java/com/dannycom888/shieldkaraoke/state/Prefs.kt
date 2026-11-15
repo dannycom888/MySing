@@ -35,4 +35,46 @@ class Prefs(context: Context) {
     fun setLoudnessDb(songId: String, db: Double) {
         prefs.edit().putString("loud_$songId", db.toString()).apply()
     }
+
+    /** Measured tempo cache, alongside the loudness cache. */
+    fun bpm(songId: String): Double? =
+        prefs.getString("bpm_$songId", null)?.toDoubleOrNull()
+
+    fun setBpm(songId: String, bpm: Double) {
+        prefs.edit().putString("bpm_$songId", bpm.toString()).apply()
+    }
+
+    /** Whether the little dancers show on the player screen at all
+     *  (TV control-bar switch; the *choice* of dancer is per-orderer
+     *  and made on the phone page). */
+    var dancersEnabled: Boolean
+        get() = prefs.getBoolean("dancers_enabled", true)
+        set(value) = prefs.edit().putBoolean("dancers_enabled", value).apply()
+
+    /**
+     * Per-orderer dancer choice: orderer name -> dancer key.
+     * Stored as `name\u0001key` lines in one string.
+     */
+    fun dancerSelections(): Map<String, String> {
+        val raw = prefs.getString("dancer_by_name", "") ?: ""
+        if (raw.isBlank()) return emptyMap()
+        return raw.split('\n').mapNotNull { line ->
+            val idx = line.lastIndexOf('\u0001')
+            if (idx <= 0) null else line.substring(0, idx) to line.substring(idx + 1)
+        }.toMap()
+    }
+
+    /** The dancer [name] chose, or null (caller uses the default). */
+    fun dancerFor(name: String): String? = dancerSelections()[name]
+
+    fun setDancer(name: String, key: String) {
+        val clean = name.replace('\u0001', ' ').replace('\n', ' ').trim()
+        if (clean.isBlank() || !DancerKeys.isValid(key)) return
+        val next = dancerSelections().toMutableMap()
+        next[clean] = key
+        prefs.edit().putString(
+            "dancer_by_name",
+            next.entries.joinToString("\n") { "${it.key}\u0001${it.value}" },
+        ).apply()
+    }
 }

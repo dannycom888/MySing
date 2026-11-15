@@ -32,16 +32,24 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
         if (!enabled) {
             output.put(inputBuffer)
         } else {
-            val inBuf = inputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN)
-            val outBuf = output.duplicate().order(ByteOrder.LITTLE_ENDIAN)
-            var i = 0
-            while (i + 3 < size) {
-                val left = inBuf.getShort(i).toInt()
-                val right = inBuf.getShort(i + 2).toInt()
-                val mid = ((left - right) / 2).coerceIn(-32768, 32767).toShort()
-                outBuf.putShort(i, mid)
-                outBuf.putShort(i + 2, mid)
-                i += 4
+            // Belt and braces (v1.0.3): the DSP must never be able to
+            // kill playback. Any failure falls back to passing the
+            // original bytes through untouched.
+            try {
+                val inBuf = inputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN)
+                val outBuf = output.duplicate().order(ByteOrder.LITTLE_ENDIAN)
+                var i = 0
+                while (i + 3 < size) {
+                    val left = inBuf.getShort(i).toInt()
+                    val right = inBuf.getShort(i + 2).toInt()
+                    val mid = ((left - right) / 2).coerceIn(-32768, 32767).toShort()
+                    outBuf.putShort(i, mid)
+                    outBuf.putShort(i + 2, mid)
+                    i += 4
+                }
+            } catch (e: Exception) {
+                output.clear()
+                output.put(inputBuffer.duplicate())
             }
             inputBuffer.position(inputBuffer.limit())
         }

@@ -28,6 +28,11 @@ class KaraokeApp : Application() {
             favoritesProvider = { prefs.favorites() },
             recentsProvider = { prefs.recents() },
             favoriteToggle = { id, fav -> prefs.setFavorite(id, fav) },
+            dancerSelectionsProvider = { prefs.dancerSelections() },
+            dancerSetter = { name, key ->
+                prefs.setDancer(name, key)
+                state.bump() // TV player screen re-reads the current song's dancer live
+            },
         ).also { it.start() }
     }
 

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -44,20 +45,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.Player
 import com.dannycom888.shieldkaraoke.KaraokeApp
 import com.dannycom888.shieldkaraoke.audio.AudioMath
 import com.dannycom888.shieldkaraoke.audio.LoudnessAnalyzer
 import com.dannycom888.shieldkaraoke.audio.PlayerController
+import com.dannycom888.shieldkaraoke.audio.TempoAnalyzer
 import com.dannycom888.shieldkaraoke.library.Catalog
 import com.dannycom888.shieldkaraoke.library.Gender
 import com.dannycom888.shieldkaraoke.library.Language
@@ -81,6 +89,12 @@ private val cardBg = Color(0xFF16295C)
 private val gold = Color(0xFFFFD54F)
 private val soft = Color(0xFF9DB4E8)
 
+/** Dance tempo when a song has not been measured (yet). */
+private const val DEFAULT_BPM = 96.0
+
+/** applause.wav is exactly 3.2 s. */
+private const val APPLAUSE_MS = 3200L
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var app: KaraokeApp
@@ -90,7 +104,12 @@ class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf(Screen.HOME)
     private var lyrics by mutableStateOf<List<LyricLine>>(emptyList())
     private var positionMs by mutableStateOf(0L)
-    private var showControls by mutableStateOf(true)
+    private var tickMs by mutableStateOf(0L)
+    private var dancersOn by mutableStateOf(true)
+    private var currentBpm by mutableStateOf(DEFAULT_BPM)
+    private var celebrating by mutableStateOf(false)
+    private var applauseStartMs by mutableStateOf(0L)
+    private var celebrationToken = 0
     private var confirmQuit by mutableStateOf(false)
     private var accompaniment by mutableStateOf(false)
     private var semitoneLabel by mutableStateOf(0)
@@ -100,6 +119,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         app = application as KaraokeApp
+        dancersOn = app.prefs.dancersEnabled
         controller = PlayerController(this)
         controller.onEnded = { onSongEndedNaturally() }
         app.state.onShouldStart = { entry ->
@@ -113,7 +133,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize().background(bg)
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown) {
-                                showControls = true
                                 if (event.key == Key.MediaPlayPause) controller.togglePlayPause()
                             }
                             false
@@ -171,9 +190,26 @@ class MainActivity : ComponentActivity() {
         positionMs = 0
         accompaniment = false
         semitoneLabel = 0
+        celebrating = false
+        celebrationToken++
         val uri = Uri.parse(entry.song.audioRef)
         val cachedGain = app.prefs.loudnessDb(entry.song.id)
         controller.load(uri, AudioMath.normalizationGainDb(cachedGain))
+        // Dance tempo: cached per song next to the loudness cache;
+        // measured in the background when missing (default 96 BPM).
+        val cachedBpm = app.prefs.bpm(entry.song.id)
+        currentBpm = cachedBpm ?: DEFAULT_BPM
+        if (cachedBpm == null) {
+            lifecycleScope.launch {
+                val measured = withContext(Dispatchers.IO) { TempoAnalyzer.measureBpm(this@MainActivity, uri) }
+                if (measured != null) {
+                    app.prefs.setBpm(entry.song.id, measured)
+                    if (app.state.nowPlaying?.song?.id == entry.song.id) {
+                        currentBpm = measured
+                    }
+                }
+            }
+        }
         entry.song.lyricsRef?.let { ref ->
             lifecycleScope.launch {
                 val parsed = withContext(Dispatchers.IO) {
@@ -204,20 +240,34 @@ class MainActivity : ComponentActivity() {
         if (quitting) return
         runOnUiThread {
             val next = app.state.advanceAfterFinish()
+            // Applause celebration: all six dancers come out and clap
+            // along with the applause sound — with or without a next
+            // song, and regardless of the per-orderer dancer choice.
+            playApplause()
+            celebrating = true
+            applauseStartMs = SystemClock.elapsedRealtime()
+            val token = ++celebrationToken
             if (next == null) {
-                app.state.nowPlaying = null
-                playApplause()
-                screen = Screen.HOME
+                // No next song: stay on the player screen until the
+                // applause has played out — only then go home, so the
+                // celebration is never swallowed by the screen switch.
+                lifecycleScope.launch {
+                    delay(APPLAUSE_MS + 300)
+                    if (celebrationToken == token && celebrating) {
+                        celebrating = false
+                        app.state.nowPlaying = null
+                        screen = Screen.HOME
+                    }
+                }
             } else {
                 // Applause + a few seconds for the next singer to get ready.
-                playApplause()
                 app.state.interludeSeconds = 5
                 lifecycleScope.launch {
                     while (app.state.interludeSeconds > 0) {
                         delay(1000)
                         app.state.interludeSeconds -= 1
                     }
-                    startSong(next)
+                    if (celebrationToken == token) startSong(next)
                 }
             }
         }
@@ -227,6 +277,9 @@ class MainActivity : ComponentActivity() {
         quitting = true
         controller.stop()
         quitting = false
+        celebrating = false
+        celebrationToken++
+        app.state.interludeSeconds = 0
         val next = app.state.advanceAfterQuit()
         if (next == null) {
             app.state.nowPlaying = null
@@ -392,56 +445,147 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(entry?.song?.id) {
             while (true) {
                 positionMs = try { controller.player.currentPosition } catch (e: Exception) { 0L }
+                tickMs = SystemClock.elapsedRealtime()
                 // ~30 fps so the karaoke sweep's gold boundary
                 // travels continuously through each character.
                 delay(33)
             }
         }
-        LaunchedEffect(showControls) {
-            if (showControls) { delay(4000); showControls = false }
-        }
-        Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
-            val nextUp = state.queue.nextUpText()
-            Box(modifier = Modifier.fillMaxWidth().height(if (compact) 26.dp else 36.dp)) {
-                if (nextUp != null) {
-                    Text(nextUp, color = gold, fontSize = (if (compact) 14 else 19).sp, fontWeight = FontWeight.Bold)
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val screenH = maxHeight
+            Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
+                val nextUp = state.queue.nextUpText()
+                Box(modifier = Modifier.fillMaxWidth().height(if (compact) 26.dp else 36.dp)) {
+                    if (nextUp != null) {
+                        Text(nextUp, color = gold, fontSize = (if (compact) 14 else 19).sp, fontWeight = FontWeight.Bold)
+                    }
                 }
-            }
-            if (state.interludeSeconds > 0) {
-                Column(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text("👏", fontSize = (if (compact) 30 else 48).sp)
-                    Text(nextUp ?: "", color = Color.White, fontSize = (if (compact) 18 else 26).sp, fontWeight = FontWeight.Bold)
-                    Text("${state.interludeSeconds} 秒后开始", color = soft, fontSize = (if (compact) 14 else 18).sp)
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    // --- dancer layer: bottom of the stage, below the lyrics ---
+                    val clapElapsed = tickMs - applauseStartMs
+                    val showCelebration = celebrating && entry != null &&
+                        clapElapsed in 0..(APPLAUSE_MS + 200)
+                    if (showCelebration) {
+                        // Song finished: all six come out and clap together.
+                        Row(
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Dancers.ALL.forEach { dancer ->
+                                DancerImage(
+                                    dancer = dancer,
+                                    pose = DanceMotion.clapPose(dancer.profile, clapElapsed),
+                                    heightDp = screenH * if (compact) 0.36f else 0.32f,
+                                )
+                            }
+                        }
+                    } else if (entry != null && state.interludeSeconds == 0 && dancersOn) {
+                        // The dancer belongs to whoever ordered this song.
+                        val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
+                        DancerImage(
+                            dancer = dancer,
+                            pose = DanceMotion.pose(
+                                dancer.profile, positionMs, currentBpm,
+                                phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                            ),
+                            heightDp = screenH * if (compact) 0.44f else 0.50f,
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        )
+                    }
+                    // --- foreground: interlude text or lyrics ---
+                    if (state.interludeSeconds > 0) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text("👏", fontSize = (if (compact) 30 else 48).sp)
+                            Text(nextUp ?: "", color = Color.White, fontSize = (if (compact) 18 else 26).sp, fontWeight = FontWeight.Bold)
+                            Text("${state.interludeSeconds} 秒后开始", color = soft, fontSize = (if (compact) 14 else 18).sp)
+                        }
+                    } else {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Text(
+                                entry?.let { "正在唱：${it.song.displayName}（${it.orderedBy}点的）" } ?: "",
+                                color = soft, fontSize = (if (compact) 12 else 15).sp,
+                            )
+                            LyricsView(lyrics, positionMs, compact, modifier = Modifier.weight(1f))
+                        }
+                    }
                 }
-            } else {
+                // --- diagnostics: always visible; an error never auto-hides ---
+                controller.lastError?.let { err ->
+                    Text("⚠ 播放错误：$err", color = Color(0xFFFF7043), fontSize = (if (compact) 11 else 12).sp)
+                }
                 Text(
-                    entry?.let { "正在唱：${it.song.displayName}（${it.orderedBy}点的）" } ?: "",
-                    color = soft, fontSize = (if (compact) 12 else 15).sp,
+                    diagnosticsText(entry),
+                    color = soft.copy(alpha = 0.8f), fontSize = (if (compact) 10 else 11).sp,
                 )
-                LyricsView(lyrics, positionMs, compact, modifier = Modifier.weight(1f))
-            }
-            if (showControls) {
+                // --- control bar: permanently visible, never auto-hides ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 ) {
-                    Chip(if (controller.player.isPlaying) "⏸ 暂停" else "▶ 继续", false) { controller.togglePlayPause(); showControls = true }
-                    Chip("↺ 重唱", false) { controller.replay(); showControls = true }
+                    Chip(if (controller.player.isPlaying) "⏸ 暂停" else "▶ 继续", false) { controller.togglePlayPause() }
+                    Chip("↺ 重唱", false) { controller.replay() }
                     Chip(if (accompaniment) "🎙 伴奏中" else "🎤 原唱", accompaniment) {
-                        accompaniment = !accompaniment; controller.setAccompaniment(accompaniment); showControls = true
+                        accompaniment = !accompaniment; controller.setAccompaniment(accompaniment)
                     }
-                    Chip("降调 −", false) { controller.shiftPitch(-1); semitoneLabel = controller.semitones; showControls = true }
+                    Chip("降调 −", false) { controller.shiftPitch(-1); semitoneLabel = controller.semitones }
                     Chip("调 $semitoneLabel", false) { }
-                    Chip("升调 ＋", false) { controller.shiftPitch(1); semitoneLabel = controller.semitones; showControls = true }
+                    Chip("升调 ＋", false) { controller.shiftPitch(1); semitoneLabel = controller.semitones }
+                    Chip(if (dancersOn) "💃 小人开" else "💃 小人关", dancersOn) {
+                        dancersOn = !dancersOn; app.prefs.dancersEnabled = dancersOn
+                    }
                     Chip("🚪 不唱了", false) { confirmQuit = true }
                     Chip("🎵 去点歌", false) { screen = Screen.BROWSE }
                 }
             }
         }
+    }
+
+    /** Small print under the lyrics: player state for screenshot debugging. */
+    private fun diagnosticsText(entry: QueueEntry?): String {
+        val p = controller.player
+        val stateName = when (p.playbackState) {
+            Player.STATE_IDLE -> "IDLE"
+            Player.STATE_BUFFERING -> "BUFFERING"
+            Player.STATE_READY -> "READY"
+            Player.STATE_ENDED -> "ENDED"
+            else -> "?"
+        }
+        return buildString {
+            append("状态 ").append(stateName)
+            append(" · ").append(positionMs / 1000).append('/').append(p.duration.coerceAtLeast(0L) / 1000).append('s')
+            append(" · playing=").append(p.isPlaying)
+            append(" · sink=").append(controller.sinkLabel)
+            append(" · bpm=").append(currentBpm.toInt())
+            if (entry != null) {
+                val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
+                append(" · 舞者：").append(dancer.label).append("（").append(entry.orderedBy).append("选的）")
+            }
+            if (controller.accompanimentUnavailable) append(" · 伴奏不可用（已降级普通播放）")
+        }
+    }
+
+    @Composable
+    private fun DancerImage(dancer: Dancer, pose: DanceMotion.Pose, heightDp: Dp, modifier: Modifier = Modifier) {
+        val heightPx = with(LocalDensity.current) { heightDp.toPx() }
+        Image(
+            painter = painterResource(dancer.resId),
+            contentDescription = dancer.label,
+            modifier = modifier
+                .height(heightDp)
+                .graphicsLayer {
+                    translationY = -heightPx * 0.055f * pose.bounceFraction +
+                        heightPx * 0.30f * pose.sinkFraction
+                    rotationZ = pose.rotationDeg
+                    scaleX = pose.scale
+                    scaleY = pose.scale
+                    alpha = 0.95f
+                    transformOrigin = TransformOrigin(0.5f, 0.95f)
+                },
+        )
     }
 
     @Composable

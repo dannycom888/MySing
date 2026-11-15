@@ -23,6 +23,8 @@ class KaraokeHttpServer(
     private val favoritesProvider: () -> Set<String> = { emptySet() },
     private val recentsProvider: () -> List<String> = { emptyList() },
     private val favoriteToggle: (String, Boolean) -> Unit = { _, _ -> },
+    private val dancerSelectionsProvider: () -> Map<String, String> = { emptyMap() },
+    private val dancerSetter: (String, String) -> Unit = { _, _ -> },
 ) {
     companion object {
         const val DEFAULT_PORT = 8931
@@ -148,6 +150,7 @@ class KaraokeHttpServer(
                 obj.put("nextUp", state.queue.nextUpText() ?: "")
                 obj.put("favorites", JSONArray(favoritesProvider().toList()))
                 obj.put("recents", JSONArray(recentsProvider()))
+                obj.put("dancers", JSONObject(dancerSelectionsProvider()))
                 Triple(200, "application/json; charset=utf-8", obj.toString())
             }
 
@@ -174,6 +177,36 @@ class KaraokeHttpServer(
                 val json = try { JSONObject(body) } catch (e: Exception) { JSONObject() }
                 state.removeWaitingAt(json.optInt("index", -1))
                 Triple(200, "application/json; charset=utf-8", JSONObject().put("ok", true).toString())
+            }
+
+            // Per-orderer dancer choice: whoever ordered the song
+            // picks the dancer that comes out for their song. Any
+            // connected phone may set its own name's dancer.
+            method == "POST" && path == "/api/dancer" -> {
+                val json = try { JSONObject(body) } catch (e: Exception) { JSONObject() }
+                val name = json.optString("name").trim()
+                val who = json.optString("who")
+                if (name.isBlank() || !com.dannycom888.shieldkaraoke.state.DancerKeys.isValid(who)) {
+                    Triple(400, "application/json; charset=utf-8",
+                        JSONObject().put("error", "名字或伴舞选择不对").toString())
+                } else {
+                    dancerSetter(name, who)
+                    Triple(200, "application/json; charset=utf-8",
+                        JSONObject().put("ok", true).put("who", who).toString())
+                }
+            }
+
+            method == "POST" && path == "/dancer" -> {
+                val name = (query["name"] ?: "").trim()
+                val who = query["who"] ?: ""
+                if (name.isBlank() || !com.dannycom888.shieldkaraoke.state.DancerKeys.isValid(who)) {
+                    Triple(400, "application/json; charset=utf-8",
+                        JSONObject().put("error", "名字或伴舞选择不对").toString())
+                } else {
+                    dancerSetter(name, who)
+                    Triple(200, "application/json; charset=utf-8",
+                        JSONObject().put("ok", true).put("who", who).toString())
+                }
             }
 
             method == "POST" && path == "/api/fav" -> {

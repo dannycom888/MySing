@@ -49,10 +49,26 @@ class PlayerController(private val context: Context) {
             .build()
     }
 
+    // Declaration order matters: `player`'s initialiser calls
+    // buildPlayer(), which references `listener` — everything the
+    // initialisation chain touches must be declared BEFORE `player`.
+    // (v1.0.3 crashed at startup with an NPE because `listener` was
+    // declared after `player` and was still null in buildPlayer.)
+    private val fallback = FallbackStateMachine()
+
+    private val listener = object : Player.Listener {
+        override fun onPlaybackStateChanged(state: Int) {
+            if (state == Player.STATE_ENDED) onEnded?.invoke()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            handleError(error)
+        }
+    }
+
     var player: ExoPlayer = buildPlayer(customSink = true)
         private set
 
-    private val fallback = FallbackStateMachine()
     private var loudnessEnhancer: LoudnessEnhancer? = null
 
     var onEnded: (() -> Unit)? = null
@@ -82,16 +98,6 @@ class PlayerController(private val context: Context) {
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var focusRequest: AudioFocusRequest? = null
     private val focusListener = AudioManager.OnAudioFocusChangeListener { /* state only */ }
-
-    private val listener = object : Player.Listener {
-        override fun onPlaybackStateChanged(state: Int) {
-            if (state == Player.STATE_ENDED) onEnded?.invoke()
-        }
-
-        override fun onPlayerError(error: PlaybackException) {
-            handleError(error)
-        }
-    }
 
     private fun buildPlayer(customSink: Boolean): ExoPlayer {
         val built = if (customSink) {

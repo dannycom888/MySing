@@ -78,6 +78,27 @@ class StringTablesTest {
     }
 
     @Test
+    fun adminStringsRender() {
+        // v1.0.21 TV admin page: rename the dancers.
+        assertEquals("⚙ 后台", TvStrings.get(UiLang.ZH, TvKey.ADMIN_TITLE))
+        assertEquals("⚙ Admin", TvStrings.get(UiLang.EN, TvKey.ADMIN_TITLE))
+        assertEquals("给 春丽 改名", TvStrings.get(UiLang.ZH, TvKey.ADMIN_RENAME_TITLE, "春丽"))
+        assertEquals("Rename Chun-Li", TvStrings.get(UiLang.EN, TvKey.ADMIN_RENAME_TITLE, "Chun-Li"))
+        assertEquals("默认：春丽", TvStrings.get(UiLang.ZH, TvKey.ADMIN_DEFAULT, "春丽"))
+        assertEquals("Default: Chun-Li", TvStrings.get(UiLang.EN, TvKey.ADMIN_DEFAULT, "Chun-Li"))
+        assertEquals("恢复默认名", TvStrings.get(UiLang.ZH, TvKey.ADMIN_RESTORE))
+        assertEquals("Restore default names", TvStrings.get(UiLang.EN, TvKey.ADMIN_RESTORE))
+        assertEquals("恢复默认名？", TvStrings.get(UiLang.ZH, TvKey.ADMIN_RESTORE_TITLE))
+        assertEquals("Restore default names?", TvStrings.get(UiLang.EN, TvKey.ADMIN_RESTORE_TITLE))
+        assertEquals("保存", TvStrings.get(UiLang.ZH, TvKey.SAVE))
+        assertEquals("Save", TvStrings.get(UiLang.EN, TvKey.SAVE))
+        assertEquals("取消", TvStrings.get(UiLang.ZH, TvKey.CANCEL))
+        assertEquals("Cancel", TvStrings.get(UiLang.EN, TvKey.CANCEL))
+        assertEquals("返回", TvStrings.get(UiLang.ZH, TvKey.ADMIN_BACK))
+        assertEquals("Back", TvStrings.get(UiLang.EN, TvKey.ADMIN_BACK))
+    }
+
+    @Test
     fun serverOrderMessagesInBothLanguages() {
         assertEquals("马上开唱！", ServerStrings.get(UiLang.ZH, ServerKey.ORDER_START_NOW))
         assertEquals("You're up — singing now!", ServerStrings.get(UiLang.EN, ServerKey.ORDER_START_NOW))

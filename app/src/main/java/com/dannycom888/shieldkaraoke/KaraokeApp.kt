@@ -53,6 +53,10 @@ class KaraokeApp : Application() {
             },
             dancerImageProvider = { key -> dancerImage(key) },
             dancerAnimProvider = { key -> dancerAnim(key) },
+            // v1.0.21: the phone page labels its dancer cards with
+            // the host's renames; read fresh from prefs per page
+            // load, so a rename shows on the next scan/refresh.
+            dancerNamesProvider = { prefs.customDancerNames() },
         ).also { srv ->
             srv.statusListener = { alive, error ->
                 serverAlive = alive

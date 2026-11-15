@@ -204,4 +204,28 @@ class PhonePageTest {
         assertTrue(html.contains("JSON.stringify({id:id, name:name, lang:ui})"))
         assertTrue(html.contains("JSON.stringify({name:name, who:myDancer, lang:ui})"))
     }
+
+    @Test
+    fun customDancerNamesAreInjectedForThePickerCards() {
+        // v1.0.21: the host's renames (made on the TV admin page)
+        // ride into the page as CUSTOM_DANCER_NAMES and override
+        // the baked stage names in both languages — applyLang
+        // prefers the custom entry over the language dictionary,
+        // and the card image's alt text follows the same name.
+        val page = PhonePage.html("bootX", mapOf("modern" to "小明", "robot" to "阿铁"))
+        assertTrue(page.contains("var CUSTOM_DANCER_NAMES = {\"modern\":\"小明\",\"robot\":\"阿铁\"};"))
+        assertTrue(page.contains("CUSTOM_DANCER_NAMES[k] || t('dancers')[k]"))
+        assertTrue(page.contains("im.alt = nm"))
+    }
+
+    @Test
+    fun noCustomNamesInjectsAnEmptyMap() {
+        assertTrue(html.contains("var CUSTOM_DANCER_NAMES = {};"))
+    }
+
+    @Test
+    fun customNameWithQuoteCannotBreakTheScript() {
+        val page = PhonePage.html("bootX", mapOf("baby" to "A\"B"))
+        assertTrue(page.contains("\"baby\":\"A\\\"B\""))
+    }
 }

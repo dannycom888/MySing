@@ -5,7 +5,9 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.text.InputFilter
 import android.view.WindowManager
+import android.widget.EditText
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -89,12 +91,13 @@ import com.dannycom888.shieldkaraoke.queue.EntrySource
 import com.dannycom888.shieldkaraoke.queue.FillerPicker
 import com.dannycom888.shieldkaraoke.queue.FillerPolicy
 import com.dannycom888.shieldkaraoke.queue.QueueEntry
+import com.dannycom888.shieldkaraoke.state.DancerNames
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Screen { HOME, BROWSE, PLAYER }
+private enum class Screen { HOME, BROWSE, PLAYER, ADMIN }
 private enum class ListType { SONGS, SINGERS }
 private enum class Special { NONE, FAVORITES, RECENTS }
 
@@ -145,6 +148,11 @@ class MainActivity : ComponentActivity() {
     private var applauseStartMs by mutableStateOf(0L)
     private var celebrationToken = 0
     private var confirmQuit by mutableStateOf(false)
+    /** Host-renamed dancer names (v1.0.21), mirrored from prefs
+     *  so every label on the TV resolves through [DancerNames]
+     *  against the same snapshot; refreshed after each admin edit. */
+    private var customDancerNames by mutableStateOf<Map<String, String>>(emptyMap())
+    private var confirmRestoreNames by mutableStateOf(false)
     private var accompaniment by mutableStateOf(false)
     private var semitoneLabel by mutableStateOf(0)
     private var scanning by mutableStateOf(false)
@@ -163,6 +171,12 @@ class MainActivity : ComponentActivity() {
         app.prefs.uiLangCode = lang.code
     }
 
+    /** Every dancer name shown anywhere on the TV resolves here
+     *  (v1.0.21): the host's custom name when one is set on the
+     *  admin page, the bilingual default stage name otherwise. */
+    private fun dancerDisplayName(key: String?): String =
+        DancerNames.display(key, uiLang, customDancerNames)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // A karaoke box must not go dark mid-party (v1.0.8): keep
@@ -174,6 +188,7 @@ class MainActivity : ComponentActivity() {
         app = application as KaraokeApp
         dancersOn = app.prefs.dancersEnabled
         fillerOn = app.prefs.randomFillerEnabled
+        customDancerNames = app.prefs.customDancerNames()
         uiLang = UiLang.parse(app.prefs.uiLangCode)
         controller = PlayerController(this)
         controller.onEnded = { onSongEndedNaturally() }
@@ -198,6 +213,7 @@ class MainActivity : ComponentActivity() {
                         Screen.HOME -> HomeScreen(compact)
                         Screen.BROWSE -> BrowseScreen(compact)
                         Screen.PLAYER -> PlayerScreen(compact)
+                        Screen.ADMIN -> AdminScreen(compact)
                     }
                     // Corner QR: pinned to the TOP-RIGHT corner at
                     // all times so a phone can join in mid-song
@@ -546,6 +562,9 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Chip("中文", uiLang == UiLang.ZH) { switchUiLang(UiLang.ZH) }
                     Chip("EN", uiLang == UiLang.EN) { switchUiLang(UiLang.EN) }
+                    // Admin entry (v1.0.21): rename the dancers —
+                    // same chip style as the language switch.
+                    Chip(s(TvKey.ADMIN_TITLE), false) { screen = Screen.ADMIN }
                 }
                 if (ip != null) {
                     // v1.0.19: the home header's big QR is gone — the
@@ -593,6 +612,139 @@ class MainActivity : ComponentActivity() {
             Spacer(Modifier.weight(1f))
             Text(s(TvKey.CREDIT), color = soft.copy(alpha = 0.6f), fontSize = 11.sp)
         }
+    }
+
+    // ---------- admin: rename the dancers (v1.0.21) ----------
+
+    /**
+     * The TV admin page. Friends come over, the host puts their
+     * names on the dancers here. Renaming is TV-only: the phone
+     * server reads the names for its picker cards but has no
+     * write path. Rows carry the dancer's standing frame so the
+     * host recognises who is who even after a rename; a renamed
+     * row also shows the default it would fall back to.
+     */
+    @Composable
+    private fun AdminScreen(compact: Boolean) {
+        BackHandler { screen = Screen.HOME }
+        // The corner QR overlay is pinned top-right here too;
+        // reserve its width so no row slides under it (same
+        // pattern as BrowseScreen).
+        val qrEndReserve = if (remember(app.state.version) { Qr.lanIpAddress() } != null) {
+            if (compact) 88.dp else 112.dp
+        } else {
+            0.dp
+        }
+        Column(
+            modifier = Modifier.fillMaxSize().padding(
+                start = if (compact) 14.dp else 28.dp,
+                top = if (compact) 14.dp else 28.dp,
+                bottom = if (compact) 14.dp else 28.dp,
+                end = (if (compact) 14.dp else 28.dp) + qrEndReserve,
+            ),
+        ) {
+            Text(s(TvKey.ADMIN_TITLE), color = gold, fontSize = (if (compact) 22 else 32).sp, fontWeight = FontWeight.Bold)
+            Text(s(TvKey.ADMIN_HINT), color = soft, fontSize = (if (compact) 13 else 16).sp)
+            Spacer(Modifier.height(if (compact) 8.dp else 14.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Dancers.ALL.forEach { dancer ->
+                    AdminDancerRow(dancer, compact) { showRenameDialog(dancer) }
+                }
+            }
+            Spacer(Modifier.height(if (compact) 10.dp else 18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                EntryCard(s(TvKey.ADMIN_RESTORE), compact) { confirmRestoreNames = true }
+                EntryCard(s(TvKey.ADMIN_BACK), compact) { screen = Screen.HOME }
+            }
+        }
+        if (confirmRestoreNames) {
+            AlertDialog(
+                onDismissRequest = { confirmRestoreNames = false },
+                title = { Text(s(TvKey.ADMIN_RESTORE_TITLE)) },
+                text = { Text(s(TvKey.ADMIN_RESTORE_TEXT)) },
+                confirmButton = {
+                    Button(onClick = {
+                        confirmRestoreNames = false
+                        app.prefs.clearCustomDancerNames()
+                        customDancerNames = emptyMap()
+                    }) { Text(s(TvKey.ADMIN_RESTORE_CONFIRM)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmRestoreNames = false }) { Text(s(TvKey.CANCEL)) }
+                },
+            )
+        }
+    }
+
+    @Composable
+    private fun AdminDancerRow(dancer: Dancer, compact: Boolean, onClick: () -> Unit) {
+        var focused by remember { mutableStateOf(false) }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(2.dp, if (focused) gold else Color.Transparent, RoundedCornerShape(10.dp))
+                .background(if (focused) cardBg else Color.Transparent, RoundedCornerShape(10.dp))
+                .focusable()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { onClick() }
+                .padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Image(
+                painter = painterResource(dancer.resId),
+                contentDescription = dancerDisplayName(dancer.key),
+                modifier = Modifier
+                    .height(if (compact) 40.dp else 56.dp)
+                    .width(if (compact) 32.dp else 44.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Text(
+                dancerDisplayName(dancer.key),
+                color = Color.White,
+                fontSize = (if (compact) 16 else 21).sp,
+                fontWeight = FontWeight.Bold,
+            )
+            if (customDancerNames.containsKey(dancer.key)) {
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    s(TvKey.ADMIN_DEFAULT, DancerNames.display(dancer.key, uiLang, emptyMap())),
+                    color = soft, fontSize = (if (compact) 12 else 15).sp,
+                )
+            }
+        }
+    }
+
+    /**
+     * The rename editor: a native EditText dialog, so the Shield
+     * gets its Leanback keyboard and a phone in landscape the
+     * regular soft keyboard. Prefilled with the current display
+     * name, fully selected, so typing simply replaces it. The
+     * input filter caps the name at [DancerNames.MAX_NAME_LENGTH]
+     * characters while typing; an edit that cleans down to
+     * nothing is not saved — the old name stands.
+     */
+    private fun showRenameDialog(dancer: Dancer) {
+        val current = dancerDisplayName(dancer.key)
+        val edit = EditText(this).apply {
+            setText(current)
+            setSelectAllOnFocus(true)
+            isSingleLine = true
+            hint = s(TvKey.ADMIN_NAME_HINT)
+            filters = arrayOf(InputFilter.LengthFilter(DancerNames.MAX_NAME_LENGTH))
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle(s(TvKey.ADMIN_RENAME_TITLE, current))
+            .setView(edit)
+            .setPositiveButton(s(TvKey.SAVE)) { _, _ ->
+                val clean = DancerNames.sanitize(edit.text?.toString())
+                if (clean != null) {
+                    app.prefs.setCustomDancerName(dancer.key, clean)
+                    customDancerNames = app.prefs.customDancerNames()
+                }
+            }
+            .setNegativeButton(s(TvKey.CANCEL), null)
+            .show()
+        edit.requestFocus()
     }
 
     private var listType by mutableStateOf(ListType.SONGS)
@@ -1010,7 +1162,7 @@ class MainActivity : ComponentActivity() {
             append(" · bpm=").append(currentBpm.toInt())
             if (entry != null) {
                 val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
-                append(" · 舞者：").append(dancer.label).append("（")
+                append(" · 舞者：").append(dancerDisplayName(dancer.key)).append("（")
                     .append(if (entry.isFiller) "随机" else entry.orderedBy).append("选的）")
                 val lastEnd = DancerActivity.lastLyricEndMs(lyrics)
                 val firstStart = DancerActivity.firstLyricStartMs(lyrics)
@@ -1250,14 +1402,14 @@ class MainActivity : ComponentActivity() {
             Box(modifier = modifier) {
                 DancerFrame(
                     resId = dancer.frames[blend.previousIndex],
-                    label = dancer.label,
+                    label = dancerDisplayName(dancer.key),
                     pose = pose,
                     heightDp = heightDp,
                     alpha = 0.95f * (1f - blend.currentAlpha),
                 )
                 DancerFrame(
                     resId = dancer.frames[blend.currentIndex],
-                    label = dancer.label,
+                    label = dancerDisplayName(dancer.key),
                     pose = pose,
                     heightDp = heightDp,
                     alpha = 0.95f * blend.currentAlpha,
@@ -1270,7 +1422,7 @@ class MainActivity : ComponentActivity() {
                     frameIndex in dancer.frames.indices -> dancer.frames[frameIndex]
                     else -> dancer.resId
                 },
-                label = dancer.label,
+                label = dancerDisplayName(dancer.key),
                 pose = pose,
                 heightDp = heightDp,
                 alpha = 0.95f,

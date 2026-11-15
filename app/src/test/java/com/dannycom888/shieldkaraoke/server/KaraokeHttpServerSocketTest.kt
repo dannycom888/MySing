@@ -229,6 +229,63 @@ class KaraokeHttpServerSocketTest {
 
     // --- helpers -------------------------------------------------
 
+    @Test
+    fun servedPageCarriesCustomDancerNames() {
+        // v1.0.21: renames made on the TV admin page reach the
+        // phone page through the server's read-only names
+        // provider — a fresh page load shows the friend's name
+        // on the picker card instead of the default stage name.
+        val p2 = freePort()
+        val srv2 = KaraokeHttpServer(
+            state, p2,
+            dancerNamesProvider = { mapOf("modern" to "小明", "sumo" to "大壮") },
+        )
+        srv2.start()
+        try {
+            awaitAccepting(p2)
+            Socket().use { sock ->
+                sock.connect(InetSocketAddress("::1", p2), 3_000)
+                sock.soTimeout = 5_000
+                val out = sock.getOutputStream()
+                out.write("GET / HTTP/1.1\r\nHost: ::1:$p2\r\nConnection: close\r\n\r\n".toByteArray(Charsets.US_ASCII))
+                out.flush()
+                val all = ByteArrayOutputStream()
+                val buf = ByteArray(4096)
+                val input = sock.getInputStream()
+                while (true) {
+                    val r = input.read(buf)
+                    if (r < 0) break
+                    all.write(buf, 0, r)
+                }
+                val text = String(all.toByteArray(), Charsets.UTF_8)
+                assertTrue("expected 200, got: ${text.lineSequence().firstOrNull()}", text.startsWith("HTTP/1.1 200"))
+                assertTrue("custom name for modern missing", text.contains("\"modern\":\"小明\""))
+                assertTrue("custom name for sumo missing", text.contains("\"sumo\":\"大壮\""))
+            }
+        } finally {
+            srv2.stop()
+        }
+    }
+
+    @Test
+    fun noRenameEndpointOnTheServer() {
+        // Renaming is TV-only (v1.0.21): the phone API must not
+        // grow a write path for dancer names under any plausible
+        // route name — this one stays 404 like any unknown path.
+        val body = "{\"key\":\"modern\",\"name\":\"小明\"}".toByteArray(Charsets.UTF_8)
+        val head = (
+            "POST /api/rename HTTP/1.1\r\n" +
+                "Host: ::1:$port\r\n" +
+                "Content-Type: application/json\r\n" +
+                "Content-Length: ${body.size}\r\n" +
+                "\r\n"
+            ).toByteArray(Charsets.US_ASCII)
+        val response = rawExchange { out ->
+            out.write(head); out.write(body); out.flush()
+        }
+        assertEquals(404, response.status)
+    }
+
     private fun allEntries() =
         listOfNotNull(state.queue.current) + state.queue.waitingList
 

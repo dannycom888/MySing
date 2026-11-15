@@ -79,6 +79,49 @@ class Prefs(context: Context) {
         }.toMap()
     }
 
+    /**
+     * Custom dancer display names (v1.0.21): dancer key -> the
+     * name the host typed on the TV admin page. Stored as
+     * `key\u0001name` lines in one string, same pattern as the
+     * per-orderer selections below. An absent key means the
+     * dancer keeps its default stage name; resolution lives in
+     * [DancerNames.display]. Renaming is TV-only by design — the
+     * phone server gets read access (to label the picker cards)
+     * and no write path at all.
+     */
+    fun customDancerNames(): Map<String, String> {
+        val raw = prefs.getString("dancer_custom_names", "") ?: ""
+        if (raw.isBlank()) return emptyMap()
+        return raw.split('\n').mapNotNull { line ->
+            val idx = line.lastIndexOf('\u0001')
+            if (idx <= 0) null else {
+                val key = line.substring(0, idx)
+                val name = line.substring(idx + 1)
+                if (DancerKeys.isValid(key) && name.isNotBlank()) key to name else null
+            }
+        }.toMap()
+    }
+
+    /** Store one dancer's custom name; unusable names (blank
+     *  after cleaning) and unknown keys are ignored, so an empty
+     *  edit can never wipe a name. */
+    fun setCustomDancerName(key: String, name: String) {
+        val clean = DancerNames.sanitize(name) ?: return
+        if (!DancerKeys.isValid(key)) return
+        val next = customDancerNames().toMutableMap()
+        next[key] = clean
+        prefs.edit().putString(
+            "dancer_custom_names",
+            next.entries.joinToString("\n") { "${it.key}\u0001${it.value}" },
+        ).apply()
+    }
+
+    /** "Restore default names" on the admin page: drop every
+     *  custom name at once. */
+    fun clearCustomDancerNames() {
+        prefs.edit().remove("dancer_custom_names").apply()
+    }
+
     /** The dancer [name] chose, or null (caller uses the default). */
     fun dancerFor(name: String): String? = dancerSelections()[name]
 

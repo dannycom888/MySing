@@ -18,8 +18,17 @@ object PhonePage {
      * reads Chinese. Order/dancer requests carry the language so
      * the server's replies come back in the same language. Song
      * and singer names are file-name data and never translated.
+     *
+     * v1.0.21: [customNames] carries the host's dancer renames
+     * (dancer key -> custom name, set on the TV admin page). They
+     * are injected as CUSTOM_DANCER_NAMES and override the baked
+     * stage names in BOTH languages — a person's name is not
+     * translated. Phones only ever read names this way; there is
+     * no rename endpoint on the server.
      */
-    fun html(bootId: String = ""): String = """<!DOCTYPE html>
+    fun html(bootId: String = "", customNames: Map<String, String> = emptyMap()): String {
+        val customNamesJson = customNamesJson(customNames)
+        return """<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MySing 点歌</title>
@@ -95,6 +104,7 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <div id="songs"></div>
 </div>
 <script>
+var CUSTOM_DANCER_NAMES = $customNamesJson;
 var I18N = {
 zh: {
   title: 'MySing 点歌',
@@ -146,7 +156,14 @@ function applyLang(){
   document.documentElement.lang = (ui === 'en') ? 'en' : 'zh-CN';
   document.querySelectorAll('[data-i]').forEach(function(el){ el.textContent = t(el.getAttribute('data-i')); });
   document.querySelectorAll('[data-iph]').forEach(function(el){ el.placeholder = t(el.getAttribute('data-iph')); });
-  document.querySelectorAll('[data-dancer]').forEach(function(el){ el.textContent = t('dancers')[el.getAttribute('data-dancer')]; });
+  document.querySelectorAll('[data-dancer]').forEach(function(el){
+    var k = el.getAttribute('data-dancer');
+    var nm = CUSTOM_DANCER_NAMES[k] || t('dancers')[k];
+    el.textContent = nm;
+    var card = el.closest ? el.closest('.dcard') : null;
+    var im = card ? card.querySelector('img') : null;
+    if (im) im.alt = nm;
+  });
   document.getElementById('langZh').classList.toggle('on', ui === 'zh');
   document.getElementById('langEn').classList.toggle('on', ui === 'en');
   qSig = '';
@@ -349,4 +366,28 @@ setInterval(loadQueue, 5000);
 applyLang();
 show();
 </script></body></html>"""
+    }
+
+    /** JSON object literal for the page's CUSTOM_DANCER_NAMES
+     *  (dancer key -> custom display name). Keys are the app's
+     *  own fixed dancer keys; values are host-typed names and go
+     *  through [jsEscape] so a quote or backslash in a name can
+     *  never break the page's script block. */
+    private fun customNamesJson(customNames: Map<String, String>): String {
+        if (customNames.isEmpty()) return "{}"
+        return customNames.entries.joinToString(separator = ",", prefix = "{", postfix = "}") {
+            "\"${jsEscape(it.key)}\":\"${jsEscape(it.value)}\""
+        }
+    }
+
+    private fun jsEscape(s: String): String = buildString {
+        for (c in s) {
+            when {
+                c == '"' -> append("\\\"")
+                c == '\\' -> append("\\\\")
+                c.code < 0x20 -> append("\\u%04x".format(c.code))
+                else -> append(c)
+            }
+        }
+    }
 }

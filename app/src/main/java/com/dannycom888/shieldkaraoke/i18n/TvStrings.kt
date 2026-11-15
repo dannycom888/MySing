@@ -27,6 +27,11 @@ enum class TvKey {
     QUEUE_PANEL_RANDOM,
     // The orderer name shown for songs ordered from the TV itself.
     TV_ORDERER,
+    // TV admin page: rename the dancers (v1.0.21)
+    ADMIN_TITLE, ADMIN_HINT, ADMIN_RENAME_TITLE, ADMIN_NAME_HINT,
+    ADMIN_DEFAULT, ADMIN_RESTORE, ADMIN_RESTORE_TITLE,
+    ADMIN_RESTORE_TEXT, ADMIN_RESTORE_CONFIRM, ADMIN_BACK,
+    SAVE, CANCEL,
 }
 
 /**
@@ -97,6 +102,18 @@ object TvStrings {
         TvKey.QUEUE_PANEL_NO_WAITING to "暂无排队",
         TvKey.QUEUE_PANEL_RANDOM to "随机",
         TvKey.TV_ORDERER to "电视",
+        TvKey.ADMIN_TITLE to "⚙ 后台",
+        TvKey.ADMIN_HINT to "选一位小人，按 OK 给他改名字",
+        TvKey.ADMIN_RENAME_TITLE to "给 %s 改名",
+        TvKey.ADMIN_NAME_HINT to "输入新名字",
+        TvKey.ADMIN_DEFAULT to "默认：%s",
+        TvKey.ADMIN_RESTORE to "恢复默认名",
+        TvKey.ADMIN_RESTORE_TITLE to "恢复默认名？",
+        TvKey.ADMIN_RESTORE_TEXT to "六位小人的名字都改回默认。",
+        TvKey.ADMIN_RESTORE_CONFIRM to "恢复",
+        TvKey.ADMIN_BACK to "返回",
+        TvKey.SAVE to "保存",
+        TvKey.CANCEL to "取消",
     )
 
     private val EN: Map<TvKey, String> = mapOf(
@@ -155,6 +172,18 @@ object TvStrings {
         TvKey.QUEUE_PANEL_NO_WAITING to "Nothing queued",
         TvKey.QUEUE_PANEL_RANDOM to "Random",
         TvKey.TV_ORDERER to "TV",
+        TvKey.ADMIN_TITLE to "⚙ Admin",
+        TvKey.ADMIN_HINT to "Pick a dancer and press OK to rename them",
+        TvKey.ADMIN_RENAME_TITLE to "Rename %s",
+        TvKey.ADMIN_NAME_HINT to "New name",
+        TvKey.ADMIN_DEFAULT to "Default: %s",
+        TvKey.ADMIN_RESTORE to "Restore default names",
+        TvKey.ADMIN_RESTORE_TITLE to "Restore default names?",
+        TvKey.ADMIN_RESTORE_TEXT to "All six dancers go back to their default names.",
+        TvKey.ADMIN_RESTORE_CONFIRM to "Restore",
+        TvKey.ADMIN_BACK to "Back",
+        TvKey.SAVE to "Save",
+        TvKey.CANCEL to "Cancel",
     )
 
     /** Key set of each language's table, for the parity test. */

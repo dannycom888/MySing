@@ -32,6 +32,11 @@ class KaraokeHttpServer(
     private val dancerSetter: (String, String) -> Unit = { _, _ -> },
     private val dancerImageProvider: (String) -> ByteArray? = { null },
     private val dancerAnimProvider: (String) -> ByteArray? = { null },
+    /** Read-only view of the host's dancer renames (v1.0.21), so
+     *  the served page can label its picker cards with them.
+     *  Deliberately a provider and not a setter: renaming happens
+     *  on the TV admin page only, this server has no rename route. */
+    private val dancerNamesProvider: () -> Map<String, String> = { emptyMap() },
 ) {
     companion object {
         const val DEFAULT_PORT = 8931
@@ -258,7 +263,7 @@ class KaraokeHttpServer(
     ): Triple<Int, String, String> {
         return when {
             method == "GET" && (path == "/" || path == "/index.html") ->
-                Triple(200, "text/html; charset=utf-8", PhonePage.html(bootId))
+                Triple(200, "text/html; charset=utf-8", PhonePage.html(bootId, dancerNamesProvider()))
 
             method == "GET" && path == "/api/songs" -> {
                 val lang = when (query["lang"]) {

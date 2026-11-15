@@ -37,8 +37,8 @@ android {
         applicationId = "com.dannycom888.shieldkaraoke"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.0.8"
+        versionCode = 10
+        versionName = "1.0.9"
     }
 
     if (canSignRelease) {
@@ -90,4 +90,8 @@ dependencies {
     implementation(libs.androidx.media3.common)
     implementation(libs.zxing.core)
     testImplementation(libs.junit)
+    // Real org.json for local unit tests (the android.jar stub is
+    // inert even with returnDefaultValues): the socket-level server
+    // tests exercise the actual JSON routes over real sockets.
+    testImplementation("org.json:json:20240303")
 }

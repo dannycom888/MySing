@@ -5,8 +5,8 @@ import com.dannycom888.shieldkaraoke.library.Language
 import com.dannycom888.shieldkaraoke.state.KaraokeState
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import java.io.BufferedInputStream
+import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URLDecoder
@@ -38,6 +38,11 @@ class KaraokeHttpServer(
          *  phone service for the whole session — silently. */
         const val MAX_BIND_ATTEMPTS = 5
         const val BIND_RETRY_DELAY_MS = 500L
+
+        /** Read timeout on accepted sockets (v1.0.9): a malformed
+         *  or abandoned request must time out, not hang a handler
+         *  thread for the rest of the session. */
+        const val SOCKET_TIMEOUT_MS = 15_000
     }
 
     /** Identity of this server session, minted once per start of
@@ -123,31 +128,64 @@ class KaraokeHttpServer(
         publishStatus(false, lastError)
     }
 
+    /** One request/header line read byte-wise: bytes up to '\n'
+     *  with a trailing '\r' stripped. Header bytes are ASCII in
+     *  practice; ISO-8859-1 keeps the mapping byte-exact so nothing
+     *  is mangled before the path/query are URL-decoded. Null on a
+     *  clean EOF before any byte. */
+    private fun readHeaderLine(input: BufferedInputStream): String? {
+        val buf = ByteArrayOutputStream()
+        while (true) {
+            val b = input.read()
+            if (b < 0) return if (buf.size() == 0) null else decodeHeaderLine(buf)
+            if (b == '\n'.code) break
+            buf.write(b)
+        }
+        return decodeHeaderLine(buf)
+    }
+
+    private fun decodeHeaderLine(buf: ByteArrayOutputStream): String {
+        var bytes = buf.toByteArray()
+        if (bytes.isNotEmpty() && bytes[bytes.size - 1] == '\r'.code.toByte()) {
+            bytes = bytes.copyOf(bytes.size - 1)
+        }
+        return String(bytes, Charsets.ISO_8859_1)
+    }
+
     private fun handle(client: java.net.Socket) {
         client.use { sock ->
-            val reader = BufferedReader(InputStreamReader(sock.getInputStream(), Charsets.UTF_8))
-            val requestLine = reader.readLine() ?: return
+            // A wedged or half-sent request must never park a
+            // handler thread forever (v1.0.9).
+            try { sock.soTimeout = SOCKET_TIMEOUT_MS } catch (e: Exception) { /* best effort */ }
+            // Byte-level reading only (v1.0.9 root-cause fix):
+            // Content-Length counts BYTES on the wire, but the old
+            // code spent that budget on UTF-8 CHARS — a body with
+            // multi-byte text (Chinese song ids / orderer names)
+            // could never fill the char buffer, so the handler
+            // blocked mid-request and the phone heard nothing back.
+            val input = BufferedInputStream(sock.getInputStream())
+            val requestLine = readHeaderLine(input) ?: return
             val parts = requestLine.split(' ')
             if (parts.size < 2) return
             val method = parts[0]
             val rawPath = parts[1]
             var contentLength = 0
             while (true) {
-                val line = reader.readLine() ?: break
+                val line = readHeaderLine(input) ?: break
                 if (line.isEmpty()) break
                 if (line.lowercase().startsWith("content-length:")) {
                     contentLength = line.substringAfter(':').trim().toIntOrNull() ?: 0
                 }
             }
             val body = if (contentLength > 0) {
-                val buf = CharArray(contentLength)
+                val buf = ByteArray(contentLength)
                 var read = 0
                 while (read < contentLength) {
-                    val r = reader.read(buf, read, contentLength - read)
+                    val r = input.read(buf, read, contentLength - read)
                     if (r < 0) break
                     read += r
                 }
-                String(buf, 0, read)
+                String(buf, 0, read, Charsets.UTF_8)
             } else ""
 
             val path = rawPath.substringBefore('?')

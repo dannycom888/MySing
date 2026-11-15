@@ -359,3 +359,35 @@
 ### 发布
 
 - GitHub 发布：提交 `deba1e2` 已推送 main；Release https://github.com/dannycom888/MySing/releases/tag/v1.0.8 （附件 `MySing-1.0.8.apk`）。API 回读校验：asset size `17733106`、digest `sha256:7866a776853ba382cf88d8fbaea1b222f3cc0faa7bc61141209e9982e102a996`，与本地逐字一致。
+
+## v1.0.9 紧急修复：手机点中文歌永远没反应——请求读取字节/字符混淆（2026-11-15）
+
+### 现象与根因
+
+- 用户实测（v1.0.7/v1.0.8）：手机点歌页一切正常（能开页、能选伴舞、能搜歌），点**中文歌**后手机无任何回音、电视队列不进歌、电视停在主页不动；点英文歌正常。重扫二维码开新页一度“恢复”，其实是误打误撞——与旧页无关。
+- **根因（源码确诊）**：`server/KaraokeHttpServer.kt` 的 `handle()` 用 `BufferedReader(InputStreamReader(UTF_8))` 读请求，却按 HTTP 的 `Content-Length`（**字节数**）去读**字符数**：`CharArray(contentLength)` + `reader.read` 循环。POST /api/order 的 JSON 里带中文歌 id（如 `CHINESE_BOY|张信哲 - 爱如潮水`）与中文点歌人名时是多字节字符，字节数 > 字符数，字符循环永远读不满 → handler 线程无限阻塞、请求挂死，手机端 fetch 既收不到成功也收不到失败（连接一直挂着），队列自然不进歌。纯 ASCII 的英文歌 body 字节数 == 字符数，恰好能读满——这就是为什么 GET 全通、唯独点中文歌死。
+- 这是覆盖洞：此前所有服务端测试都停在路由级（直接调 route()），从没用真 socket 发过带中文的 POST。
+
+### 修法
+
+- **请求读取改字节级**：整个 socket 输入只用一个 `BufferedInputStream`；请求行与头逐行按字节读到 `\n`（新 `readHeaderLine`，ISO-8859-1 字节无损解码后再做 URL 解码）；body 按 `Content-Length` **精确读满 N 个字节**后才 UTF-8 解码。字符流彻底退出请求读取路径。路由、boot 会话、Cache-Control: no-store、Connection: close、舞者图片二进制路由等现有行为全部保持。
+- **socket 读超时**：accept 到的 socket 设 `soTimeout = 15_000`（常量 `SOCKET_TIMEOUT_MS`），畸形/半截/弃置的请求只会超时断开，绝不许把 handler 线程永久挂住。
+- **测试基建补强**：`testImplementation("org.json:json:20240303")` —— 本地单测的 android.jar 里 org.json 是惰性桩（returnDefaultValues 也救不了），真 socket 测试要跑真 JSON 路由必须用真实现。
+
+### 新增回归测试（真实 socket 级，4 个）
+
+`server/KaraokeHttpServerSocketTest`：真服务器（临时端口）+ 含中英文歌的小目录，原始 socket 按字节发请求（沙箱拦截 Java IPv4 环回，客户端走 ::1）：
+
+1. **中文点歌**：POST /api/order（点歌人名“小明”+ 中文歌 id）→ 200，且队列里真有这首、点歌人正确。
+2. **分段发送**：头与 body 分两次 flush、间隔 250ms → 仍正确收单入队。
+3. **英文点歌**：纯 ASCII 路径照常 200 入队。
+4. **畸形请求不打死服务**：先发一行垃圾请求，再发中文点歌 → 仍 200。
+
+### 交付
+
+| 项 | 值 |
+|---|---|
+| APK | `MySing-1.0.9.apk`，**17,733,096 字节**，SHA-256 `d97a01a17378576b7a144bf851d7882ce67b991873784f9fec528e06604f28bd` |
+| versionName / versionCode | 1.0.9 / 10（aapt badging 实测） |
+| 签名 | 同一把共享 keystore，证书 SHA-256 `1336ee0aefc229c3f0e6c025060ec0267825dbfc83f8799c3981dd74ea2befcc`，与历版逐字一致，可覆盖安装 |
+| 单元测试 | `:app:testDebugUnitTest` **122 个，0 失败**（118 旧 + 新增 socket 级回归 4） |

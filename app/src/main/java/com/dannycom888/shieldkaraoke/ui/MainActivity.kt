@@ -11,6 +11,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -596,6 +597,21 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             DancerActivity.STILL_FRAME
                                         },
+                                        // v1.0.10: cross-fade each new
+                                        // pose frame in (see PoseCycle)
+                                        // — except the robot, whose
+                                        // mechanical hard cuts are its
+                                        // character and stay stepped.
+                                        blend = if (dancerPhase == DancerActivity.Phase.DANCING &&
+                                            dancer.profile != DanceMotion.Profile.ROBOT
+                                        ) {
+                                            PoseCycle.blend(
+                                                positionMs, currentBpm, dancer.frames.size,
+                                                phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                                            )
+                                        } else {
+                                            null
+                                        },
                                         invite = dancerPhase == DancerActivity.Phase.INVITING,
                                         heightDp = screenH * if (compact) 0.62f else 0.70f,
                                     )
@@ -724,17 +740,67 @@ class MainActivity : ComponentActivity() {
         modifier: Modifier = Modifier,
         frameIndex: Int = -1,
         invite: Boolean = false,
+        blend: PoseCycle.Blend? = null,
     ) {
-        val heightPx = with(LocalDensity.current) { heightDp.toPx() }
-        Image(
-            painter = painterResource(
-                when {
+        // v1.0.10: while a beat's cross-fade is still running, the
+        // previous pose frame is drawn under the current one with
+        // complementary alphas — same rect, same whole-body
+        // transform, only the alpha differs — so the frame change
+        // melts instead of cutting. Once the fade completes (or no
+        // blend was supplied: robot, invite/still, applause row)
+        // this is exactly the old single-image draw.
+        if (blend != null && !invite &&
+            blend.currentAlpha < 1f &&
+            blend.previousIndex != blend.currentIndex &&
+            blend.previousIndex in dancer.frames.indices &&
+            blend.currentIndex in dancer.frames.indices
+        ) {
+            Box(modifier = modifier) {
+                DancerFrame(
+                    resId = dancer.frames[blend.previousIndex],
+                    label = dancer.label,
+                    pose = pose,
+                    heightDp = heightDp,
+                    alpha = 0.95f * (1f - blend.currentAlpha),
+                )
+                DancerFrame(
+                    resId = dancer.frames[blend.currentIndex],
+                    label = dancer.label,
+                    pose = pose,
+                    heightDp = heightDp,
+                    alpha = 0.95f * blend.currentAlpha,
+                )
+            }
+        } else {
+            DancerFrame(
+                resId = when {
                     invite -> dancer.inviteResId
                     frameIndex in dancer.frames.indices -> dancer.frames[frameIndex]
                     else -> dancer.resId
                 },
-            ),
-            contentDescription = dancer.label,
+                label = dancer.label,
+                pose = pose,
+                heightDp = heightDp,
+                alpha = 0.95f,
+                modifier = modifier,
+            )
+        }
+    }
+
+    /** One dancer frame with the shared whole-body [pose] transform. */
+    @Composable
+    private fun DancerFrame(
+        @DrawableRes resId: Int,
+        label: String,
+        pose: DanceMotion.Pose,
+        heightDp: Dp,
+        alpha: Float,
+        modifier: Modifier = Modifier,
+    ) {
+        val heightPx = with(LocalDensity.current) { heightDp.toPx() }
+        Image(
+            painter = painterResource(resId),
+            contentDescription = label,
             modifier = modifier
                 .height(heightDp)
                 .graphicsLayer {
@@ -743,7 +809,7 @@ class MainActivity : ComponentActivity() {
                     rotationZ = pose.rotationDeg
                     scaleX = pose.scale
                     scaleY = pose.scale
-                    alpha = 0.95f
+                    this.alpha = alpha
                     transformOrigin = TransformOrigin(0.5f, 0.95f)
                 },
         )

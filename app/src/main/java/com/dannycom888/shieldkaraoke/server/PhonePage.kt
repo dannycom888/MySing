@@ -33,6 +33,10 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 .chip.on{background:#FFD54F;color:#111}
 .song{display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid #223}
 .song button{padding:6px 14px}
+#sug{background:#16295c;border:1px solid #446;border-radius:10px;margin-top:6px;max-height:42vh;overflow-y:auto}
+.sugrow{padding:14px 10px;border-bottom:1px solid #223;font-size:17px;cursor:pointer}
+.sugrow:active{background:#22397a}
+.sugmore{padding:10px;color:#9db4e8;font-size:13px}
 .small{color:#9db4e8;font-size:13px}
 #qpanel{background:#16295c;border:1px solid #446;border-radius:10px;padding:8px 10px;margin:10px 0}
 #qhead{font-size:17px;font-weight:bold;color:#FFD54F;cursor:pointer}
@@ -66,6 +70,7 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <div id="qlist"></div>
 </div>
 <input id="q" data-iph="searchPh" placeholder="搜歌名/歌手，或拼音首字母（如 fh cq）">
+<div id="sug" class="hidden"></div>
 <div style="margin:8px 0">
 <button class="chip on" data-lang="" data-i="fAll">全部</button>
 <button class="chip" data-lang="zh" data-i="fZh">中文</button>
@@ -106,6 +111,7 @@ zh: {
   dancerTitle: '💃 选伴舞',
   dancerHint: '你选的伴舞，只在你点的歌时出来；唱到你的歌时想换人，点一下电视上立刻换。',
   order: '点歌', dup: '（提醒：这首已经在队列里了）',
+  sugMore: '还有更多结果，继续输入缩小范围',
   netErr: '发送失败：连不上电视，请确认同一个 WiFi，或关掉页面重新扫码',
   tvRestarted: '电视已重启，正在刷新页面…',
   dancers: {modern: '春丽', ancient: '林语嫣', sumo: '姿三四郎', ancient_girl: '小蛮', baby: '哪吒', robot: '瓦力'}
@@ -125,6 +131,7 @@ en: {
   dancerTitle: '💃 Pick your dancer',
   dancerHint: 'Your dancer comes out only for songs you ordered. Tap anytime during your song to switch — the TV updates right away.',
   order: 'Order', dup: " (Note: it's already in the queue)",
+  sugMore: 'More matches — keep typing to narrow it down',
   netErr: "Couldn't send — can't reach the TV. Check you're on the same Wi-Fi, or close this page and scan again.",
   tvRestarted: 'The TV app restarted — refreshing…',
   dancers: {modern: 'Chun-Li', ancient: 'Lin Yuyan', sumo: 'Sanshiro', ancient_girl: 'Xiaoman', baby: 'Nezha', robot: 'WALL-E'}
@@ -143,7 +150,7 @@ function applyLang(){
   document.getElementById('langZh').classList.toggle('on', ui === 'zh');
   document.getElementById('langEn').classList.toggle('on', ui === 'en');
   qSig = '';
-  if (name) { loadSongs(); loadQueue(); }
+  if (name) { loadSongs(); loadQueue(); updateSuggest(); }
 }
 function setUi(l){ ui = l; localStorage.setItem('mysing_lang', l); applyLang(); }
 document.getElementById('langZh').onclick = function(){ setUi('zh'); };
@@ -159,7 +166,7 @@ function paintDancers(){ document.querySelectorAll('[data-who]').forEach(functio
   c.classList.toggle('on', c.getAttribute('data-who')===myDancer); }); }
 function show(){ document.getElementById('nameGate').classList.toggle('hidden', !!name);
   document.getElementById('main').classList.toggle('hidden', !name);
-  document.getElementById('who').textContent = name ? ('（'+name+'）') : ''; if(name){paintDancers(); loadSongs(); loadQueue();} }
+  document.getElementById('who').textContent = name ? ('（'+name+'）') : ''; if(name){paintDancers(); loadSongs(); loadQueue(); loadCatalog();} }
 document.getElementById('enterBtn').onclick = function(){
   var v = document.getElementById('nameInput').value.trim();
   if(!v){ alert(t('nameAlert')); return; }
@@ -194,6 +201,70 @@ function order(id){
     if(d.duplicate) m += t('dup');
     document.getElementById('msg').textContent = m; loadQueue();
   }).catch(netErr);
+}
+// --- Search suggestions (v1.0.18) --------------------------------
+// The whole catalog is fetched once and kept here; suggestions are
+// then computed locally on every keystroke, so the first character
+// already lists matches with zero network wait. The pure ranking
+// function between the SUGGEST markers is exercised offline by
+// tools/check_suggest.js against real Chinese song fixtures.
+var allSongs = null;
+function loadCatalog(){
+  if(allSongs !== null) return;
+  fetch('/api/songs').then(function(r){return r.json()}).then(function(d){
+    allSongs = d.songs || []; updateSuggest();
+  }).catch(function(){ allSongs = []; netErr(); });
+}
+// SUGGEST-BEGIN
+var SUG_LIMIT = 20;
+function suggestRank(songs, q, lang, gender){
+  q = (q || '').trim().toLowerCase();
+  if(!q) return {list: [], more: false};
+  var qPin = q.replace(/\s+/g, '');
+  var pinOk = /^[a-z0-9]+$/.test(qPin);
+  var t0 = [], t1 = [], t2 = [];
+  for(var i = 0; i < songs.length; i++){
+    var s = songs[i];
+    if(lang && s.lang !== lang) continue;
+    if(gender && s.gender !== gender) continue;
+    var title = (s.title || '').toLowerCase();
+    var artist = (s.artist || '').toLowerCase();
+    if(title.indexOf(q) === 0) t0.push(s);
+    else if(title.indexOf(q) >= 0 || artist.indexOf(q) >= 0) t1.push(s);
+    else if(pinOk && s.pin && s.pin.indexOf(qPin) >= 0) t2.push(s);
+  }
+  var all = t0.concat(t1, t2);
+  return {list: all.slice(0, SUG_LIMIT), more: all.length > SUG_LIMIT};
+}
+// SUGGEST-END
+function hideSuggest(){
+  var el = document.getElementById('sug');
+  el.classList.add('hidden'); el.innerHTML = '';
+}
+function updateSuggest(){
+  var box = document.getElementById('sug');
+  var q = document.getElementById('q').value;
+  if(!q.trim() || !allSongs){ hideSuggest(); return; }
+  var res = suggestRank(allSongs, q, lang, gender);
+  if(!res.list.length){ hideSuggest(); return; }
+  box.innerHTML = '';
+  res.list.forEach(function(s){
+    var row = document.createElement('div'); row.className = 'sugrow';
+    row.textContent = s.artist ? (s.title + ' — ' + s.artist) : s.title;
+    row.onclick = function(){ pickSuggest(s); };
+    box.appendChild(row);
+  });
+  if(res.more){
+    var hint = document.createElement('div'); hint.className = 'sugmore';
+    hint.textContent = t('sugMore'); box.appendChild(hint);
+  }
+  box.classList.remove('hidden');
+}
+function pickSuggest(s){
+  order(s.id);
+  document.getElementById('q').value = '';
+  hideSuggest();
+  loadSongs();
 }
 function toggleFav(id, fav){
   fetch('/api/fav',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -260,20 +331,20 @@ function loadQueue(){
     renderQueue(d);
   }).catch(netErr);
 }
-document.getElementById('q').addEventListener('input', function(){ mode='all'; loadSongs(); });
+document.getElementById('q').addEventListener('input', function(){ mode='all'; if(allSongs === null) loadCatalog(); updateSuggest(); loadSongs(); });
 document.querySelectorAll('[data-lang]').forEach(function(c){ c.onclick=function(){
   document.querySelectorAll('[data-lang]').forEach(function(x){x.classList.remove('on')});
-  c.classList.add('on'); lang=c.getAttribute('data-lang'); mode='all'; loadSongs(); }; });
+  c.classList.add('on'); lang=c.getAttribute('data-lang'); mode='all'; loadSongs(); updateSuggest(); }; });
 document.querySelectorAll('[data-g]').forEach(function(c){ c.onclick=function(){
   document.querySelectorAll('[data-g]').forEach(function(x){x.classList.remove('on')});
-  c.classList.add('on'); gender=c.getAttribute('data-g'); mode='all'; loadSongs(); }; });
+  c.classList.add('on'); gender=c.getAttribute('data-g'); mode='all'; loadSongs(); updateSuggest(); }; });
 document.querySelectorAll('[data-who]').forEach(function(c){ c.onclick=function(){
   myDancer=c.getAttribute('data-who'); localStorage.setItem('sk_dancer', myDancer); paintDancers();
   fetch('/api/dancer',{method:'POST',headers:{'Content-Type':'application/json'},
     body: JSON.stringify({name:name, who:myDancer, lang:ui})}).catch(netErr);
 }; });
-document.getElementById('favTab').onclick=function(){ mode='fav'; loadSongs(); };
-document.getElementById('recentTab').onclick=function(){ mode='recent'; loadSongs(); };
+document.getElementById('favTab').onclick=function(){ mode='fav'; hideSuggest(); loadSongs(); };
+document.getElementById('recentTab').onclick=function(){ mode='recent'; hideSuggest(); loadSongs(); };
 setInterval(loadQueue, 5000);
 applyLang();
 show();

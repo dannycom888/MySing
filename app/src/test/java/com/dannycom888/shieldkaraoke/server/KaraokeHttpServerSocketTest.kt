@@ -179,6 +179,46 @@ class KaraokeHttpServerSocketTest {
     }
 
     @Test
+    fun songsEndpointCarriesPinyinKeys() {
+        // v1.0.18: the page's local suggestion filter needs each
+        // song's pinyin-initials key in the catalog payload. The
+        // values are pinned against the real char table — 张信哲
+        // 爱如潮水 must come out as zxz + arcs, not whatever the
+        // client hopes for.
+        val response = rawGet("/api/songs")
+        assertEquals(200, response.status)
+        val songs = org.json.JSONObject(String(response.bodyBytes, Charsets.UTF_8))
+            .getJSONArray("songs")
+        val byId = (0 until songs.length()).associate {
+            val o = songs.getJSONObject(it); o.getString("id") to o
+        }
+        assertEquals("zxzarcs", byId.getValue(chineseSong.id).getString("pin"))
+        assertEquals("adelehello", byId.getValue(englishSong.id).getString("pin"))
+    }
+
+    @Test
+    fun suggestionPickFlowLandsInQueue() {
+        // The v1.0.18 phone flow end to end, exactly as the page
+        // does it: fetch the catalog once, take the song a first
+        // character (爱) would surface, order it by its id, and
+        // find it in the queue under the guest's Chinese name.
+        val catalog = rawGet("/api/songs")
+        assertEquals(200, catalog.status)
+        val songs = org.json.JSONObject(String(catalog.bodyBytes, Charsets.UTF_8))
+            .getJSONArray("songs")
+        val picked = (0 until songs.length())
+            .map { songs.getJSONObject(it) }
+            .first { it.getString("title").startsWith("爱") }
+        assertEquals(chineseSong.id, picked.getString("id"))
+        val response = postOrder(picked.getString("id"), "小明")
+        assertEquals(200, response.status)
+        assertEquals("马上开唱！", org.json.JSONObject(response.body).getString("message"))
+        val entry = allEntries().firstOrNull { it.song.id == chineseSong.id }
+        assertTrue("suggestion pick must land in the queue", entry != null)
+        assertEquals("小明", entry!!.orderedBy)
+    }
+
+    @Test
     fun garbageRequestDoesNotKillServer() {
         rawExchange { out ->
             out.write("GARBAGE\r\n\r\n".toByteArray(Charsets.US_ASCII)); out.flush()

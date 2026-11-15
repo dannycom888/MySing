@@ -278,6 +278,13 @@ class KaraokeHttpServer(
                         put("id", s.id); put("artist", s.artist); put("title", s.title)
                         put("lang", if (s.category.language == Language.CHINESE) "zh" else "en")
                         put("gender", if (s.category.gender == Gender.MALE) "m" else "f")
+                        // v1.0.18: the pinyin-initials key rides along
+                        // so the page can run its search suggestions
+                        // locally (the whole catalog is fetched once).
+                        // initialsOf is a per-char map, so this one
+                        // combined string covers every contains()
+                        // check PinyinInitials.matches does server-side.
+                        put("pin", com.dannycom888.shieldkaraoke.library.PinyinInitials.initialsOf(s.artist + s.title))
                     })
                 }
                 Triple(200, "application/json; charset=utf-8", JSONObject().put("songs", arr).toString())

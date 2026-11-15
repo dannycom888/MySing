@@ -147,6 +147,57 @@ class PhonePageTest {
     }
 
     @Test
+    fun searchSuggestionsLiveUnderTheSearchBox() {
+        // v1.0.18: typing the first character already lists songs
+        // whose title carries it, in a dedicated box directly under
+        // the search input (before the filter chips), so a guest
+        // taps one instead of typing the whole title.
+        assertTrue(html.contains("id=\"sug\""))
+        assertTrue(html.indexOf("id=\"q\"") < html.indexOf("id=\"sug\""))
+        assertTrue(html.indexOf("id=\"sug\"") < html.indexOf("data-lang"))
+        // The box scrolls internally instead of pushing the page
+        // around, and its rows are big tap targets.
+        assertTrue(html.contains("#sug{"))
+        assertTrue(html.contains("overflow-y:auto"))
+        assertTrue(html.contains(".sugrow{"))
+        // Suggestions render as 歌名 — 歌手.
+        assertTrue(html.contains("s.title + ' — ' + s.artist"))
+    }
+
+    @Test
+    fun suggestionsAreComputedLocallyFromOneCatalogFetch() {
+        // The whole catalog is fetched once from the existing
+        // endpoint; every keystroke then filters locally (no
+        // per-keystroke requests, no stale-response races).
+        assertTrue(html.contains("fetch('/api/songs')"))
+        assertTrue(html.contains("function loadCatalog()"))
+        // The pure ranking function ships between markers so
+        // tools/check_suggest.js can exercise the exact code.
+        assertTrue(html.contains("// SUGGEST-BEGIN"))
+        assertTrue(html.contains("// SUGGEST-END"))
+        assertTrue(html.contains("function suggestRank(songs, q, lang, gender)"))
+        assertTrue(html.contains("var SUG_LIMIT = 20"))
+    }
+
+    @Test
+    fun tappingASuggestionOrdersItAndClearsTheSearch() {
+        // A tap rides the existing order channel (same receipts,
+        // same duplicate warning), then the search box and the
+        // suggestion list clear for the next guest.
+        assertTrue(html.contains("function pickSuggest(s)"))
+        assertTrue(html.contains("order(s.id)"))
+        assertTrue(html.contains("document.getElementById('q').value = '';"))
+        assertTrue(html.contains("hideSuggest()"))
+    }
+
+    @Test
+    fun suggestionOverflowHintIsBilingual() {
+        assertTrue(html.contains("sugMore"))
+        assertTrue(html.contains("还有更多结果，继续输入缩小范围"))
+        assertTrue(html.contains("More matches — keep typing to narrow it down"))
+    }
+
+    @Test
     fun requestsCarryThePageLanguage() {
         // Order and dancer posts tell the server the page language
         // so its replies (马上开唱 / You're up…) match the phone.

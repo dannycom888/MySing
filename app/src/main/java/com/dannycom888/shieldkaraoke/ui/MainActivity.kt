@@ -1653,8 +1653,9 @@ class MainActivity : ComponentActivity() {
      * Player state small print for debugging. It sat under the
      * lyrics on the stage until v1.0.34; since v1.0.35 it lives in
      * the admin page's diagnostics section (the user: the stage is
-     * for singing, the small print goes backstage). The assembly
-     * itself is unchanged — same fields, same order.
+     * for singing, the small print goes backstage). v1.0.40: the
+     * accompaniment note names its real cause again, and the last
+     * playback error is appended at the end of the line.
      */
     private fun diagnosticsText(entry: QueueEntry?): String {
         val p = controller.player
@@ -1686,7 +1687,20 @@ class MainActivity : ComponentActivity() {
                     DancerActivity.Phase.DANCING -> {}
                 }
             }
-            if (controller.accompanimentUnavailable) append(" · 伴奏不可用（此歌格式不支持消音）")
+            if (controller.accompanimentUnavailable) {
+                // Name the actual cause (v1.0.40): on the custom
+                // path the processor rejected this song's format;
+                // on any other path the live build is the bare
+                // retry, which has no vocal processor at all.
+                append(" · 伴奏不可用（")
+                append(if (controller.sinkLabel == "custom") "此歌格式不支持消音" else "当前通道无消音")
+                append("）")
+            }
+            // v1.0.40: the last playback error (its text leads
+            // with the error code name) rides at the very end of
+            // the line, so one admin screenshot names the fault.
+            val lastErr = controller.lastError
+            if (!lastErr.isNullOrEmpty()) append(" · 错误 ").append(lastErr)
         }
     }
 

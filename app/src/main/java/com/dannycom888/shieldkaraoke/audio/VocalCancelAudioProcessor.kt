@@ -5,6 +5,7 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.roundToInt
 
 /**
  * 原唱/伴奏 switch, accompaniment side: classic centre-channel
@@ -19,12 +20,22 @@ import java.nio.ByteOrder
  * accepted ONLY 16-bit stereo PCM and returned NOT_SET for
  * anything else, so the sink bypassed it entirely whenever the
  * decoder handed over a different format, and the plain-retry
- * player build did not carry the processor at all. Now:
- *  - 16-bit PCM and float PCM are both accepted, converted and
- *    processed in place, output format identical to the input;
+ * player build did not carry the processor at all.
+ *
+ * v1.0.40 output rule: the declared output format is ALWAYS
+ * 16-bit PCM (same sample rate and channel count as the input).
+ * 16-bit input is processed exactly as before; float input is
+ * converted to 16-bit samples on the way in and then runs
+ * through the very same short-domain (L−R)/2, so our chain
+ * never hands float to the sink. (Before v1.0.38 a float stream
+ * took the sink's own conversion path after this processor's
+ * NOT_SET bypass; v1.0.38 passed float through our chain — a
+ * new variable on a device whose custom-sink build already
+ * fails first-try for other reasons. v1.0.40 removes float
+ * from our chain entirely.)
  *  - any channel count ≥ 2 is accepted — the first two channels
  *    get the cancellation, any further channels (5.1 rears etc.)
- *    pass through untouched;
+ *    pass through (converted, if float) untouched;
  *  - mono and non-PCM encodings still return NOT_SET, and
  *    [configured] + [isActive] let the controller report that
  *    truthfully (see PlayerController.accompanimentUnavailable)
@@ -50,7 +61,9 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
     var configured: Boolean = false
         private set
 
-    private var encoding: Int = C.ENCODING_PCM_16BIT
+    /** The encoding the DECODER hands us (16-bit or float); the
+     *  output we declare and emit is always 16-bit (v1.0.40). */
+    private var inputEncoding: Int = C.ENCODING_PCM_16BIT
     private var channelCount: Int = 2
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
@@ -61,9 +74,15 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
         if (!supported) {
             return AudioProcessor.AudioFormat.NOT_SET
         }
-        encoding = inputAudioFormat.encoding
+        inputEncoding = inputAudioFormat.encoding
         channelCount = inputAudioFormat.channelCount
-        return inputAudioFormat
+        // Output is ALWAYS 16-bit PCM (v1.0.40): float input is
+        // converted inside queueInput, never passed downstream.
+        return AudioProcessor.AudioFormat(
+            inputAudioFormat.sampleRate,
+            inputAudioFormat.channelCount,
+            C.ENCODING_PCM_16BIT,
+        )
     }
 
     override fun onReset() {
@@ -71,6 +90,10 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
+        if (inputEncoding == C.ENCODING_PCM_FLOAT) {
+            queueFloatInput(inputBuffer)
+            return
+        }
         val size = inputBuffer.remaining()
         val output = replaceOutputBuffer(size)
         if (!enabled) {
@@ -82,12 +105,8 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
             try {
                 val inBuf = inputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN)
                 val outBuf = output.duplicate().order(ByteOrder.LITTLE_ENDIAN)
-                when (encoding) {
-                    C.ENCODING_PCM_16BIT -> cancel16(inBuf, outBuf, size)
-                    C.ENCODING_PCM_FLOAT -> cancelFloat(inBuf, outBuf, size)
-                    else -> outBuf.put(inBuf) // unreachable: onConfigure gates the formats
-                }
-                // The cancel loops write with ABSOLUTE puts, which
+                cancel16(inBuf, outBuf, size)
+                // The cancel loop writes with ABSOLUTE puts, which
                 // do not advance the buffer position — without this
                 // the flip() below would publish an EMPTY buffer
                 // (the pre-v1.0.38 code had exactly this defect:
@@ -102,6 +121,63 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
         }
         output.flip()
     }
+
+    /**
+     * Float input (v1.0.40): every sample is converted to 16-bit
+     * on the way in — verbatim when disabled, and through the
+     * same short-domain (L−R)/2 as native 16-bit input when
+     * enabled — so the emitted bytes always match the 16-bit
+     * output format declared in [onConfigure]. Only whole float
+     * samples are converted; trailing partial-sample bytes
+     * (decoders do not emit them in practice) are dropped.
+     * Belt and braces as ever: any failure emits silence in the
+     * declared format rather than wrong-format bytes.
+     */
+    private fun queueFloatInput(inputBuffer: ByteBuffer) {
+        val size = inputBuffer.remaining()
+        val sampleCount = size / 4
+        val outSize = sampleCount * 2
+        val output = replaceOutputBuffer(outSize)
+        try {
+            val inBuf = inputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN)
+            val outBuf = output.duplicate().order(ByteOrder.LITTLE_ENDIAN)
+            var s = 0
+            if (enabled) {
+                while (s + channelCount <= sampleCount) {
+                    val left = floatToShort(inBuf.getFloat(s * 4)).toInt()
+                    val right = floatToShort(inBuf.getFloat((s + 1) * 4)).toInt()
+                    val mid = ((left - right) / 2).coerceIn(-32768, 32767).toShort()
+                    outBuf.putShort(s * 2, mid)
+                    outBuf.putShort((s + 1) * 2, mid)
+                    var c = 2
+                    while (c < channelCount) {
+                        outBuf.putShort((s + c) * 2, floatToShort(inBuf.getFloat((s + c) * 4)))
+                        c++
+                    }
+                    s += channelCount
+                }
+            }
+            // Disabled, or the trailing partial frame: convert
+            // every remaining sample verbatim.
+            while (s < sampleCount) {
+                outBuf.putShort(s * 2, floatToShort(inBuf.getFloat(s * 4)))
+                s++
+            }
+            // Absolute puts again: publish [0, outSize), not an
+            // empty buffer (the pre-v1.0.38 defect).
+            output.position(outSize)
+        } catch (e: Exception) {
+            output.clear()
+            for (i in 0 until outSize) output.put(i, 0)
+            output.position(outSize)
+        }
+        inputBuffer.position(inputBuffer.limit())
+        output.flip()
+    }
+
+    /** Float sample → 16-bit sample, clamped to the short range. */
+    private fun floatToShort(f: Float): Short =
+        (f * 32767f).roundToInt().coerceIn(-32768, 32767).toShort()
 
     /** (L−R)/2 into channels 0/1 of every 16-bit frame; channels
      *  2+ copied verbatim. Trailing partial-frame bytes (decoders
@@ -128,28 +204,4 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
         }
     }
 
-    /** Float twin of [cancel16]: same (L−R)/2 in the float
-     *  domain, so float-output chains cancel exactly like 16-bit
-     *  ones and the output format stays float. */
-    private fun cancelFloat(input: ByteBuffer, output: ByteBuffer, size: Int) {
-        val frameBytes = channelCount * 4
-        var i = 0
-        while (i + frameBytes <= size) {
-            val left = input.getFloat(i)
-            val right = input.getFloat(i + 4)
-            val mid = (left - right) / 2f
-            output.putFloat(i, mid)
-            output.putFloat(i + 4, mid)
-            var c = 2
-            while (c < channelCount) {
-                output.putFloat(i + c * 4, input.getFloat(i + c * 4))
-                c++
-            }
-            i += frameBytes
-        }
-        while (i < size) {
-            output.put(i, input.get(i))
-            i++
-        }
-    }
 }

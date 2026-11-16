@@ -10,12 +10,21 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * v1.0.38: the vocal-cancel processor must accept the formats
- * decoders actually emit — 16-bit AND float PCM, any channel
- * count ≥ 2 — instead of returning NOT_SET and being bypassed
- * (the user's "原唱和伴奏没什么区别": on his songs the switch
- * did nothing because the processor never engaged). The (L−R)/2
- * algorithm itself is unchanged and pinned here sample-exact.
+ * The vocal-cancel processor must accept the formats decoders
+ * actually emit — 16-bit AND float PCM, any channel count ≥ 2 —
+ * instead of returning NOT_SET and being bypassed (the user's
+ * "原唱和伴奏没什么区别": on his songs the switch did nothing
+ * because the processor never engaged). The (L−R)/2 algorithm
+ * itself is unchanged and pinned here sample-exact.
+ *
+ * v1.0.40 rewrites (noted per the version's 口径 rules): the
+ * declared output format is now ALWAYS 16-bit PCM — float input
+ * is converted to 16-bit samples on the way in and cancelled in
+ * the same short domain, so the chain never hands float to the
+ * sink. The v1.0.38 tests that pinned float-in/float-out
+ * (`accepts16BitStereoAndFloatStereo`'s float expectation and
+ * `cancelFloatMatches16BitInFloatDomain`) are rewritten to the
+ * 16-bit-output 口径, and dedicated conversion tests are added.
  */
 class VocalCancelAudioProcessorTest {
 
@@ -41,11 +50,6 @@ class VocalCancelAudioProcessorTest {
         return List(count) { out.getShort(it * 2) }
     }
 
-    private fun drainFloats(p: VocalCancelAudioProcessor, count: Int): List<Float> {
-        val out = p.output.order(ByteOrder.LITTLE_ENDIAN)
-        return List(count) { out.getFloat(it * 4) }
-    }
-
     @Test
     fun accepts16BitStereoAndFloatStereo() {
         val p16 = VocalCancelAudioProcessor()
@@ -56,9 +60,11 @@ class VocalCancelAudioProcessorTest {
         assertTrue(p16.isActive)
         assertTrue(p16.configured)
 
+        // v1.0.40 口径 rewrite: float is accepted, but the
+        // declared output format is 16-bit, never float.
         val pFloat = VocalCancelAudioProcessor()
         assertEquals(
-            format(2, C.ENCODING_PCM_FLOAT),
+            format(2, C.ENCODING_PCM_16BIT),
             pFloat.configure(format(2, C.ENCODING_PCM_FLOAT)),
         )
         assertTrue(pFloat.isActive)
@@ -112,16 +118,50 @@ class VocalCancelAudioProcessorTest {
     }
 
     @Test
-    fun cancelFloatMatches16BitInFloatDomain() {
+    fun disabledFloatInputIsConvertedVerbatimTo16Bit() {
+        val p = VocalCancelAudioProcessor()
+        p.configure(format(2, C.ENCODING_PCM_FLOAT))
+        p.enabled = false
+        // No cancellation, but the format conversion still
+        // happens: the declared output is 16-bit, so float bytes
+        // may never leak downstream even when disabled.
+        p.queueInput(floatBuffer(1.0f, -1.0f, 0.0f, -1.0f))
+        assertEquals(
+            listOf(32767.toShort(), (-32767).toShort(), 0.toShort(), (-32767).toShort()),
+            drainShorts(p, 4),
+        )
+    }
+
+    @Test
+    fun cancelFloatConvertsThenCancelsIn16BitDomain() {
         val p = VocalCancelAudioProcessor()
         p.configure(format(2, C.ENCODING_PCM_FLOAT))
         p.enabled = true
-        p.queueInput(floatBuffer(0.8f, 0.2f, -0.5f, 0.5f))
-        val out = drainFloats(p, 4)
-        assertEquals(0.3f, out[0], 1e-6f)
-        assertEquals(0.3f, out[1], 1e-6f)
-        assertEquals(-0.5f, out[2], 1e-6f)
-        assertEquals(-0.5f, out[3], 1e-6f)
+        // Converted first (1.0f→32767, 0.0f→0), then the same
+        // short-domain (L−R)/2 as native 16-bit input:
+        // (32767-0)/2=16383; (0-32767)/2=-16383; centre vanishes.
+        p.queueInput(floatBuffer(1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f))
+        assertEquals(
+            listOf(16383.toShort(), 16383.toShort(), (-16383).toShort(), (-16383).toShort(), 0.toShort(), 0.toShort()),
+            drainShorts(p, 6),
+        )
+    }
+
+    @Test
+    fun floatMultichannelConvertsExtraChannelsVerbatim() {
+        val p = VocalCancelAudioProcessor()
+        assertEquals(
+            format(4, C.ENCODING_PCM_16BIT),
+            p.configure(format(4, C.ENCODING_PCM_FLOAT)),
+        )
+        p.enabled = true
+        // One 4-channel float frame: L/R cancel as 16-bit,
+        // rear channels are only converted, never cancelled.
+        p.queueInput(floatBuffer(1.0f, 0.0f, -1.0f, 0.0f))
+        assertEquals(
+            listOf(16383.toShort(), 16383.toShort(), (-32767).toShort(), 0.toShort()),
+            drainShorts(p, 4),
+        )
     }
 
     @Test

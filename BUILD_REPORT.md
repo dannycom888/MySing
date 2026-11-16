@@ -1483,3 +1483,25 @@ APK：`MySing-1.0.39.apk`，29,007,390 字节，SHA-256 `85eb284d999bd2c64f0572f
 **轮廓外 alpha 普查**（手术带 y288–312，以上述弧线为轮廓、留 1px AA 余量）：修复前 **120 px**（严格口径 142）→ 修复后 **0**（严格口径亦 0）。全图 alpha 连通域 = 1（仅人物本体）；画布 468×600 与 alpha 包围盒（x 84–388、y 141–586）不变；轮廓变动仅限 y288–307，y308 以下与原图逐行一致。修复后海军蓝/洋红双底全图 + 肩部放大目检：肩线平滑、无指尖、无指甲、无台阶。APK 内抽出该资源（res/dd.webp）复验，与源文件逐像素一致。
 
 - 设备侧待用户验：姿三四郎跳到 _32 帧时右肩后方干净（暂停在该帧最易看）。
+
+## v1.0.40 — 紧急修复：恢复真裸重试 + 处理器输出恒 16-bit + 诊断行补错误码（2026-11-16）
+
+APK：`MySing-1.0.40.apk`，29,007,383 字节，SHA-256 `a5811a7f0fce49ba7095107fe907858cacc70ec77daa64c8ad2afc706120ed39`，versionCode 41，共享 keystore 证书 SHA-256 `1336ee0a…`（apksigner 验过）。单元测试 **345 个，0 失败**（343 基线 +2 新增 float 转换测试；结构钉点 2 个与处理器 2 个为口径改写、计数不变，逐条注明于各测试类注释）。
+
+### 回归归因（用户真机全灭）
+
+用户装 v1.0.39 后报告「伴舞不动了，也不播放歌，泡泡会动」，按要求拍回后台诊断行，主线亲读坐实：**状态 IDLE · 0/276s · playing=false · sink=plain-failed**——两次构建尝试全失败、FallbackStateMachine 落 FAILED。证据链：v1.0.36 及以前一直能播，但用户历次截图（Youngblood、《心太软》等）sink 都是 **plain-retry**——即自定义 sink 构建（KaraokeRenderersFactory + DefaultAudioSink.Builder + 处理器链）在他设备上长期首试失败、一直靠真正裸构建的 plain-retry 兜底；v1.0.38 为让伴奏在备用通道也生效，把重试改成同一工厂构建（「全工程只剩一个构建点」），救生艇被拆、两试同死。这是 .38 的回归，与 .39 的素材改动无关（.39 零代码）。
+
+### 修法一：恢复真裸重试（双路语义回到 v1.0.37 及以前的形态）
+
+`PlayerController.buildPlayer(customSink: Boolean)` 恢复分发：尝试 1 = `KaraokeRenderersFactory` 带处理器工厂构建；尝试 2 = stock `DefaultRenderersFactory` 裸构建（无自定义 sink、无处理器）。`load()` 新歌回尝试 1、`handleError()` 首错重建为裸构建重试；`FallbackStateMachine` 类注释与 sinkLabel 口径随之恢复（custom / plain-retry / plain-failed，状态机逻辑本身未变）。`accompanimentUnavailable` 改为并集判定：`wantAccompaniment && (当前路径 != CUSTOM || (processor.configured && !processor.isActive()))`——裸通道上伴奏不可用重新算真降级，与处理器格式拒绝的实测口径并列；诊断行文案按原因分实话：custom 路径显示「此歌格式不支持消音」、其余路径显示「当前通道无消音」。`setAccompaniment` 在裸通道上不再置处理器 enabled（链里根本没有它），`isAccompaniment` 恢复「CUSTOM 路径且处理器开」的口径。结构钉点测试改写：钉死「尝试 1 工厂带处理器 + 尝试 2 裸构建」两条各自的形态、Builder 调用点恰 2 处、.38 的单构建措辞不得回潮。
+
+### 修法二：处理器输出恒定 16-bit
+
+`VocalCancelAudioProcessor.onConfigure` 声明的输出格式恒为 PCM_16BIT（采样率/声道随输入）；float 输入在 `queueInput` 内先逐样本转 16-bit（×32767 四舍五入、钳位），再走与原生 16-bit 完全相同的短域 (L−R)/2（多声道仍只消前两声道、其余转换直通）；disabled 时 float 也只转换不消音——本链永远不给 sink 喂 float（.38 前 float 是 NOT_SET 旁路、由 sink 自家链转格式，那条路是通的；.38 让 float 穿过本链是新增变量，.40 把它从链里彻底拿掉）。16-bit 路径逐字未动；保命 try/catch 保留（float 路径异常时发同格式静音，不发错格式字节）。处理器测试改写/新增：float configure 声明 16-bit 输出、disabled float 逐样本转换定值、enabled float 转换后消音定值（与 16-bit 路径同值）、float 多声道额外声道只转换不消音。
+
+### 修法三：诊断行补错误码
+
+`diagnosticsText` 在 `controller.lastError` 非空时把其全文附在行尾（「 · 错误 ERROR_CODE_…: …」，该字段本身以错误码名打头）——下次任何播放故障，一张后台截图就能定性，不必再靠 sink 标签推断。
+
+- 设备侧待用户验：装上随便点歌应立即能播（大概率仍走 plain-retry 兜底，与 .36 时代一致）；若某首歌能走通 custom，伴奏对 float 歌同样生效；万一再遇不播，后台诊断行尾部的错误码就是定性依据，拍回来即可。

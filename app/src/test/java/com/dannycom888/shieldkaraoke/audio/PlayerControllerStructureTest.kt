@@ -7,16 +7,18 @@ import org.junit.Test
 import java.io.File
 
 /**
- * v1.0.38 structural pin: EVERY ExoPlayer build in
- * PlayerController must go through the renderers factory that
- * carries the shared vocal processor — first attempt and plain
- * retry alike. Pre-v1.0.38 the retry was built with the bare
- * default builder (no processor), so accompaniment silently
- * stopped working on every song that fell back; the user's
- * "原唱和伴奏没什么区别" report traced to exactly that.
- * PlayerController needs an Android Context, so the mounting
- * invariant is pinned on the source, the same file-reading
- * style as the asset tests.
+ * v1.0.40 structural pin (rewrites the v1.0.38 pin, whose
+ * "every build carries the processor" invariant WAS the
+ * regression): PlayerController must keep TWO different player
+ * builds — the first attempt through the renderers factory that
+ * carries the shared vocal processor, the error retry a stock
+ * bare build (DefaultRenderersFactory, no custom sink, no
+ * processor). On the user's device the custom-sink build fails
+ * first-try, so the bare retry is the only reason songs played
+ * at all; v1.0.38 unified the builds and playback died outright
+ * (sink=plain-failed on a real device). PlayerController needs
+ * an Android Context, so the mounting invariant is pinned on
+ * the source, the same file-reading style as the asset tests.
  */
 class PlayerControllerStructureTest {
 
@@ -31,33 +33,49 @@ class PlayerControllerStructureTest {
     }
 
     @Test
-    fun everyPlayerBuildCarriesTheVocalProcessor() {
+    fun firstBuildCarriesProcessorRetryBuildIsBare() {
         val src = source()
         assertTrue(
-            "the single player build must inject the shared vocal processor",
+            "the first-attempt build must inject the shared vocal processor via the custom factory",
             src.contains("ExoPlayer.Builder(context, KaraokeRenderersFactory(context, vocalProcessor))"),
         )
+        assertTrue(
+            "the retry build must be a stock bare DefaultRenderersFactory build (no custom sink, no processor)",
+            src.contains("ExoPlayer.Builder(context, DefaultRenderersFactory(context)).build()"),
+        )
         assertEquals(
-            "exactly one ExoPlayer.Builder call site — no second, processor-less build may sneak back",
-            1,
+            "exactly two ExoPlayer.Builder call sites — the custom first build and the bare retry, no third build may sneak in",
+            2,
             src.split("ExoPlayer.Builder(").size - 1,
         )
+        assertTrue(
+            "the build dispatch must key on customSink",
+            src.contains("buildPlayer(customSink: Boolean)"),
+        )
+        assertTrue(
+            "a fresh load must return to the custom build",
+            src.contains("rebuildPlayer(customSink = true)"),
+        )
+        assertTrue(
+            "the error path must rebuild bare",
+            src.contains("rebuildPlayer(customSink = false)"),
+        )
         assertFalse(
-            "no bare default-builder player may exist",
-            src.contains("ExoPlayer.Builder(context).build()"),
+            "the v1.0.38 single-build unification must stay gone",
+            src.contains("One build for both paths") || src.contains("no processor-less build any more"),
         )
     }
 
     @Test
-    fun accompanimentDegradationKeysOnProcessorTruth() {
+    fun accompanimentDegradationIsPathOrProcessorTruth() {
         val src = source()
         assertTrue(
-            "degradation must be computed from the processor's configured/active state",
-            src.contains("vocalProcessor.configured && !vocalProcessor.isActive()"),
+            "degradation must count the bare retry path as a real cause (its chain has no processor)",
+            src.contains("fallback.path != FallbackStateMachine.Path.CUSTOM"),
         )
-        assertFalse(
-            "the old path-based pretence (plain retry = no processor) must stay gone",
-            src.contains("Plain retry sink has no vocal processor"),
+        assertTrue(
+            "degradation must also key on the processor's configured/active truth for custom-path format rejections",
+            src.contains("vocalProcessor.configured && !vocalProcessor.isActive()"),
         )
     }
 }

@@ -1638,7 +1638,8 @@ class MainActivity : ComponentActivity() {
                         }
                     } else {
                         // Dancer phases (DancerActivity): the
-                        // intro invites (invite frame + slow bow),
+                        // intro invites (v1.0.50: the animated
+                        // invite chain — gesture + bow frames),
                         // the sung part dances; once the last lyric
                         // line has been sung the dancer holds its
                         // final pose for 2 s while settling to
@@ -1741,10 +1742,15 @@ class MainActivity : ComponentActivity() {
                                                 dancer.profile, positionMs, currentBpm,
                                                 phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
                                             )
-                                            // Intro: the invite frame and
-                                            // a slow "please sing" bow.
+                                            // Intro (v1.0.50): the
+                                            // animated invite — the
+                                            // frames below carry the
+                                            // gesture and the bow, so
+                                            // the whole-body pose stays
+                                            // neutral (the old single
+                                            // frame + tilt is retired).
                                             DancerActivity.Phase.INVITING ->
-                                                DancerActivity.invitePose(positionMs, dancer.profile)
+                                                DanceMotion.NEUTRAL_POSE
                                             // v1.0.22 outro hold: the
                                             // last dance pose, frozen at
                                             // the lyric end and easing
@@ -1766,7 +1772,14 @@ class MainActivity : ComponentActivity() {
                                             DancerActivity.Phase.STILL ->
                                                 DancerActivity.breathPose(positionMs, dancer.profile)
                                         },
-                                        frameIndex = if (dancerPhase == DancerActivity.Phase.DANCING) {
+                                        frameIndex = if (dancerPhase == DancerActivity.Phase.INVITING) {
+                                            // v1.0.50: step the invite
+                                            // chain (gesture + bow) off
+                                            // the playback position —
+                                            // pausing freezes the
+                                            // gesture mid-frame.
+                                            InviteCycle.frameIndex(positionMs)
+                                        } else if (dancerPhase == DancerActivity.Phase.DANCING) {
                                             // v1.0.17: visit the frames in
                                             // DancerPoseOrder's re-sequenced
                                             // dance order, not sheet order.
@@ -1792,7 +1805,15 @@ class MainActivity : ComponentActivity() {
                                         // — except the robot, whose
                                         // mechanical hard cuts are its
                                         // character and stay stepped.
-                                        blend = if (dancer.profile == DanceMotion.Profile.ROBOT) {
+                                        blend = if (dancerPhase == DancerActivity.Phase.INVITING) {
+                                            // v1.0.50: melt between
+                                            // invite-chain neighbours;
+                                            // the robot's blendFor is
+                                            // null — his chain steps
+                                            // are hard cuts, like his
+                                            // dance.
+                                            InviteCycle.blendFor(dancer.profile, positionMs)
+                                        } else if (dancer.profile == DanceMotion.Profile.ROBOT) {
                                             // The robot never blends —
                                             // not between dance frames,
                                             // and not into the standing
@@ -1825,7 +1846,15 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             null
                                         },
-                                        invite = dancerPhase == DancerActivity.Phase.INVITING,
+                                        // v1.0.50: while inviting,
+                                        // the frames come from the
+                                        // invite chain, not the
+                                        // dance frames.
+                                        framesOverride = if (dancerPhase == DancerActivity.Phase.INVITING) {
+                                            dancer.inviteChain
+                                        } else {
+                                            null
+                                        },
                                         // v1.0.24: the dancer stands taller
                                         // (was 0.62/0.70) — the stage
                                         // gives the space the narrower
@@ -1868,34 +1897,44 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     if (showCelebration) {
-                        // Song finished: all six come out and clap together.
+                        // Song finished: the five figures come out
+                        // and clap together.
                         // v1.0.45: same enlarged, tightened row as
-                        // the ceremony — one "six come out" scene,
-                        // one size, one pitch. v1.0.48: same
+                        // the ceremony — one "come out" scene, one
+                        // size, one pitch. v1.0.48: same
                         // panel-avoidance placement as the ceremony
                         // row — sized against, and centred inside,
                         // the width left of the queue panel's
                         // reserve band, so the panel can never
-                        // cover the robot again.
+                        // cover the robot again. v1.0.50: the row
+                        // is five figures (Amy holds Hannah), and
+                        // the clap is a real two-frame animation
+                        // (ClapCycle) instead of a still frame
+                        // with a bouncing pose.
                         val reserveW = LyricsBand.reserveWidthDp(screenW.value)
-                        val rowH = SpotlightGeom.sixRowHeightDp(
+                        val rowH = SpotlightGeom.rowHeightDp(
                             screenW.value, screenH.value, reserveW,
                         )
-                        SixInRow(
+                        CelebrationRow(
                             heightDp = rowH.dp,
                             modifier = Modifier.align(Alignment.BottomStart)
                                 .offset(
-                                    x = SpotlightGeom.sixRowLeftDp(
+                                    x = SpotlightGeom.rowLeftDp(
                                         screenW.value, rowH, reserveW,
                                     ).dp,
                                 ),
-                        ) { dancer, h ->
+                        ) { figure, h ->
                             DancerImage(
-                                dancer = dancer,
-                                pose = DanceMotion.clapPose(dancer.profile, clapElapsed),
+                                dancer = figure.dancer ?: Dancers.byKey(DancerKeys.MODERN),
+                                pose = DanceMotion.NEUTRAL_POSE,
                                 heightDp = h,
-                                // v1.0.25: each of the six stands
-                                // in their own spotlight pool.
+                                frameIndex = ClapCycle.frameAt(clapElapsed),
+                                framesOverride = listOf(
+                                    figure.clapOpenResId, figure.clapClosedResId,
+                                ),
+                                labelOverride = rowFigureLabel(figure),
+                                // v1.0.25: each figure stands in
+                                // their own spotlight pool.
                                 spotlight = true,
                             )
                         }
@@ -2414,8 +2453,8 @@ class MainActivity : ComponentActivity() {
                     color = soft, fontSize = (if (compact) 13 else 17).sp,
                 )
             }
-            // --- the row of six: clapping, then inviting together,
-            //     then melting away during the exit ---
+            // --- the row of five: clapping, then inviting
+            //     together, then melting away during the exit ---
             if (phase != Ceremony.Phase.SOLO_INVITE) {
                 val rowAlpha = 0.95f * Ceremony.leavingAlpha(elapsedMs)
                 // v1.0.45: as tall as fits — target 0.46 of the
@@ -2424,55 +2463,76 @@ class MainActivity : ComponentActivity() {
                 // span AND the queue panel's reserve band; the
                 // row is centred in the width left of the band,
                 // so it can never slide under the panel (see
-                // SpotlightGeom.sixRowHeightDp / sixRowLeftDp).
+                // SpotlightGeom.rowHeightDp / rowLeftDp). v1.0.50:
+                // five figures on the re-derived span, Amy
+                // holding Hannah in the first slot.
                 val reserveW = LyricsBand.reserveWidthDp(screenW.value)
-                val rowHeight = SpotlightGeom.sixRowHeightDp(
+                val rowHeight = SpotlightGeom.rowHeightDp(
                     screenW.value, screenH.value, reserveW,
                 ).dp
-                SixInRow(
+                CelebrationRow(
                     heightDp = rowHeight,
                     modifier = Modifier.align(Alignment.BottomStart)
                         .offset(
-                            x = SpotlightGeom.sixRowLeftDp(
+                            x = SpotlightGeom.rowLeftDp(
                                 screenW.value, rowHeight.value, reserveW,
                             ).dp,
                         ),
-                ) { dancer, h ->
+                ) { figure, h ->
+                    val carrier = figure.dancer ?: Dancers.byKey(DancerKeys.MODERN)
                     when (phase) {
                         Ceremony.Phase.CLAPPING -> DancerImage(
-                            dancer = dancer,
-                            pose = DanceMotion.clapPose(dancer.profile, elapsedMs),
+                            dancer = carrier,
+                            // v1.0.50: the clap is a real
+                            // two-frame animation (ClapCycle);
+                            // the bodies stand neutral while
+                            // the hands move.
+                            pose = DanceMotion.NEUTRAL_POSE,
                             heightDp = h,
                             alpha = rowAlpha,
+                            frameIndex = ClapCycle.frameAt(elapsedMs),
+                            framesOverride = listOf(
+                                figure.clapOpenResId, figure.clapClosedResId,
+                            ),
+                            labelOverride = rowFigureLabel(figure),
                             // v1.0.25: a spotlight pool each;
                             // it melts with the row's alpha.
                             spotlight = true,
                         )
                         Ceremony.Phase.GROUP_INVITE -> DancerImage(
-                            dancer = dancer,
-                            pose = Ceremony.invitePose(
-                                dancer.profile,
-                                elapsedMs - Ceremony.CLAP_MS,
-                                Ceremony.GROUP_INVITE_MS,
-                            ),
+                            dancer = carrier,
+                            // v1.0.50: every figure plays its
+                            // full invite chain (gesture + bow)
+                            // off the phase clock — at 250 ms a
+                            // step the 2 s segment plays the
+                            // gesture exactly out to the bow's
+                            // peak. Frames carry the motion;
+                            // the pose stays neutral.
+                            pose = DanceMotion.NEUTRAL_POSE,
                             heightDp = h,
-                            invite = true,
                             alpha = rowAlpha,
+                            frameIndex = InviteCycle.frameIndex(
+                                elapsedMs - Ceremony.CLAP_MS,
+                            ),
+                            blend = InviteCycle.blendFor(
+                                figure.profile, elapsedMs - Ceremony.CLAP_MS,
+                            ),
+                            framesOverride = figure.inviteChain,
+                            labelOverride = rowFigureLabel(figure),
                             spotlight = true,
                         )
                         else -> DancerImage(
                             // EXITING: the invite gesture is
-                            // complete (lean back at neutral);
-                            // the row just melts away.
-                            dancer = dancer,
-                            pose = Ceremony.invitePose(
-                                dancer.profile,
-                                Ceremony.GROUP_INVITE_MS,
-                                Ceremony.GROUP_INVITE_MS,
-                            ),
+                            // complete — the row holds its end
+                            // pose (the chain's extended "please"
+                            // frame) and just melts away.
+                            dancer = carrier,
+                            pose = DanceMotion.NEUTRAL_POSE,
                             heightDp = h,
-                            invite = true,
                             alpha = rowAlpha,
+                            frameIndex = InviteCycle.INVITE_COUNT - 1,
+                            framesOverride = figure.inviteChain,
+                            labelOverride = rowFigureLabel(figure),
                             spotlight = true,
                         )
                     }
@@ -2496,20 +2556,29 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxHeight().width(screenW * 0.36f),
                     contentAlignment = Alignment.BottomCenter,
                 ) {
+                    // v1.0.50: the keeper invites with the same
+                    // animated chain as everyone else — during
+                    // EXITING she stands at the chain's rest frame
+                    // while she fades in; during SOLO_INVITE she
+                    // plays the full gesture + bow off the phase
+                    // clock (2 s = exactly out to the bow's peak).
+                    val keeperClock = elapsedMs - Ceremony.CLAP_MS -
+                        Ceremony.GROUP_INVITE_MS - Ceremony.EXIT_MS
                     DancerImage(
                         dancer = keeper,
-                        pose = if (phase == Ceremony.Phase.SOLO_INVITE) {
-                            Ceremony.invitePose(
-                                keeper.profile,
-                                elapsedMs - Ceremony.CLAP_MS -
-                                    Ceremony.GROUP_INVITE_MS - Ceremony.EXIT_MS,
-                                Ceremony.SOLO_INVITE_MS,
-                            )
-                        } else {
-                            Ceremony.invitePose(keeper.profile, 0L, Ceremony.SOLO_INVITE_MS)
-                        },
+                        pose = DanceMotion.NEUTRAL_POSE,
                         heightDp = maxHeight * if (compact) 0.72f else 0.80f,
-                        invite = true,
+                        frameIndex = if (phase == Ceremony.Phase.SOLO_INVITE) {
+                            InviteCycle.frameIndex(keeperClock)
+                        } else {
+                            0
+                        },
+                        blend = if (phase == Ceremony.Phase.SOLO_INVITE) {
+                            InviteCycle.blendFor(keeper.profile, keeperClock)
+                        } else {
+                            null
+                        },
+                        framesOverride = keeper.inviteChain,
                         alpha = 0.95f * Ceremony.keeperSoloAlpha(elapsedMs),
                         spotlight = true,
                     )
@@ -2519,48 +2588,66 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * The row of six (v1.0.45): all six dancers standing close,
+     * Content-description label for a celebration-row figure: a
+     * solo figure needs no override (its carrier dancer's display
+     * name is used); the Amy-holds-Hannah combo — the one figure
+     * with no dancer of its own — joins its two dancers' names.
+     */
+    private fun rowFigureLabel(figure: RowFigure): String? =
+        if (figure.dancer != null) {
+            null
+        } else {
+            "${dancerDisplayName(DancerKeys.MODERN)} & " +
+                dancerDisplayName(DancerKeys.ANCIENT_GIRL)
+        }
+
+    /**
+     * The celebration row: the figures standing close,
      * group-photo style. Each frame is [SpotlightGeom.FRAME_ASPECT]
      * × height wide but the figure inside is centred with
      * transparent margins on both sides, so an edge-to-edge Row
      * read as people standing far apart (the user: "六人可以靠近
-     * 一些，现在分得太开"). Here every dancer stands at a centre
-     * pitch of [SpotlightGeom.SIX_ROW_PITCH_FRACTION] × height —
-     * the transparent margins overlap, wide-arm poses may touch
+     * 一些，现在分得太开"). Here every figure stands at a centre
+     * pitch of [SpotlightGeom.ROW_PITCH_FRACTION] × height — the
+     * transparent margins overlap, wide-arm poses may touch
      * slightly (intended), and the total span is exactly
-     * [SpotlightGeom.SIX_ROW_SPAN_PER_HEIGHT] × height, the span
-     * the height formula budgets for. Positions are explicit
-     * offsets inside a fixed-span box, so the pitch holds by
-     * construction, not by an arrangement's spacing arithmetic.
+     * [SpotlightGeom.ROW_SPAN_PER_HEIGHT] × height, the span the
+     * height formula budgets for. Positions are explicit offsets
+     * inside a fixed-span box, so the pitch holds by construction,
+     * not by an arrangement's spacing arithmetic.
      *
-     * v1.0.48: the robot's slot additionally shifts left by
-     * [SpotlightGeom.sixRowRobotShiftDp] — his wider canvas left
-     * his figure visually closer to the right screen edge than
-     * Amy's is to the left one (measured: 0.1975 vs 0.2358 of the
-     * dancer height); the shift equalises the two visual margins.
-     * His spotlight pool rides inside the same slot box, so it
-     * follows him; nobody else moves, and his solo / invite
-     * placement outside this row is untouched.
+     * v1.0.48 added a personal left shift for the robot's slot
+     * (his wider canvas left his figure visually closer to the
+     * right screen edge than Amy's was to the left one).
+     * v1.0.50: the row is five figures — Amy holds Hannah, so
+     * the pair takes the first slot as one combined figure — and
+     * the re-measured end margins come out symmetric on their
+     * own, so the robot's shift is retired to 0 (see
+     * [SpotlightGeom.ROW_ROBOT_LEFT_SHIFT_FRACTION]); the slot
+     * mechanism stays should future art unbalance the ends
+     * again. His spotlight pool rides inside the same slot box,
+     * so it follows him either way; nobody else moves, and his
+     * solo / invite placement outside this row is untouched.
      */
     @Composable
-    private fun SixInRow(
+    private fun CelebrationRow(
         heightDp: Dp,
         modifier: Modifier = Modifier,
-        content: @Composable (dancer: Dancer, heightDp: Dp) -> Unit,
+        content: @Composable (figure: RowFigure, heightDp: Dp) -> Unit,
     ) {
-        val pitch = heightDp * SpotlightGeom.SIX_ROW_PITCH_FRACTION
-        val span = heightDp * SpotlightGeom.SIX_ROW_SPAN_PER_HEIGHT
-        val robotShift = SpotlightGeom.sixRowRobotShiftDp(heightDp.value).dp
+        val pitch = heightDp * SpotlightGeom.ROW_PITCH_FRACTION
+        val span = heightDp * SpotlightGeom.ROW_SPAN_PER_HEIGHT
+        val robotShift = SpotlightGeom.rowRobotShiftDp(heightDp.value).dp
         Box(modifier = modifier.width(span).height(heightDp)) {
-            Dancers.ALL.forEachIndexed { index, dancer ->
+            Dancers.ROW_FIGURES.forEachIndexed { index, figure ->
                 Box(
                     modifier = Modifier.align(Alignment.BottomStart)
                         .offset(
                             x = pitch * index -
-                                if (dancer.key == DancerKeys.ROBOT) robotShift else 0.dp,
+                                if (figure.key == DancerKeys.ROBOT) robotShift else 0.dp,
                         ),
                 ) {
-                    content(dancer, heightDp)
+                    content(figure, heightDp)
                 }
             }
         }
@@ -2573,7 +2660,6 @@ class MainActivity : ComponentActivity() {
         heightDp: Dp,
         modifier: Modifier = Modifier,
         frameIndex: Int = -1,
-        invite: Boolean = false,
         blend: PoseCycle.Blend? = null,
         /** Overall opacity the figure is drawn at; the default is
          *  the long-standing stage alpha. The v1.0.23 ceremony
@@ -2584,14 +2670,27 @@ class MainActivity : ComponentActivity() {
          *  wrapper IS the figure's rect, so the pool follows its
          *  position and size, and fades with [alpha]). */
         spotlight: Boolean = false,
+        /** v1.0.50: draw from this frame list instead of the
+         *  dancer's dance frames — the invite chain and the clap
+         *  pair of the animated gestures (see [InviteCycle] /
+         *  [ClapCycle]), and the celebration row's figures (the
+         *  Amy-holds-Hannah combo has no [Dancer] of its own, so
+         *  its states all arrive through here). [frameIndex] and
+         *  [blend] index into this list when it is set. */
+        framesOverride: List<Int>? = null,
+        /** Content-description override for figures that are not
+         *  a plain [dancer] (the row's combo figure). */
+        labelOverride: String? = null,
     ) {
+        val frames = framesOverride ?: dancer.frames
+        val label = labelOverride ?: dancerDisplayName(dancer.key)
         // v1.0.10: while a beat's cross-fade is still running, the
         // previous pose frame is drawn under the current one with
         // complementary alphas — same rect, same whole-body
         // transform, only the alpha differs — so the frame change
         // melts instead of cutting. Once the fade completes (or no
-        // blend was supplied: robot, invite/still, applause row)
-        // this is exactly the old single-image draw.
+        // blend was supplied: robot, still, the clap's hard
+        // alternation) this is exactly the old single-image draw.
         //
         // v1.0.42: the frame box is a FIXED rect — width =
         // heightDp × SpotlightGeom.FRAME_ASPECT via
@@ -2620,22 +2719,22 @@ class MainActivity : ComponentActivity() {
                 .height(heightDp),
             contentAlignment = Alignment.BottomCenter,
         ) {
-            if (blend != null && !invite &&
+            if (blend != null &&
                 blend.currentAlpha < 1f &&
                 blend.previousIndex != blend.currentIndex &&
-                blend.previousIndex in dancer.frames.indices &&
-                blend.currentIndex in dancer.frames.indices
+                blend.previousIndex in frames.indices &&
+                blend.currentIndex in frames.indices
             ) {
                 DancerFrame(
-                    resId = dancer.frames[blend.previousIndex],
-                    label = dancerDisplayName(dancer.key),
+                    resId = frames[blend.previousIndex],
+                    label = label,
                     pose = pose,
                     heightDp = heightDp,
                     alpha = alpha * (1f - blend.currentAlpha),
                 )
                 DancerFrame(
-                    resId = dancer.frames[blend.currentIndex],
-                    label = dancerDisplayName(dancer.key),
+                    resId = frames[blend.currentIndex],
+                    label = label,
                     pose = pose,
                     heightDp = heightDp,
                     alpha = alpha * blend.currentAlpha,
@@ -2643,11 +2742,11 @@ class MainActivity : ComponentActivity() {
             } else {
                 DancerFrame(
                     resId = when {
-                        invite -> dancer.inviteResId
-                        frameIndex in dancer.frames.indices -> dancer.frames[frameIndex]
+                        frameIndex in frames.indices -> frames[frameIndex]
+                        framesOverride != null -> frames.first()
                         else -> dancer.resId
                     },
-                    label = dancerDisplayName(dancer.key),
+                    label = label,
                     pose = pose,
                     heightDp = heightDp,
                     alpha = alpha,

@@ -6,7 +6,8 @@ import com.dannycom888.shieldkaraoke.state.DancerKeys
 
 /** One little dancer: key (shared with phone/prefs), label, artwork
  *  and its dance profile. [resId] is the original single-frame
- *  cutout, still used for the applause celebration row; [frames]
+ *  cutout, still the standing frame (solo outro, and the
+ *  celebration row's standing state via [RowFigure]); [frames]
  *  are the dance-pose frames (transparent WebP cut from the
  *  approved pose sheets, one canvas per dancer with a shared floor
  *  baseline) that [PoseCycle] steps through while a song plays.
@@ -14,8 +15,9 @@ import com.dannycom888.shieldkaraoke.state.DancerKeys
  *  original sixty (indices 0..59) plus forty generated in-between
  *  frames (indices 60..99) that [DancerPoseOrder] splices into
  *  the tour between their neighbours; the robot keeps sixty.
- *  [inviteResId] is the intro "please sing" frame shown before the
- *  first lyric line (see [DancerActivity.Phase.INVITING]). */
+ *  [inviteResId] is the old single intro "please sing" frame —
+ *  retired from the stage in v1.0.50 by the animated [inviteChain]
+ *  (kept as the dancer's record of the gesture's end pose). */
 data class Dancer(
     val key: String,
     val label: String,
@@ -23,6 +25,57 @@ data class Dancer(
     @DrawableRes val inviteResId: Int,
     @DrawableRes val frames: List<Int>,
     val profile: DanceMotion.Profile,
+    /** v1.0.50: the six-frame invite sequence (see [InviteCycle]);
+     *  the gesture itself is animated now. */
+    @DrawableRes val inviteFrames: List<Int>,
+    /** v1.0.50: the two bow frames that continue the invite —
+     *  half-bent, fully bowed (see [InviteCycle]). */
+    @DrawableRes val bowFrames: List<Int>,
+    /** v1.0.50: the two-frame clap — hands apart / hands
+     *  together (see [ClapCycle]). */
+    @DrawableRes val clapOpenResId: Int,
+    @DrawableRes val clapClosedResId: Int,
+) {
+    /** The full invite chain the stage steps through:
+     *  [inviteFrames] then [bowFrames] (8 frames; [InviteCycle]
+     *  indexes into this list). */
+    val inviteChain: List<Int> get() = inviteFrames + bowFrames
+}
+
+/**
+ * One figure of the celebration row (v1.0.50): everything the
+ * row draws, in its three states — standing ([standResId]),
+ * inviting ([inviteChain]: the six-frame sequence plus the two
+ * bow frames), clapping ([clapOpenResId] / [clapClosedResId]).
+ * Four of the five are a solo [Dancer] seen through this lens
+ * ([dancer] set); the first is the Amy-holds-Hannah combo
+ * ([dancer] null), which is not a selectable dancer and exists
+ * only in the row.
+ */
+data class RowFigure(
+    val key: String,
+    @DrawableRes val standResId: Int,
+    @DrawableRes val inviteFrames: List<Int>,
+    @DrawableRes val bowFrames: List<Int>,
+    @DrawableRes val clapOpenResId: Int,
+    @DrawableRes val clapClosedResId: Int,
+    val profile: DanceMotion.Profile,
+    val dancer: Dancer?,
+) {
+    /** The full invite chain: [inviteFrames] then [bowFrames]. */
+    val inviteChain: List<Int> get() = inviteFrames + bowFrames
+}
+
+/** This dancer as a celebration-row figure. */
+fun Dancer.asRowFigure(): RowFigure = RowFigure(
+    key = key,
+    standResId = resId,
+    inviteFrames = inviteFrames,
+    bowFrames = bowFrames,
+    clapOpenResId = clapOpenResId,
+    clapClosedResId = clapClosedResId,
+    profile = profile,
+    dancer = this,
 )
 
 object Dancers {
@@ -82,6 +135,14 @@ object Dancers {
                 R.drawable.dancer_modern_woman_99, R.drawable.dancer_modern_woman_100,
             ),
             DanceMotion.Profile.MODERN,
+            listOf(
+                R.drawable.dancer_modern_woman_invite_01, R.drawable.dancer_modern_woman_invite_02, R.drawable.dancer_modern_woman_invite_03,
+                R.drawable.dancer_modern_woman_invite_04, R.drawable.dancer_modern_woman_invite_05, R.drawable.dancer_modern_woman_invite_06,
+            ),
+            listOf(
+                R.drawable.dancer_modern_woman_bow_01, R.drawable.dancer_modern_woman_bow_02,
+            ),
+            R.drawable.dancer_modern_woman_clap_open, R.drawable.dancer_modern_woman_clap_closed,
         ),
         Dancer(
             DancerKeys.ANCIENT, "秀颖", R.drawable.dancer_ancient_woman, R.drawable.dancer_ancient_woman_invite,
@@ -138,6 +199,14 @@ object Dancers {
                 R.drawable.dancer_ancient_woman_99, R.drawable.dancer_ancient_woman_100,
             ),
             DanceMotion.Profile.ANCIENT,
+            listOf(
+                R.drawable.dancer_ancient_woman_invite_01, R.drawable.dancer_ancient_woman_invite_02, R.drawable.dancer_ancient_woman_invite_03,
+                R.drawable.dancer_ancient_woman_invite_04, R.drawable.dancer_ancient_woman_invite_05, R.drawable.dancer_ancient_woman_invite_06,
+            ),
+            listOf(
+                R.drawable.dancer_ancient_woman_bow_01, R.drawable.dancer_ancient_woman_bow_02,
+            ),
+            R.drawable.dancer_ancient_woman_clap_open, R.drawable.dancer_ancient_woman_clap_closed,
         ),
         Dancer(
             DancerKeys.SUMO, "姿三四郎", R.drawable.dancer_sumo, R.drawable.dancer_sumo_invite,
@@ -194,6 +263,14 @@ object Dancers {
                 R.drawable.dancer_sumo_99, R.drawable.dancer_sumo_100,
             ),
             DanceMotion.Profile.SUMO,
+            listOf(
+                R.drawable.dancer_sumo_invite_01, R.drawable.dancer_sumo_invite_02, R.drawable.dancer_sumo_invite_03,
+                R.drawable.dancer_sumo_invite_04, R.drawable.dancer_sumo_invite_05, R.drawable.dancer_sumo_invite_06,
+            ),
+            listOf(
+                R.drawable.dancer_sumo_bow_01, R.drawable.dancer_sumo_bow_02,
+            ),
+            R.drawable.dancer_sumo_clap_open, R.drawable.dancer_sumo_clap_closed,
         ),
         Dancer(
             DancerKeys.ANCIENT_GIRL, "汉娜", R.drawable.dancer_ancient_girl, R.drawable.dancer_ancient_girl_invite,
@@ -250,6 +327,14 @@ object Dancers {
                 R.drawable.dancer_ancient_girl_99, R.drawable.dancer_ancient_girl_100,
             ),
             DanceMotion.Profile.ANCIENT,
+            listOf(
+                R.drawable.dancer_ancient_girl_invite_01, R.drawable.dancer_ancient_girl_invite_02, R.drawable.dancer_ancient_girl_invite_03,
+                R.drawable.dancer_ancient_girl_invite_04, R.drawable.dancer_ancient_girl_invite_05, R.drawable.dancer_ancient_girl_invite_06,
+            ),
+            listOf(
+                R.drawable.dancer_ancient_girl_bow_01, R.drawable.dancer_ancient_girl_bow_02,
+            ),
+            R.drawable.dancer_ancient_girl_clap_open, R.drawable.dancer_ancient_girl_clap_closed,
         ),
         Dancer(
             DancerKeys.BABY, "哪吒", R.drawable.dancer_baby, R.drawable.dancer_baby_invite,
@@ -306,6 +391,14 @@ object Dancers {
                 R.drawable.dancer_baby_99, R.drawable.dancer_baby_100,
             ),
             DanceMotion.Profile.BABY,
+            listOf(
+                R.drawable.dancer_baby_invite_01, R.drawable.dancer_baby_invite_02, R.drawable.dancer_baby_invite_03,
+                R.drawable.dancer_baby_invite_04, R.drawable.dancer_baby_invite_05, R.drawable.dancer_baby_invite_06,
+            ),
+            listOf(
+                R.drawable.dancer_baby_bow_01, R.drawable.dancer_baby_bow_02,
+            ),
+            R.drawable.dancer_baby_clap_open, R.drawable.dancer_baby_clap_closed,
         ),
         Dancer(
             DancerKeys.ROBOT, "瓦力", R.drawable.dancer_robot, R.drawable.dancer_robot_invite,
@@ -342,7 +435,60 @@ object Dancers {
                 R.drawable.dancer_robot_59, R.drawable.dancer_robot_60,
             ),
             DanceMotion.Profile.ROBOT,
+            listOf(
+                R.drawable.dancer_robot_invite_01, R.drawable.dancer_robot_invite_02, R.drawable.dancer_robot_invite_03,
+                R.drawable.dancer_robot_invite_04, R.drawable.dancer_robot_invite_05, R.drawable.dancer_robot_invite_06,
+            ),
+            listOf(
+                R.drawable.dancer_robot_bow_01, R.drawable.dancer_robot_bow_02,
+            ),
+            R.drawable.dancer_robot_clap_open, R.drawable.dancer_robot_clap_closed,
         ),
+    )
+
+    // ---- v1.0.50: the celebration row is five figures --------
+    //
+    // The user (2026-11-16): "汉娜能不能让Amy抱着" — in the
+    // group scenes Amy holds Hannah (in real life Hannah is
+    // Amy's daughter), so the row of six becomes a row of five:
+    // the combined mother-and-daughter figure takes the first
+    // slot, and Hannah no longer stands on her own. Solo, she
+    // still dances and invites by herself exactly as before —
+    // the combo exists only inside this row.
+
+    /** Key of the combined Amy-holds-Hannah figure (not a
+     *  selectable dancer; never in [ALL] / DancerKeys). */
+    const val HOLD_COMBO_KEY = "amy_hannah"
+
+    /** The combined figure: Amy holding Hannah, drawn from the
+     *  approved amy-hannah art set (standing / six-frame invite
+     *  / two bow frames / two-frame clap, same 468×600 canvas
+     *  as every dancer). */
+    val HOLD_COMBO: RowFigure = RowFigure(
+        key = HOLD_COMBO_KEY,
+        standResId = R.drawable.dancer_amy_hannah_stand,
+        inviteFrames = listOf(
+            R.drawable.dancer_amy_hannah_invite_01, R.drawable.dancer_amy_hannah_invite_02,
+            R.drawable.dancer_amy_hannah_invite_03, R.drawable.dancer_amy_hannah_invite_04,
+            R.drawable.dancer_amy_hannah_invite_05, R.drawable.dancer_amy_hannah_invite_06,
+        ),
+        bowFrames = listOf(
+            R.drawable.dancer_amy_hannah_bow_01, R.drawable.dancer_amy_hannah_bow_02,
+        ),
+        clapOpenResId = R.drawable.dancer_amy_hannah_clap_open,
+        clapClosedResId = R.drawable.dancer_amy_hannah_clap_closed,
+        profile = DanceMotion.Profile.MODERN,
+        dancer = null,
+    )
+
+    /** The five figures of the celebration row, left to right:
+     *  Amy holding Hannah, Xiuying, the sumo, Nezha, the robot. */
+    val ROW_FIGURES: List<RowFigure> = listOf(
+        HOLD_COMBO,
+        byKey(DancerKeys.ANCIENT).asRowFigure(),
+        byKey(DancerKeys.SUMO).asRowFigure(),
+        byKey(DancerKeys.BABY).asRowFigure(),
+        byKey(DancerKeys.ROBOT).asRowFigure(),
     )
 
     /** Unknown / unset keys fall back to the default (Amy). */

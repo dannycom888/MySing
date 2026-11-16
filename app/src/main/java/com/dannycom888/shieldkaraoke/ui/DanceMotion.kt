@@ -26,6 +26,12 @@ object DanceMotion {
         val sinkFraction: Float = 0f,
     )
 
+    /** The neutral pose: no bounce, no sway, no pulse, no sink.
+     *  v1.0.50: the invite and clap animations carry their motion
+     *  in their frames, so the figures wearing them stand in this
+     *  pose while the frames move. */
+    val NEUTRAL_POSE = Pose(0f, 0f, 1f)
+
     enum class Profile { MODERN, ANCIENT, SUMO, BABY, ROBOT }
 
     /** Clap interval for the applause celebration, ms. */

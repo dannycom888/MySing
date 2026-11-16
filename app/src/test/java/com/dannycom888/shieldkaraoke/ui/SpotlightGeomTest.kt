@@ -29,99 +29,110 @@ class SpotlightGeomTest {
         assertTrue(SpotlightGeom.poolWidthDp(300f) > poolW)
     }
 
-    // ---- the six-dancer row (v1.0.45, reworked v1.0.48) -------
-    // v1.0.48: pitch 0.48 × height (from the measured figure
-    // widths — see SpotlightGeom), so the row spans
-    // 0.78 + 5 × 0.48 = 3.18 × height. Height targets 0.58 of the
-    // screen height, capped so the span fits in the width left of
-    // the queue panel's reserve band (0.19 × screenW + 12 dp);
-    // the row is centred in that available width, so its right
-    // edge can never slide under the panel.
+    // ---- the celebration row of five (v1.0.50) ---------------
+    // v1.0.50: Amy holds Hannah, so the row of six becomes a row
+    // of five figures on a pitch of 0.52 × height (re-derived
+    // from the measured figure widths of the art the row draws,
+    // bow frames included — see SpotlightGeom), spanning
+    // 0.78 + 4 × 0.52 = 2.86 × height. Height targets 0.58 of
+    // the screen height, capped so the span fits in the width
+    // left of the queue panel's reserve band
+    // (0.19 × screenW + 12 dp); the row is centred in that
+    // available width, so its right edge can never slide under
+    // the panel.
 
     @Test
-    fun sixRowPitchAndSpanArePinned() {
-        assertEquals(0.48f, SpotlightGeom.SIX_ROW_PITCH_FRACTION, 0.001f)
-        assertEquals(3.18f, SpotlightGeom.SIX_ROW_SPAN_PER_HEIGHT, 0.001f)
+    fun rowPitchAndSpanArePinned() {
+        assertEquals(5, SpotlightGeom.ROW_COUNT)
+        assertEquals(0.52f, SpotlightGeom.ROW_PITCH_FRACTION, 0.001f)
+        assertEquals(2.86f, SpotlightGeom.ROW_SPAN_PER_HEIGHT, 0.001f)
         // Pitch is tighter than a frame width: the frames overlap.
-        assertTrue(SpotlightGeom.SIX_ROW_PITCH_FRACTION < SpotlightGeom.FRAME_ASPECT)
+        assertTrue(SpotlightGeom.ROW_PITCH_FRACTION < SpotlightGeom.FRAME_ASPECT)
     }
 
     @Test
-    fun sixRowPitchLeavesOnlyTheWidestPairSlightlyOverlapping() {
-        // Measured neighbouring-pair half-sums of the figure
-        // widths (max of the clapping and invite cutouts, units
-        // of height): Amy–Xiuying, Xiuying–sumo, sumo–Hannah,
-        // Hannah–baby, baby–robot. At the 0.48 pitch every pair
-        // keeps an edge gap of at least +0.02 except the widest
-        // pair (Xiuying's spread sleeves against the sumo), whose
-        // bounding boxes overlap by at most 0.05 — the slight
-        // wide-arm overlap the user allows.
-        val pairHalfSums = listOf(0.4517f, 0.5242f, 0.3767f, 0.2917f, 0.3333f)
-        val gaps = pairHalfSums.map { SpotlightGeom.SIX_ROW_PITCH_FRACTION - it }
-        assertEquals(1, gaps.count { it < 0f })
-        assertTrue(gaps.min() >= -0.05f)
-        assertTrue(gaps.filter { it >= 0f }.min() >= 0.02f)
+    fun rowPitchLeavesOnlyTheWidestPairSlightlyOverlapping() {
+        // Measured neighbouring-pair just-touch centre distances
+        // (the worst simultaneous state binds: standing, invite,
+        // bow and clap frames all measured, units of height):
+        // combo–Xiuying, Xiuying–sumo, sumo–Nezha, Nezha–robot.
+        // At the 0.52 pitch the widest pair's bounding boxes
+        // overlap by 0.033 (a translucent sleeve tip over the
+        // combo's edge — the slight wide-arm overlap the user
+        // allows), the second pair just kisses, and the rest
+        // keep clear air.
+        val pairTouch = listOf(0.553f, 0.521f, 0.382f, 0.333f)
+        val gaps = pairTouch.map { SpotlightGeom.ROW_PITCH_FRACTION - it }
+        assertEquals(listOf(-0.033f, -0.001f, 0.138f, 0.187f).size, gaps.size)
+        assertTrue(gaps[0] in -0.04f..-0.02f)
+        assertTrue(gaps[1] in -0.005f..0.005f)
+        assertTrue(gaps[2] >= 0.10f)
+        assertTrue(gaps[3] >= 0.10f)
     }
 
     @Test
-    fun sixRowOn16x9TvIsPanelCapped() {
+    fun rowOn16x9TvIsPanelCapped() {
         // Reserve = 0.19 × 1920 + 12 = 376.8, leaving 1543.2;
-        // 1543.2 / 3.18 ≈ 485.3 — the panel cap binds below the
-        // 0.58 target (626.4), at ≈0.449 of the screen height.
+        // 1543.2 / 2.86 ≈ 539.6 — the panel cap binds below the
+        // 0.58 target (626.4), at ≈0.500 of the screen height
+        // (up from the six-figure row's 0.449: one slot fewer
+        // buys real size).
         val reserve = LyricsBand.reserveWidthDp(1920f)
         assertEquals(376.8f, reserve, 0.01f)
-        val h = SpotlightGeom.sixRowHeightDp(1920f, 1080f, reserve)
-        assertEquals(485.3f, h, 0.5f)
-        assertEquals(0.449f, h / 1080f, 0.002f)
+        val h = SpotlightGeom.rowHeightDp(1920f, 1080f, reserve)
+        assertEquals(539.6f, h, 0.5f)
+        assertEquals(0.500f, h / 1080f, 0.002f)
         assertTrue(h < 0.58f * 1080f)
         // Width-bound: the row starts at the left edge and its
         // right edge lands exactly on the reserve band's left edge.
-        assertEquals(0f, SpotlightGeom.sixRowLeftDp(1920f, h, reserve), 0.5f)
+        assertEquals(0f, SpotlightGeom.rowLeftDp(1920f, h, reserve), 0.5f)
         // Same screen at half the density (960×540 dp): reserve
-        // 194.4, cap 765.6 / 3.18 ≈ 240.8 ≈ 0.446 of the height.
+        // 194.4, cap 765.6 / 2.86 ≈ 267.7 ≈ 0.496 of the height.
         val reserve2 = LyricsBand.reserveWidthDp(960f)
-        val h2 = SpotlightGeom.sixRowHeightDp(960f, 540f, reserve2)
-        assertEquals(240.8f, h2, 0.5f)
-        assertEquals(0.446f, h2 / 540f, 0.002f)
+        val h2 = SpotlightGeom.rowHeightDp(960f, 540f, reserve2)
+        assertEquals(267.7f, h2, 0.5f)
+        assertEquals(0.496f, h2 / 540f, 0.002f)
     }
 
     @Test
-    fun sixRowOnWidePhoneIsPanelCapped() {
+    fun rowOnWidePhoneReachesTheTarget() {
         // The user's phone in landscape, ≈869×411 dp: reserve
-        // 177.11, cap 691.89 / 3.18 ≈ 217.6 ≈ 0.529 of the height
-        // (up from v1.0.45's 0.46, still below the 0.58 target).
+        // 177.11, the width cap would allow 691.89 / 2.86 ≈ 241.9,
+        // so the 0.58 target itself binds at 238.4 (the
+        // six-figure row was capped at 0.529 here).
         val reserve = LyricsBand.reserveWidthDp(869f)
-        val h = SpotlightGeom.sixRowHeightDp(869f, 411f, reserve)
-        assertEquals(217.6f, h, 0.5f)
-        assertEquals(0.529f, h / 411f, 0.002f)
+        val h = SpotlightGeom.rowHeightDp(869f, 411f, reserve)
+        assertEquals(238.4f, h, 0.5f)
+        assertEquals(0.580f, h / 411f, 0.002f)
     }
 
     @Test
-    fun sixRowOnNarrowScreenIsWidthCapped() {
+    fun rowOnNarrowScreenIsWidthCapped() {
         // 4:3, 1024×768 dp: reserve 206.56, width budget
-        // 817.44 / 3.18 ≈ 257.1.
+        // 817.44 / 2.86 ≈ 285.8.
         val reserve = LyricsBand.reserveWidthDp(1024f)
-        val h = SpotlightGeom.sixRowHeightDp(1024f, 768f, reserve)
-        assertEquals(257.1f, h, 0.5f)
-        assertEquals(0.335f, h / 768f, 0.002f)
+        val h = SpotlightGeom.rowHeightDp(1024f, 768f, reserve)
+        assertEquals(285.8f, h, 0.5f)
+        assertEquals(0.372f, h / 768f, 0.002f)
         assertTrue(h < 0.58f * 768f)
     }
 
     @Test
-    fun sixRowLeftCentresInTheAvailableWidth() {
+    fun rowLeftCentresInTheAvailableWidth() {
         // Ultrawide 2560×1080: the 0.58 target binds (cap would
-        // allow 648.3), span = 3.18 × 626.4 ≈ 1992.0, and the row
-        // centres in the 2061.6 left of the reserve: left ≈ 34.8.
+        // allow 720.8), span = 2.86 × 626.4 ≈ 1791.5, and the
+        // row centres in the 2061.6 left of the reserve:
+        // left ≈ 135.1.
         val reserve = LyricsBand.reserveWidthDp(2560f)
-        val h = SpotlightGeom.sixRowHeightDp(2560f, 1080f, reserve)
+        val h = SpotlightGeom.rowHeightDp(2560f, 1080f, reserve)
         assertEquals(0.58f * 1080f, h, 0.5f)
-        val left = SpotlightGeom.sixRowLeftDp(2560f, h, reserve)
-        assertEquals(34.8f, left, 0.5f)
+        val left = SpotlightGeom.rowLeftDp(2560f, h, reserve)
+        assertEquals(135.1f, left, 0.5f)
         assertTrue(left > 0f)
     }
 
     @Test
-    fun sixRowNeverReachesUnderThePanel() {
+    fun rowNeverReachesUnderThePanel() {
         val sizes = listOf(
             1920f to 1080f, 960f to 540f, 869f to 411f,
             1280f to 720f, 800f to 360f, 640f to 480f, 1024f to 768f,
@@ -129,9 +140,9 @@ class SpotlightGeomTest {
         )
         for ((w, hh) in sizes) {
             val reserve = LyricsBand.reserveWidthDp(w)
-            val h = SpotlightGeom.sixRowHeightDp(w, hh, reserve)
-            val span = h * SpotlightGeom.SIX_ROW_SPAN_PER_HEIGHT
-            val left = SpotlightGeom.sixRowLeftDp(w, h, reserve)
+            val h = SpotlightGeom.rowHeightDp(w, hh, reserve)
+            val span = h * SpotlightGeom.ROW_SPAN_PER_HEIGHT
+            val left = SpotlightGeom.rowLeftDp(w, h, reserve)
             assertTrue("row too tall on $w x $hh", h <= 0.58f * hh + 0.01f)
             assertTrue("row wider than the available width on $w x $hh", span <= (w - reserve) + 0.5f)
             assertTrue("row starts off-screen on $w x $hh", left >= 0f)
@@ -145,36 +156,30 @@ class SpotlightGeomTest {
         }
     }
 
-    // ---- v1.0.48: the robot stands a touch left in the row ---
-    // Measured on the shipped still cutouts (alpha > 8 bbox):
-    // Amy's visual left margin inside the row is 0.2358 × height,
-    // the robot's visual right margin is 0.1975 × height — his
-    // wider canvas (243/600 vs her 199/600) sits shallower in the
-    // fixed 0.78 slot. The shift is the measured difference, so
-    // after it the two margins agree.
+    // ---- v1.0.50: the robot's personal shift is retired -------
+    // With Amy solo in the first slot the ends were asymmetric
+    // (her narrow canvas sat deeper in the fixed slot) and
+    // v1.0.48 shifted the robot left by the measured 0.038. The
+    // five-figure row's first slot is the Amy + Hannah combo on
+    // a full 468-wide canvas: measured on the standing frames
+    // (alpha > 8 bbox), the combo's visual left margin inside
+    // the row is 0.39 − 0.190 = 0.2000 × height and the robot's
+    // visual right margin is 2.86 − (4 × 0.52 + 0.39 + 0.193)
+    // = 0.1975 × height — a 0.0025 difference, about a dp at
+    // real row heights. The composition is symmetric on its
+    // own, so the shift is 0 (mechanism kept).
 
     @Test
-    fun sixRowRobotShiftIsTheMeasuredDifference() {
-        assertEquals(0.038f, SpotlightGeom.SIX_ROW_ROBOT_LEFT_SHIFT_FRACTION, 0.0005f)
-        val amyVisualLeft = 0.2358f
-        val robotVisualRight = 0.1975f
-        assertEquals(
-            amyVisualLeft,
-            robotVisualRight + SpotlightGeom.SIX_ROW_ROBOT_LEFT_SHIFT_FRACTION,
-            0.001f,
-        )
-    }
-
-    @Test
-    fun sixRowRobotShiftScalesWithHeight() {
-        assertEquals(7.6f, SpotlightGeom.sixRowRobotShiftDp(200f), 0.01f)
-        assertEquals(0f, SpotlightGeom.sixRowRobotShiftDp(0f), 0.001f)
-        assertTrue(SpotlightGeom.sixRowRobotShiftDp(300f) > SpotlightGeom.sixRowRobotShiftDp(200f))
-        // A nudge, never a reshuffle: well under one pitch (0.60).
-        assertTrue(
-            SpotlightGeom.SIX_ROW_ROBOT_LEFT_SHIFT_FRACTION <
-                SpotlightGeom.SIX_ROW_PITCH_FRACTION / 4f,
-        )
+    fun rowEndMarginsAreSymmetricWithoutAnyShift() {
+        assertEquals(0f, SpotlightGeom.ROW_ROBOT_LEFT_SHIFT_FRACTION, 0.0005f)
+        assertEquals(0f, SpotlightGeom.rowRobotShiftDp(200f), 0.001f)
+        assertEquals(0f, SpotlightGeom.rowRobotShiftDp(540f), 0.001f)
+        val comboVisualLeft = 0.39f - 0.190f
+        val robotVisualRight = SpotlightGeom.ROW_SPAN_PER_HEIGHT -
+            (4f * SpotlightGeom.ROW_PITCH_FRACTION + 0.39f + 0.193f)
+        assertEquals(0.200f, comboVisualLeft, 0.002f)
+        assertEquals(0.1975f, robotVisualRight, 0.002f)
+        assertTrue(kotlin.math.abs(comboVisualLeft - robotVisualRight) <= 0.003f)
     }
 
     @Test

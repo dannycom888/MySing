@@ -79,6 +79,35 @@ class LibraryCacheTest {
     }
 
     @Test
+    fun accompanimentPairingSurvivesTheRoundTrip() {
+        // v1.0.47: the pairing is part of the cached catalog, so
+        // a cold start shows the badges before the rescan lands.
+        val paired = listOf(
+            Song(
+                id = "CHINESE_BOY|周杰伦 - 晴天",
+                artist = "周杰伦", title = "晴天",
+                category = Category.CHINESE_BOY,
+                audioRef = "content://tree/music%20chinese%20boy/周杰伦%20-%20晴天.mp3",
+                lyricsRef = "content://tree/music%20chinese%20boy/周杰伦%20-%20晴天.lrc",
+                accompanimentRef = "content://tree/music%20chinese%20boy/周杰伦%20-%20晴天（伴奏）.mp3",
+            ),
+        )
+        val decoded = LibraryCache.decode(LibraryCache.encode(tree, paired), tree)
+        assertEquals(paired, decoded)
+        assertEquals(true, decoded!![0].hasAccompanimentFile)
+    }
+
+    @Test
+    fun version1CachesAreVoidAfterTheFormatBump() {
+        // A v1 line has only six fields and no accompaniment
+        // column; the v2 reader must treat the whole file as no
+        // cache (the full scan rebuilds it), never half-read it.
+        val v1 = "MSING-CATALOG-CACHE\t1\t" + tree + "\n" +
+            "id\t周杰伦\t晴天\tCHINESE_BOY\taudio\tlyrics\n"
+        assertNull(LibraryCache.decode(v1, tree))
+    }
+
+    @Test
     fun emptyLibraryEncodesToNoCache() {
         // An empty scan result must not masquerade as a usable cache:
         // decode treats "no songs" as "no cache" and the app falls

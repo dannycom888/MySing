@@ -121,6 +121,7 @@ zh: {
   dancerTitle: '💃 选伴舞',
   dancerHint: '你选的伴舞，只在你点的歌时出来；唱到你的歌时想换人，点一下电视上立刻换。',
   order: '点歌', dup: '（提醒：这首已经在队列里了）',
+  accBadge: '伴奏',
   sugMore: '还有更多结果，继续输入缩小范围',
   netErr: '发送失败：连不上电视，请确认同一个 WiFi，或关掉页面重新扫码',
   tvRestarted: '电视已重启，正在刷新页面…',
@@ -141,6 +142,7 @@ en: {
   dancerTitle: '💃 Pick your dancer',
   dancerHint: 'Your dancer comes out only for songs you ordered. Tap anytime during your song to switch — the TV updates right away.',
   order: 'Order', dup: " (Note: it's already in the queue)",
+  accBadge: 'Acc.',
   sugMore: 'More matches — keep typing to narrow it down',
   netErr: "Couldn't send — can't reach the TV. Check you're on the same Wi-Fi, or close this page and scan again.",
   tvRestarted: 'The TV app restarted — refreshing…',
@@ -201,7 +203,8 @@ function loadSongs(){
     list.slice(0,300).forEach(function(s){
       var row=document.createElement('div'); row.className='song';
       var fav = favs.indexOf(s.id)>=0;
-      row.innerHTML='<span>'+s.artist+' - '+s.title+'</span>';
+      row.innerHTML='<span>'+s.artist+' - '+s.title+'</span>' +
+        (s.acc ? ' <span class="badge">'+t('accBadge')+'</span>' : '');
       var b=document.createElement('button'); b.textContent=t('order');
       b.onclick=function(){ order(s.id); };
       var f=document.createElement('button'); f.textContent=fav?'❤':'🤍';

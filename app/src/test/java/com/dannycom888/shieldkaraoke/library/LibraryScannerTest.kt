@@ -1,6 +1,8 @@
 package com.dannycom888.shieldkaraoke.library
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -46,6 +48,125 @@ class LibraryScannerTest {
         ))
         assertEquals(1, songs.size)
         assertEquals("Beyond", songs[0].artist)
+    }
+
+    // ---- v1.0.47: accompaniment-file pairing -------------------
+    // Fixtures use the user's real file-name shapes (Chinese
+    // artist/title, full-width brackets) and go through the real
+    // scan path — the pairing must hold for the library he
+    // actually has, not for ASCII stand-ins.
+
+    @Test
+    fun `full-width accompaniment pairs with its original and is not a song`() {
+        val songs = LibraryScanner.scan(listOf(
+            file("music chinese boy", "周杰伦 - 晴天.mp3"),
+            file("music chinese boy", "周杰伦 - 晴天.lrc"),
+            file("music chinese boy", "周杰伦 - 晴天（伴奏）.mp3"),
+        ))
+        assertEquals(1, songs.size) // the accompaniment never becomes a song
+        val song = songs[0]
+        assertEquals("晴天", song.title)
+        assertTrue(song.hasAccompanimentFile)
+        assertEquals("uri://music chinese boy/周杰伦 - 晴天（伴奏）.mp3", song.accompanimentRef)
+        // The original's own pairing (lyrics) is untouched.
+        assertEquals("uri://music chinese boy/周杰伦 - 晴天.lrc", song.lyricsRef)
+    }
+
+    @Test
+    fun `half-width accompaniment also pairs`() {
+        val songs = LibraryScanner.scan(listOf(
+            file("music english girl", "Adele - Hello.mp3"),
+            file("music english girl", "Adele - Hello(伴奏).mp3"),
+        ))
+        assertEquals(1, songs.size)
+        assertTrue(songs[0].hasAccompanimentFile)
+        assertEquals("uri://music english girl/Adele - Hello(伴奏).mp3", songs[0].accompanimentRef)
+    }
+
+    @Test
+    fun `orphan accompaniment is silently dropped`() {
+        val songs = LibraryScanner.scan(listOf(
+            file("music chinese girl", "邓紫棋 - 光年之外（伴奏）.mp3"),
+        ))
+        assertEquals(0, songs.size)
+    }
+
+    @Test
+    fun `song without an accompaniment file has none`() {
+        val songs = LibraryScanner.scan(listOf(
+            file("music chinese boy", "林俊杰 - 江南.mp3"),
+        ))
+        assertEquals(1, songs.size)
+        assertFalse(songs[0].hasAccompanimentFile)
+        assertNull(songs[0].accompanimentRef)
+    }
+
+    @Test
+    fun `accompaniment in another folder does not pair`() {
+        // Same name, different category folder: folder decides
+        // everything in this library, pairing included.
+        val songs = LibraryScanner.scan(listOf(
+            file("music chinese boy", "张信哲 - 爱如潮水.mp3"),
+            file("music chinese girl", "张信哲 - 爱如潮水（伴奏）.mp3"),
+        ))
+        assertEquals(1, songs.size)
+        assertFalse(songs[0].hasAccompanimentFile)
+    }
+
+    @Test
+    fun `same-name conflict resolves deterministically by file name order`() {
+        // Both bracket shapes on disk for one original: the
+        // winner is the first in plain file-name order (the
+        // half-width name sorts before the full-width one), on
+        // every rescan, regardless of listing order.
+        val forward = LibraryScanner.scan(listOf(
+            file("music chinese boy", "周杰伦 - 晴天.mp3"),
+            file("music chinese boy", "周杰伦 - 晴天（伴奏）.mp3"),
+            file("music chinese boy", "周杰伦 - 晴天(伴奏).mp3"),
+        ))
+        val reversed = LibraryScanner.scan(listOf(
+            file("music chinese boy", "周杰伦 - 晴天(伴奏).mp3"),
+            file("music chinese boy", "周杰伦 - 晴天（伴奏）.mp3"),
+            file("music chinese boy", "周杰伦 - 晴天.mp3"),
+        ))
+        assertEquals(1, forward.size)
+        assertEquals("uri://music chinese boy/周杰伦 - 晴天(伴奏).mp3", forward[0].accompanimentRef)
+        assertEquals(forward[0].accompanimentRef, reversed[0].accompanimentRef)
+    }
+
+    @Test
+    fun `an accompaniment-side lrc neither creates a song nor steals lyrics`() {
+        val songs = LibraryScanner.scan(listOf(
+            file("music chinese boy", "周杰伦 - 晴天.mp3"),
+            file("music chinese boy", "周杰伦 - 晴天（伴奏）.mp3"),
+            file("music chinese boy", "周杰伦 - 晴天（伴奏）.lrc"),
+        ))
+        assertEquals(1, songs.size)
+        assertNull(songs[0].lyricsRef) // only the original's own .lrc counts
+        assertTrue(songs[0].hasAccompanimentFile)
+    }
+
+    @Test
+    fun `a title ending in the bare word is an ordinary song`() {
+        val songs = LibraryScanner.scan(listOf(
+            file("music chinese girl", "歌手 - 伴奏.mp3"),
+        ))
+        assertEquals(1, songs.size)
+        assertEquals("伴奏", songs[0].title)
+        assertFalse(songs[0].hasAccompanimentFile)
+    }
+
+    @Test
+    fun `rescan picks up an accompaniment dropped in later`() {
+        val before = LibraryScanner.scan(listOf(
+            file("music chinese boy", "周杰伦 - 晴天.mp3"),
+        ))
+        val after = LibraryScanner.scan(listOf(
+            file("music chinese boy", "周杰伦 - 晴天.mp3"),
+            file("music chinese boy", "周杰伦 - 晴天（伴奏）.mp3"),
+        ))
+        assertFalse(before[0].hasAccompanimentFile)
+        assertTrue(after[0].hasAccompanimentFile)
     }
 
     @Test

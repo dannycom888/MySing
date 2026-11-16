@@ -31,8 +31,20 @@ data class Song(
     val audioRef: String,
     /** Same-stem .lrc beside the MP3, or null when the song has no lyrics file. */
     val lyricsRef: String?,
+    /**
+     * The paired accompaniment file (v1.0.47): a same-folder
+     * "原名（伴奏）" audio file the source-separation app wrote
+     * beside this song — same duration, vocals already removed.
+     * It is NOT a song of its own: it never appears in any list,
+     * it only takes over playback when accompaniment is on.
+     * Null when the song has no paired file (accompaniment then
+     * falls back to the realtime cancellation, Plan B).
+     */
+    val accompanimentRef: String? = null,
 ) {
     val displayName: String get() = if (artist.isBlank()) title else "$artist - $title"
+
+    val hasAccompanimentFile: Boolean get() = accompanimentRef != null
 }
 
 /** A raw file as reported by a library source (SAF tree, disk, test fake). */

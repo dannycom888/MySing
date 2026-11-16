@@ -290,6 +290,11 @@ class KaraokeHttpServer(
                         // combined string covers every contains()
                         // check PinyinInitials.matches does server-side.
                         put("pin", com.dannycom888.shieldkaraoke.library.PinyinInitials.initialsOf(s.artist + s.title))
+                        // v1.0.47: the page badges songs that have
+                        // a paired accompaniment file on disk. The
+                        // file itself is never a catalog entry, so
+                        // it can never appear in this list.
+                        put("acc", s.hasAccompanimentFile)
                     })
                 }
                 Triple(200, "application/json; charset=utf-8", JSONObject().put("songs", arr).toString())

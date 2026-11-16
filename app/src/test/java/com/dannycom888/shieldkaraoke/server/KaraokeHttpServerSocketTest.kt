@@ -6,6 +6,7 @@ import com.dannycom888.shieldkaraoke.library.Song
 import com.dannycom888.shieldkaraoke.state.KaraokeState
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -46,6 +47,9 @@ class KaraokeHttpServerSocketTest {
         category = Category.CHINESE_BOY,
         audioRef = "/music chinese boy/张信哲 - 爱如潮水.mp3",
         lyricsRef = "/music chinese boy/张信哲 - 爱如潮水.lrc",
+        // v1.0.47: this song has a paired accompaniment file on
+        // disk; the English one below does not.
+        accompanimentRef = "/music chinese boy/张信哲 - 爱如潮水（伴奏）.mp3",
     )
     private val englishSong = Song(
         id = "ENGLISH_GIRL|adele - hello",
@@ -194,6 +198,24 @@ class KaraokeHttpServerSocketTest {
         }
         assertEquals("zxzarcs", byId.getValue(chineseSong.id).getString("pin"))
         assertEquals("adelehello", byId.getValue(englishSong.id).getString("pin"))
+    }
+
+    @Test
+    fun songsEndpointCarriesAccompanimentFlag() {
+        // v1.0.47: the phone page badges songs with a paired
+        // accompaniment file. The flag rides /api/songs; the
+        // accompaniment file itself is not a catalog entry, so
+        // the list still holds exactly the two originals.
+        val response = rawGet("/api/songs")
+        assertEquals(200, response.status)
+        val songs = org.json.JSONObject(String(response.bodyBytes, Charsets.UTF_8))
+            .getJSONArray("songs")
+        assertEquals(2, songs.length())
+        val byId = (0 until songs.length()).associate {
+            val o = songs.getJSONObject(it); o.getString("id") to o
+        }
+        assertTrue(byId.getValue(chineseSong.id).getBoolean("acc"))
+        assertFalse(byId.getValue(englishSong.id).getBoolean("acc"))
     }
 
     @Test

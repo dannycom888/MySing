@@ -39,6 +39,15 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
  * is confirmed progressing (v1.0.15, see [ErrorDisplayPolicy]).
  * Music-stream audio focus is requested before playback and
  * abandoned on release.
+ *
+ * v1.0.47: a song may carry a paired accompaniment FILE (see
+ * [com.dannycom888.shieldkaraoke.library.AccompanimentPairing]).
+ * When it does, 原唱/伴奏 switching is a media-source swap
+ * between the two files at the current position — no processor
+ * involved — so file accompaniment works on EVERY build,
+ * including the bare plain retry. [PlaybackSourcePolicy] makes
+ * the choice; this class only executes it. Songs without a file
+ * keep the realtime path below, untouched.
  */
 class PlayerController(private val context: Context) {
 
@@ -135,15 +144,28 @@ class PlayerController(private val context: Context) {
      *     than 16-bit/float PCM).
      *  On the custom path before the sink has configured the
      *  processor for the song it reads false: "not known yet" is
-     *  not a degradation. */
+     *  not a degradation.
+     *  v1.0.47: a song playing its paired accompaniment FILE is
+     *  never "unavailable" — the file needs no processor, so it
+     *  is in effect on every build, the bare retry included. */
     val accompanimentUnavailable: Boolean
-        get() = wantAccompaniment &&
+        get() = wantAccompaniment && !usingAccompanimentFile &&
             (fallback.path != FallbackStateMachine.Path.CUSTOM ||
                 (vocalProcessor.configured && !vocalProcessor.isActive()))
 
     private var currentUri: Uri? = null
     private var currentGainDb: Double = 0.0
     private var wantAccompaniment: Boolean = false
+
+    /** The current song's two files (v1.0.47): the original, and
+     *  its paired accompaniment file when the scan found one. */
+    private var originalUri: Uri? = null
+    private var accompanimentFileUri: Uri? = null
+
+    /** True while the media item under the singer is the paired
+     *  accompaniment file rather than the original. */
+    var usingAccompanimentFile: Boolean = false
+        private set
 
     private val audioManager =
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -166,7 +188,12 @@ class PlayerController(private val context: Context) {
         return built
     }
 
-    fun load(uri: Uri, gainDb: Double, accompanimentByDefault: Boolean) {
+    fun load(
+        uri: Uri,
+        gainDb: Double,
+        accompanimentByDefault: Boolean,
+        accompanimentUri: Uri? = null,
+    ) {
         // A fresh song gets a fresh chance on the custom sink.
         if (fallback.path != FallbackStateMachine.Path.CUSTOM) {
             rebuildPlayer(customSink = true)
@@ -174,7 +201,8 @@ class PlayerController(private val context: Context) {
         fallback.onNewLoad()
         lastError = null
         errorDisplay.reset()
-        currentUri = uri
+        originalUri = uri
+        accompanimentFileUri = accompanimentUri
         currentGainDb = gainDb
         semitones = 0
         player.playbackParameters = PlaybackParameters(1f, 1f)
@@ -182,25 +210,36 @@ class PlayerController(private val context: Context) {
         // derives it from the entry's source via
         // AccompanimentPolicy — ordered songs start with
         // accompaniment on, filler with the original vocal.
-        // Applied through setAccompaniment so the path rules
-        // stay in one place; load always lands on the custom
-        // build first, so the processor is switched to match,
-        // and if an error later drops this song to the bare
-        // retry the remembered request keeps
+        // v1.0.47: what that intent PLAYS is PlaybackSourcePolicy's
+        // call — a paired accompaniment file wins and the song
+        // starts on the file itself; without a file the realtime
+        // processor is switched to match. Load always lands on
+        // the custom build first (rebuilt above when needed), so
+        // the processor can be set directly; and if an error
+        // later drops this song to the bare retry, the remembered
+        // request — and, for file songs, the file itself — keeps
         // accompanimentUnavailable truthful.
-        setAccompaniment(accompanimentByDefault)
+        wantAccompaniment = accompanimentByDefault
+        val choice = PlaybackSourcePolicy.choose(accompanimentUri != null, accompanimentByDefault)
+        usingAccompanimentFile = choice.useAccompanimentFile
+        vocalProcessor.enabled = choice.useRealtimeCancel
+        currentUri = if (choice.useAccompanimentFile) accompanimentUri else uri
         requestAudioFocus()
-        player.setMediaItem(MediaItem.fromUri(uri))
+        player.setMediaItem(MediaItem.fromUri(currentUri!!))
         player.prepare()
         applyGain(gainDb)
         player.play()
     }
 
     /** First error on the custom sink → rebuild bare (stock
-     *  factory, no processor), retry once. If accompaniment was
-     *  on, [accompanimentUnavailable] turns true via the path —
-     *  the retry audibly plays the original until the next song
-     *  gets its fresh chance on the custom sink. */
+     *  factory, no processor), retry once, on whichever file is
+     *  current. If accompaniment was on via the realtime
+     *  processor, [accompanimentUnavailable] turns true via the
+     *  path — the retry audibly plays the original until the
+     *  next song gets its fresh chance on the custom sink. If
+     *  accompaniment was on via the paired FILE (v1.0.47), the
+     *  retry simply keeps playing that file — the bare build
+     *  needs no processor for it. */
     private fun handleError(error: PlaybackException) {
         lastError = buildString {
             append(error.errorCodeName)
@@ -279,8 +318,18 @@ class PlayerController(private val context: Context) {
 
     fun setAccompaniment(on: Boolean) {
         wantAccompaniment = on
-        if (fallback.path == FallbackStateMachine.Path.CUSTOM) {
-            vocalProcessor.enabled = on
+        val choice = PlaybackSourcePolicy.choose(accompanimentFileUri != null, on)
+        if (choice.useAccompanimentFile != usingAccompanimentFile) {
+            // The source itself changes (v1.0.47): swap the media
+            // item under the singer at the current position. This
+            // is deliberately NOT tied to the custom sink — a file
+            // swap works on the bare retry build too, which is
+            // the whole point of file accompaniment.
+            swapSource(choice.useAccompanimentFile)
+        } else if (fallback.path == FallbackStateMachine.Path.CUSTOM) {
+            // No file involved: the realtime processor switches,
+            // exactly as before.
+            vocalProcessor.enabled = choice.useRealtimeCancel
         } else {
             // Plain retry build has no vocal processor in its
             // chain: nothing to switch. The request is remembered
@@ -290,12 +339,41 @@ class PlayerController(private val context: Context) {
         }
     }
 
-    /** Accompaniment audibly in effect: requested, on the
-     *  custom build, and the processor switched on. (A custom-path
-     *  format rejection still leaves this true — the audible
-     *  truth for that case is [accompanimentUnavailable]'s.) */
+    /** Replace the playing file with the song's other file at the
+     *  current position — same LRC, same progress, same pitch;
+     *  only the audio under the singing changes. The position is
+     *  clamped to the new file's duration when it is already
+     *  known (the two files are sample-exact by construction,
+     *  but a shorter file must never be seeked past its end). */
+    private fun swapSource(toAccompanimentFile: Boolean) {
+        val target = (if (toAccompanimentFile) accompanimentFileUri else originalUri) ?: return
+        usingAccompanimentFile = toAccompanimentFile
+        // A file source never runs through the cancel processor:
+        // the accompaniment file is already vocal-free, and the
+        // original must come back exactly as it was recorded.
+        vocalProcessor.enabled = false
+        val wasPlayWhenReady = player.playWhenReady
+        val position = try { player.currentPosition } catch (e: Exception) { 0L }
+        currentUri = target
+        player.setMediaItem(MediaItem.fromUri(target))
+        player.prepare()
+        val duration = try { player.duration } catch (e: Exception) { 0L }
+        player.seekTo(
+            if (duration > 0) minOf(position, duration) else position.coerceAtLeast(0L)
+        )
+        player.playbackParameters = PlaybackParameters(1f, AudioMath.semitoneFactor(semitones))
+        applyGain(currentGainDb)
+        player.playWhenReady = wasPlayWhenReady
+    }
+
+    /** Accompaniment audibly in effect: either the paired file
+     *  is playing, or — on the custom build — the processor is
+     *  switched on. (A custom-path format rejection still leaves
+     *  the processor case true — the audible truth for that case
+     *  is [accompanimentUnavailable]'s.) */
     val isAccompaniment: Boolean
-        get() = fallback.path == FallbackStateMachine.Path.CUSTOM && vocalProcessor.enabled
+        get() = usingAccompanimentFile ||
+            (fallback.path == FallbackStateMachine.Path.CUSTOM && vocalProcessor.enabled)
 
     fun shiftPitch(deltaSemitones: Int) {
         semitones = (semitones + deltaSemitones).coerceIn(-12, 12)

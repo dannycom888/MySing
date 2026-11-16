@@ -22,7 +22,11 @@ import java.io.File
 object LibraryCache {
 
     private const val MAGIC = "MSING-CATALOG-CACHE"
-    private const val VERSION = "1"
+    // v2 (v1.0.47): each line carries the paired accompaniment
+    // ref as a seventh field. The bump voids v1 caches wholesale
+    // (the documented behaviour) — the full scan right behind the
+    // cache load rebuilds them with pairings included.
+    private const val VERSION = "2"
 
     fun encode(treeUri: String, songs: List<Song>): String {
         val sb = StringBuilder()
@@ -33,7 +37,8 @@ object LibraryCache {
                 .append(escape(song.title)).append('\t')
                 .append(song.category.name).append('\t')
                 .append(escape(song.audioRef)).append('\t')
-                .append(escape(song.lyricsRef ?: ""))
+                .append(escape(song.lyricsRef ?: "")).append('\t')
+                .append(escape(song.accompanimentRef ?: ""))
                 .append('\n')
         }
         return sb.toString()
@@ -59,13 +64,14 @@ object LibraryCache {
 
     private fun parseLine(line: String): Song? {
         val fields = line.split('\t')
-        if (fields.size != 6) return null
+        if (fields.size != 7) return null
         val category = try {
             Category.valueOf(fields[3])
         } catch (e: IllegalArgumentException) {
             return null
         }
         val lyrics = unescape(fields[5])
+        val accompaniment = unescape(fields[6])
         return Song(
             id = unescape(fields[0]),
             artist = unescape(fields[1]),
@@ -73,6 +79,7 @@ object LibraryCache {
             category = category,
             audioRef = unescape(fields[4]),
             lyricsRef = lyrics.ifEmpty { null },
+            accompanimentRef = accompaniment.ifEmpty { null },
         )
     }
 

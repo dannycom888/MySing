@@ -10,6 +10,13 @@ package com.dannycom888.shieldkaraoke.library
  *  - an MP3 and a same-stem .lrc in the same folder are one song;
  *  - a rescan rebuilds the catalog wholesale, so songs deleted from
  *    the disk drop out and newly added songs join automatically.
+ *  - v1.0.47: an audio file whose stem ends in "（伴奏）"/"(伴奏)"
+ *    (see [AccompanimentPairing]) is not a song — it pairs with
+ *    the same-folder original of the stripped stem. An orphan
+ *    accompaniment (no original beside it) is silently dropped.
+ *    A rescan is a wholesale rebuild, so an accompaniment file
+ *    dropped onto the disk later pairs up on the next scan with
+ *    no folder re-pick.
  */
 object LibraryScanner {
 
@@ -19,26 +26,46 @@ object LibraryScanner {
     fun scan(files: List<RawFile>): List<Song> {
         val lyricsByKey = mutableMapOf<String, String>()
         val audio = mutableListOf<RawFile>()
+        // Accompaniment candidates keyed by the ORIGINAL's key.
+        // File-name order decides a same-name conflict (e.g. both
+        // "X（伴奏）.mp3" and "X(伴奏).mp3" on disk): the sort is
+        // plain file-name order, so the winner is deterministic
+        // across rescans and devices.
+        val accompanimentByKey = mutableMapOf<String, String>()
+        val accompanimentCandidates = mutableListOf<Pair<Category, RawFile>>()
         for (file in files) {
             val ext = file.fileName.substringAfterLast('.', "").lowercase()
             val category = Category.fromFolderName(file.folderName) ?: continue
             val stem = file.fileName.substringBeforeLast('.', file.fileName)
             when {
                 ext == "lrc" -> lyricsByKey[key(category, stem)] = file.ref
-                ext in audioExts -> audio += file
+                ext in audioExts -> {
+                    if (AccompanimentPairing.isAccompanimentStem(stem)) {
+                        accompanimentCandidates += category to file
+                    } else {
+                        audio += file
+                    }
+                }
             }
+        }
+        for ((category, file) in accompanimentCandidates.sortedBy { it.second.fileName }) {
+            val stem = file.fileName.substringBeforeLast('.', file.fileName)
+            val baseStem = AccompanimentPairing.baseStemOf(stem) ?: continue
+            accompanimentByKey.putIfAbsent(key(category, baseStem), file.ref)
         }
         return audio.map { file ->
             val category = Category.fromFolderName(file.folderName)!!
             val stem = file.fileName.substringBeforeLast('.', file.fileName)
             val (artist, title) = splitArtistTitle(stem)
+            val songKey = key(category, stem)
             Song(
-                id = key(category, stem),
+                id = songKey,
                 artist = artist,
                 title = title,
                 category = category,
                 audioRef = file.ref,
-                lyricsRef = lyricsByKey[key(category, stem)],
+                lyricsRef = lyricsByKey[songKey],
+                accompanimentRef = accompanimentByKey[songKey],
             )
         }.sortedWith(compareBy({ it.artist.lowercase() }, { it.title.lowercase() }))
     }

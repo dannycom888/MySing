@@ -450,7 +450,14 @@ class MainActivity : ComponentActivity() {
         clearCeremony()
         val uri = Uri.parse(entry.song.audioRef)
         val cachedGain = app.prefs.loudnessDb(entry.song.id)
-        controller.load(uri, AudioMath.normalizationGainDb(cachedGain), accompaniment)
+        // v1.0.47: hand the controller the paired accompaniment
+        // file too — with one on disk, an ordered song starts on
+        // the file itself and the 原唱/伴奏 chip swaps files;
+        // without one, load behaves exactly as before.
+        controller.load(
+            uri, AudioMath.normalizationGainDb(cachedGain), accompaniment,
+            entry.song.accompanimentRef?.let { Uri.parse(it) },
+        )
         // Dance tempo: cached per song next to the loudness cache;
         // measured in the background when missing (default 96 BPM).
         val cachedBpm = app.prefs.bpm(entry.song.id)
@@ -1366,7 +1373,12 @@ class MainActivity : ComponentActivity() {
                 ) {
                     itemsIndexed(songs) { index, song ->
                         ListRow(
-                            "🎵 ${song.displayName}", compact,
+                            // v1.0.47: songs with a paired
+                            // accompaniment file carry the small
+                            // badge; the file itself is never a row.
+                            "🎵 ${song.displayName}" +
+                                if (song.hasAccompanimentFile) " · ${s(TvKey.ACCOMP_BADGE)}" else "",
+                            compact,
                             if (index == 0) {
                                 Modifier.focusRequester(firstResultRequester)
                             } else {
@@ -2045,6 +2057,13 @@ class MainActivity : ComponentActivity() {
                     DancerActivity.Phase.STILL -> append(" · 伴舞：尾奏静止")
                     DancerActivity.Phase.DANCING -> {}
                 }
+            }
+            if (entry?.song?.hasAccompanimentFile == true) {
+                // v1.0.47: the pairing was recognised for this
+                // song; say so, and say when the file is the one
+                // actually playing.
+                append(" · 有伴奏文件")
+                if (controller.usingAccompanimentFile) append("（正在播）")
             }
             if (controller.accompanimentUnavailable) {
                 // Name the actual cause (v1.0.40): on the custom

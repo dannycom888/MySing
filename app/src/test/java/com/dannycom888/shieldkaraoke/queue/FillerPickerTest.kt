@@ -18,6 +18,25 @@ class FillerPickerTest {
     private fun catalog(n: Int): List<Song> = (1..n).map { song(it.toString()) }
 
     @Test
+    fun `filler never picks an accompaniment file`() {
+        // v1.0.47: the picker runs over the scanned catalog, and
+        // the scan never turns an accompaniment file into a song
+        // — so even a library of one original + its accompaniment
+        // can only ever fill with the original.
+        val scanned = com.dannycom888.shieldkaraoke.library.LibraryScanner.scan(listOf(
+            com.dannycom888.shieldkaraoke.library.RawFile(
+                "music chinese boy", "周杰伦 - 晴天.mp3", "uri://orig",
+            ),
+            com.dannycom888.shieldkaraoke.library.RawFile(
+                "music chinese boy", "周杰伦 - 晴天（伴奏）.mp3", "uri://acc",
+            ),
+        ))
+        assertEquals(1, scanned.size)
+        val picker = FillerPicker(Random(5))
+        repeat(5) { assertEquals("uri://orig", picker.pick(scanned)?.audioRef) }
+    }
+
+    @Test
     fun `empty catalog picks nothing`() {
         assertNull(FillerPicker(Random(1)).pick(emptyList()))
     }

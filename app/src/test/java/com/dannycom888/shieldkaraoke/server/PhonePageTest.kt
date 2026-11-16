@@ -224,6 +224,16 @@ class PhonePageTest {
     }
 
     @Test
+    fun songRowsBadgePairedAccompaniment() {
+        // v1.0.47: a song whose /api/songs entry carries acc=true
+        // gets the small badge next to its name, in the page's
+        // own language — 伴奏 in Chinese, Acc. in English.
+        assertTrue(html.contains("accBadge: '伴奏'"))
+        assertTrue(html.contains("accBadge: 'Acc.'"))
+        assertTrue(html.contains("s.acc ? ' <span class=\"badge\">'+t('accBadge')+'</span>' : ''"))
+    }
+
+    @Test
     fun customNameWithQuoteCannotBreakTheScript() {
         val page = PhonePage.html("bootX", mapOf("baby" to "A\"B"))
         assertTrue(page.contains("\"baby\":\"A\\\"B\""))

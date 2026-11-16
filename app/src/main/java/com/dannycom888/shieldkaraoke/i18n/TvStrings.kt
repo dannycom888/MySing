@@ -49,6 +49,9 @@ enum class TvKey {
     VOICE_BUTTON, VOICE_LISTENING,
     VOICE_PERM_TITLE, VOICE_PERM_TEXT, VOICE_PERM_GO,
     VOICE_DENIED, VOICE_NO_SERVICE, VOICE_NOT_HEARD, VOICE_ERROR,
+    // The browse-list badge on songs with a paired accompaniment
+    // file (v1.0.47).
+    ACCOMP_BADGE,
 }
 
 /**
@@ -153,6 +156,7 @@ object TvStrings {
         TvKey.VOICE_NO_SERVICE to "本设备没有语音服务",
         TvKey.VOICE_NOT_HEARD to "没听清，再试一次",
         TvKey.VOICE_ERROR to "语音识别出错，再试一次",
+        TvKey.ACCOMP_BADGE to "伴奏",
     )
 
     private val EN: Map<TvKey, String> = mapOf(
@@ -244,6 +248,7 @@ object TvStrings {
         TvKey.VOICE_NO_SERVICE to "No voice service on this device",
         TvKey.VOICE_NOT_HEARD to "Didn't catch that — try again",
         TvKey.VOICE_ERROR to "Voice recognition failed — try again",
+        TvKey.ACCOMP_BADGE to "Acc.",
     )
 
     /** Key set of each language's table, for the parity test. */

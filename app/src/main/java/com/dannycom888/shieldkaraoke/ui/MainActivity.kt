@@ -1215,9 +1215,23 @@ class MainActivity : ComponentActivity() {
                             positionMs, firstLyricStart, lastLyricEnd,
                             durationMs.takeIf { it > 0 },
                         )
-                        // --- dancer LEFT of the lyrics, lyrics column gives
-                        //     up the left zone and takes the rest ---
+                        // --- dancer LEFT of the lyrics, in three
+                        // fixed zones (v1.0.28, see LyricsBand):
+                        // dancer zone | gap | lyrics band | reserve
+                        // band. The lyrics band's edges are CONSTANT
+                        // — the dancer zone is reserved even while
+                        // no dancer shows, and the reserve band on
+                        // the right (queue panel + margin wide) is
+                        // never given to the lyrics, so the floating
+                        // panel and the corner QR physically cannot
+                        // cover a lyric character again. ---
+                        val stagePad = if (compact) 12.dp else 24.dp
+                        val band = LyricsBand.compute(
+                            stageWidthDp = (screenW - stagePad * 2).value,
+                            screenWidthDp = screenW.value,
+                        )
                         Row(modifier = Modifier.fillMaxSize()) {
+                          Box(modifier = Modifier.fillMaxHeight().width(band.dancerWidthDp.dp)) {
                             if (entry != null && !showCelebration && dancersOn) {
                                 // The dancer belongs to whoever ordered this song.
                                 val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
@@ -1228,7 +1242,7 @@ class MainActivity : ComponentActivity() {
                                 // height, silently coerced down by
                                 // whatever the stage actually got).
                                 BoxWithConstraints(
-                                    modifier = Modifier.fillMaxHeight().width(screenW * 0.36f),
+                                    modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.BottomCenter,
                                 ) {
                                     DancerImage(
@@ -1336,7 +1350,9 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             }
-                            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                          }
+                            Spacer(Modifier.width(LyricsBand.GAP_DP.dp))
+                            Column(modifier = Modifier.width(band.widthDp.dp).fillMaxHeight()) {
                                 Text(
                                     // A filler song has no orderer to
                                     // credit: just its name (v1.0.20).
@@ -1379,14 +1395,15 @@ class MainActivity : ComponentActivity() {
                   }
                     // --- queue panel: a floating, semi-transparent
                     // overlay on the stage's right edge, under the QR
-                    // card (v1.0.24 — until now it was a fixed 23%
-                    // column stealing width from the lyrics for the
-                    // whole song; as an overlay the stage keeps its
-                    // full width and the panel just floats over the
-                    // lyrics' right edge, narrower at 19%). Focus and
-                    // actions are unchanged: explicit requesters and
-                    // the control bar's D-pad Up handler never cared
-                    // where in the tree the panel sits. ---
+                    // card (v1.0.24 — it was a fixed 23% column before
+                    // that). Since v1.0.28 it floats over the stage's
+                    // RESERVE BAND only (see LyricsBand): the lyrics
+                    // band ends a gap short of the panel's left edge
+                    // whether the panel is showing or not, so the
+                    // overlay can no longer cover lyric text. Focus
+                    // and actions are unchanged: explicit requesters
+                    // and the control bar's D-pad Up handler never
+                    // cared where in the tree the panel sits. ---
                     if (panelVisible) {
                       Box(modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight()) {
                         QueuePanel(

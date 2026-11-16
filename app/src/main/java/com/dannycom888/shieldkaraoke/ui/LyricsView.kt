@@ -19,9 +19,12 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -115,7 +118,13 @@ fun LyricsView(
     val currentSize = if (compact) 28 else 42
     val sideSize = if (compact) 18 else 26
     val sidePadV = if (compact) 2 else 5
+    // v1.0.28: this view only ever renders inside the fixed safe
+    // band (see LyricsBand), so its own width IS the band width —
+    // the yardstick every line is fitted against (see LyricFit).
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val bandWidthPx = with(density) { maxWidth.toPx() }
         val win = LyricsWindow.compute(
             availableHeightDp = maxHeight.value,
             currentLineDp = currentSize * LyricsWindow.LINE_HEIGHT_PER_SP,
@@ -136,15 +145,17 @@ fun LyricsView(
                         positionMs = positionMs,
                         fontSize = currentSize,
                         sweepColor = sweepColor,
+                        measurer = measurer,
+                        bandWidthPx = bandWidthPx,
                     )
                 } else {
-                    Text(
+                    SideLine(
                         text = lines.getOrNull(idx)?.text ?: " ",
-                        color = if (idx < current) dimColor.copy(alpha = 0.55f) else dimColor,
-                        fontSize = sideSize.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = sidePadV.dp),
-                        maxLines = 1,
+                        sung = idx < current,
+                        baseSize = sideSize,
+                        padV = sidePadV,
+                        measurer = measurer,
+                        bandWidthPx = bandWidthPx,
                     )
                 }
             }
@@ -152,11 +163,60 @@ fun LyricsView(
     }
 }
 
+/**
+ * One non-current line, fitted to the band (v1.0.28): measured at
+ * its base size and shrunk via [LyricFit] when it would overflow,
+ * so the whole line stays visible inside the band instead of
+ * being centre-clipped at both ends.
+ */
 @Composable
-private fun CurrentLine(line: LyricLine?, positionMs: Long, fontSize: Int, sweepColor: Color) {
+private fun SideLine(
+    text: String,
+    sung: Boolean,
+    baseSize: Int,
+    padV: Int,
+    measurer: TextMeasurer,
+    bandWidthPx: Float,
+) {
+    val scale = remember(text, baseSize, bandWidthPx) {
+        val natural = measurer.measure(
+            text = text,
+            style = TextStyle(fontSize = baseSize.sp),
+        ).size.width
+        LyricFit.scaleFor(natural.toFloat(), bandWidthPx)
+    }
+    Text(
+        text = text,
+        color = if (sung) dimColor.copy(alpha = 0.55f) else dimColor,
+        fontSize = (baseSize * scale).sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(vertical = padV.dp),
+        maxLines = 1,
+    )
+}
+
+@Composable
+private fun CurrentLine(
+    line: LyricLine?,
+    positionMs: Long,
+    fontSize: Int,
+    sweepColor: Color,
+    measurer: TextMeasurer,
+    bandWidthPx: Float,
+) {
     if (line == null) {
         Text("♪ ♪ ♪", color = GLOW_COLOR, fontSize = fontSize.sp, fontWeight = FontWeight.Bold)
         return
+    }
+    // v1.0.28: fit the whole line into the band (see LyricFit) —
+    // both render paths below take the same fitted size, so the
+    // sweep's layout-derived boundary stays exact.
+    val fittedSize = remember(line.text, fontSize, bandWidthPx) {
+        val natural = measurer.measure(
+            text = line.text,
+            style = TextStyle(fontSize = fontSize.sp, fontWeight = FontWeight.Bold),
+        ).size.width
+        (fontSize * LyricFit.scaleFor(natural.toFloat(), bandWidthPx)).toInt().coerceAtLeast(1)
     }
     val glow = Shadow(color = GLOW_COLOR, offset = Offset(0f, 0f), blurRadius = 24f)
     if (line.words.isEmpty()) {
@@ -164,14 +224,14 @@ private fun CurrentLine(line: LyricLine?, positionMs: Long, fontSize: Int, sweep
         Text(
             text = line.text,
             color = sweepColor,
-            fontSize = fontSize.sp,
+            fontSize = fittedSize.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             style = TextStyle(shadow = glow),
             maxLines = 1,
         )
     } else {
-        SweepLine(line = line, positionMs = positionMs, fontSize = fontSize, glow = glow, sweepColor = sweepColor)
+        SweepLine(line = line, positionMs = positionMs, fontSize = fittedSize, glow = glow, sweepColor = sweepColor)
     }
 }
 

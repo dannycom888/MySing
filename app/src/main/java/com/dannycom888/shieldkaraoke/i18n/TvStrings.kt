@@ -39,6 +39,9 @@ enum class TvKey {
     ADMIN_LIBRARY_TITLE, ADMIN_LIBRARY_CURRENT, ADMIN_LIBRARY_NONE,
     ADMIN_SWEEP_TITLE, SWEEP_GOLD, SWEEP_GREEN, SWEEP_PINK,
     ADMIN_GEAR_DESC, ADMIN_VERSION,
+    // The diagnostics section on the admin page (v1.0.35): the
+    // line moved off the player stage gets a section title here.
+    ADMIN_DIAG_TITLE,
 }
 
 /**
@@ -48,8 +51,9 @@ enum class TvKey {
  * Song and singer names are file-name data and are never in here:
  * they pass through the %s slots untranslated, by design.
  *
- * The diagnostics line under the lyrics is deliberately NOT part
- * of this table — it is technical small print and stays as-is.
+ * The diagnostics line itself (on the admin page since v1.0.35)
+ * is deliberately NOT part of this table — it is technical small
+ * print and stays as-is; only its section title is tabled.
  */
 object TvStrings {
 
@@ -131,6 +135,7 @@ object TvStrings {
         TvKey.SWEEP_PINK to "浅粉",
         TvKey.ADMIN_GEAR_DESC to "后台设置",
         TvKey.ADMIN_VERSION to "版本 v%s",
+        TvKey.ADMIN_DIAG_TITLE to "诊断",
     )
 
     private val EN: Map<TvKey, String> = mapOf(
@@ -209,6 +214,7 @@ object TvStrings {
         TvKey.SWEEP_PINK to "Light pink",
         TvKey.ADMIN_GEAR_DESC to "Settings",
         TvKey.ADMIN_VERSION to "Version %s",
+        TvKey.ADMIN_DIAG_TITLE to "Diagnostics",
     )
 
     /** Key set of each language's table, for the parity test. */

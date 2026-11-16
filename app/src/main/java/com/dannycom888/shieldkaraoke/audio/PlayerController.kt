@@ -25,7 +25,8 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
  * vocal-processor chain is the prime suspect), the player is rebuilt
  * ONCE with the plain default renderer and the song retried — see
  * [FallbackStateMachine]. The active sink path stays visible in
- * the player screen's diagnostics line; the error banner shows
+ * the diagnostics line (on the admin page since v1.0.35); the
+ * error banner shows
  * while the fault is live and clears once a plain-retry recovery
  * is confirmed progressing (v1.0.15, see [ErrorDisplayPolicy]).
  * Music-stream audio focus is requested before playback and

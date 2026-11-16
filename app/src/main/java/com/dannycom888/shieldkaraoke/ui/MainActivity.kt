@@ -706,12 +706,28 @@ class MainActivity : ComponentActivity() {
      * Coming here never touches playback — the song on stage
      * keeps singing behind the settings. The page footer carries
      * the version number and, under it, the credit line that used
-     * to sit at the retired home screen's bottom (v1.0.31).
+     * to sit at the retired home screen's bottom (v1.0.31); since
+     * v1.0.35 the diagnostics line lives just above the version —
+     * it moved off the stage, where it only ever served debugging.
      */
     @Composable
     private fun AdminScreen(compact: Boolean) {
         BackHandler { screen = adminReturnTo }
         val state = app.state
+        // v1.0.35: the diagnostics section at this page's foot
+        // must stay live, but the stage's 33 ms ticker stops with
+        // the player screen's composition — so while this page is
+        // up, a slower local ticker keeps the same positionMs /
+        // durationMs state fresh from the (still singing) player.
+        var diagTick by remember { mutableStateOf(0L) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                positionMs = try { controller.player.currentPosition } catch (e: Exception) { 0L }
+                durationMs = try { controller.player.duration } catch (e: Exception) { -1L }
+                diagTick = SystemClock.elapsedRealtime()
+                delay(250)
+            }
+        }
         // The corner QR overlay is pinned top-right here too;
         // reserve its width so no row slides under it (same
         // pattern as BrowseScreen).
@@ -802,6 +818,23 @@ class MainActivity : ComponentActivity() {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 EntryCard(s(TvKey.ADMIN_RESTORE), compact) { confirmRestoreNames = true }
                 EntryCard(s(TvKey.ADMIN_BACK), compact) { screen = adminReturnTo }
+            }
+            // --- diagnostics (v1.0.35): the small-print line that
+            // sat above the stage's control bar until v1.0.34 lives
+            // here now, just above the version footer — same
+            // assembly (diagnosticsText), kept live by this page's
+            // own ticker. Reading diagTick subscribes this section
+            // to the ticker, so the line refreshes even while the
+            // position stands still (paused / ended). ---
+            Spacer(Modifier.height(if (compact) 10.dp else 18.dp))
+            AdminSectionTitle(s(TvKey.ADMIN_DIAG_TITLE), compact)
+            Spacer(Modifier.height(if (compact) 4.dp else 6.dp))
+            if (diagTick >= 0L) {
+                Text(
+                    diagnosticsText(state.nowPlaying),
+                    color = soft.copy(alpha = 0.8f),
+                    fontSize = (if (compact) 11 else 12).sp,
+                )
             }
             // Version footer (v1.0.26): the host kept forgetting
             // which build was installed, so the admin page states
@@ -1534,17 +1567,15 @@ class MainActivity : ComponentActivity() {
                       }
                     }
                 }
-                // --- diagnostics: always visible. A real failure's
-                // error banner stays up; a self-healed one clears
-                // once the plain retry is confirmed playing (v1.0.15,
-                // see ErrorDisplayPolicy). ---
+                // --- error banner: a real failure's banner stays
+                // up; a self-healed one clears once the plain retry
+                // is confirmed playing (v1.0.15, see
+                // ErrorDisplayPolicy). This is a fault signal, not
+                // the diagnostics line — v1.0.35 moved the small
+                // print to the admin page, the banner stays here. ---
                 errorBanner?.let { err ->
                     Text(s(TvKey.PLAY_ERROR, err), color = Color(0xFFFF7043), fontSize = (if (compact) 11 else 12).sp)
                 }
-                Text(
-                    diagnosticsText(entry),
-                    color = soft.copy(alpha = 0.8f), fontSize = (if (compact) 10 else 11).sp,
-                )
                 // --- control bar: permanently visible, never auto-hides ---
                 Row(
                     modifier = Modifier.fillMaxWidth()
@@ -1602,7 +1633,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Small print under the lyrics: player state for screenshot debugging. */
+    /**
+     * Player state small print for debugging. It sat under the
+     * lyrics on the stage until v1.0.34; since v1.0.35 it lives in
+     * the admin page's diagnostics section (the user: the stage is
+     * for singing, the small print goes backstage). The assembly
+     * itself is unchanged — same fields, same order.
+     */
     private fun diagnosticsText(entry: QueueEntry?): String {
         val p = controller.player
         val stateName = when (p.playbackState) {

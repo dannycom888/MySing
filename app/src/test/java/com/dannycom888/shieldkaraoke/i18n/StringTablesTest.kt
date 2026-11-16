@@ -130,6 +130,15 @@ class StringTablesTest {
     }
 
     @Test
+    fun v1035DiagSectionTitle() {
+        // v1.0.35: the diagnostics line moved off the stage into
+        // the admin page; its section title is tabled in both
+        // languages (the line itself stays untabled small print).
+        assertEquals("诊断", TvStrings.get(UiLang.ZH, TvKey.ADMIN_DIAG_TITLE))
+        assertEquals("Diagnostics", TvStrings.get(UiLang.EN, TvKey.ADMIN_DIAG_TITLE))
+    }
+
+    @Test
     fun v1031Wording() {
         // The brand title on the player banner: a Chinese name
         // for the Chinese UI, the app's name for English.

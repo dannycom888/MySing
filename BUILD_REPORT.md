@@ -1443,3 +1443,31 @@ APK：`MySing-1.0.37.apk`，28,940,709 字节，SHA-256 `5464ca4d9597d37cdfe6876
 - `dancers/make_anim.py` 重采样：ancient/sumo/ancient_girl/baby/robot 五卡更新（采样位含被换帧），modern（Amy）未动不变。
 - 终普查：460 帧基线无异常（robot _22 529、_32 559 为上述已裁定项），无 >400 px 真远碎片残留。
 - 设备侧待用户验：五人新帧实机顺滑度（尤其哪吒 29 帧男孩版衔接、秀颖弧带四帧、瓦力 _32）。
+
+## v1.0.38 — 伴奏接通 + 扫光单 layout + 绿色加深 + sumo_32 残点（2026-11-16）
+
+APK：`MySing-1.0.38.apk`，29,008,000 字节，SHA-256 `0585fff85d8c100751769222125997eba0b85583155c5c300df140cb413fb1ba`，versionCode 39，共享 keystore 证书 SHA-256 `1336ee0a…`（apksigner 验过）。单元测试 **343 个，0 失败**（333 基线 +10：处理器格式/算法 7 + 双通道挂载结构钉点 2 + SweepLine 单 layout 结构钉点 1；SweepColorTest 色值断言按新绿更新）。GitHub Release v1.0.38 已发布并 API 回读校验。
+
+### 一、伴奏接通（用户 2026-11-16 00:23「原唱和伴奏没什么区别」）
+
+主线已实测算法本身够强（对歌库原文件跑 (L−R)/2，残余能量仅 18–37%），病在处理器没接通，本版查实是**三层**：
+
+1. **格式门**：`VocalCancelAudioProcessor.onConfigure` 只认 PCM_16BIT + 恰双声道，其余一律 NOT_SET 被 sink 旁路。改：接受 PCM_16BIT 与 PCM_FLOAT、声道 ≥2（前两声道消音、其余声道原样直通），内部按格式分发 16 位/浮点两条消音路径，输出格式与输入一致；单声道与非 PCM 编码仍 NOT_SET。原 try/catch 全直通保命逻辑保留，(L−R)/2 算法本体不动。
+2. **备用通道没挂**：plain-retry 播放器用裸 `ExoPlayer.Builder(context)` 构建，根本没有处理器，走备用的歌切伴奏等于没切。改：全工程只剩一个构建点，首发与重试都经 `KaraokeRenderersFactory` 挂**同一个** vocalProcessor 实例（结构钉点测试守：Builder 调用点恰 1 处、无裸构建）。`FallbackStateMachine` 的路径自此只表示第几次尝试，不再是两条不同的音频链，类注释已对齐。
+3. **空包缺陷（本版新查实）**：旧消音路径用绝对寻址 putShort 写出缓冲，从不推进 position，`flip()` 后发布的是**空缓冲**——自定义通道上开伴奏等于没声音数据（新测试先以此形态失败、修复后转绿，为证）。改：写完显式 `output.position(size)` 再 flip。
+
+**降级口径改实**：`accompanimentUnavailable` 不再是按路径写的存储字段，改为实时计算 `wantAccompaniment && vocalProcessor.configured && !vocalProcessor.isActive()`——只有处理器被 sink 配置过、且确实拒绝了本歌格式（单声道/非 PCM）才算降级；未配置（未知）不报、路径不再背锅。诊断行文案同步改实：「伴奏不可用（已降级普通播放）」→「伴奏不可用（此歌格式不支持消音）」。`setAccompaniment` 不再按路径分叉，两条路径都直接置 `vocalProcessor.enabled`。
+
+### 二、扫光双层错位（用户 2026-11-16 00:29 截图：长英文行金/青横向错位约半字）
+
+`SweepLine` 由「两个独立 Text 叠画」改为**单 Text 单 layout**：底层 Text 的 `onTextLayout` 捕获其自身 `TextLayoutResult`，扫光层在同一 draw 作用域内 `drawContent()` 画完青底后，save + clipRect 到原有 boundary（SweepProgress charWindows + getHorizontalPosition 口径不变），再以 `result.multiParagraph.paint(canvas, color = sweepColor)` 用**同一份 layout** 重绘——两层字形坐标由构造保证逐像素一致。注：本工程 Compose 1.10 的工件里没有 `DrawScope.drawText` 扩展（编译实证），故用 MultiParagraph.paint 的颜色覆盖重载，等价且同源。普通 LRC（无逐字标签）路径未动。结构钉点测试守：SweepLine 内恰一个 Text、含 onTextLayout 与 multiParagraph.paint 与 clipRect。
+
+### 三、扫光绿色加深（用户 2026-11-16 00:33 看色卡亲选）
+
+`SweepColor.LIGHT_GREEN`：#A9E5A1 → **#34C759**。金 #FFD54F、浅粉 #FFB7C5 不动；只改 MySing，MyLRC 未动。枚举名与后台 chip 文案（浅绿/Light green）沿用旧称，未在本版任务范围内。
+
+### 四、姿三四郎 _32 左缘残点
+
+主线复核 v1.0.37 成品时发现 `dancer_sumo_32.webp` 左缘中部残点：连通域普查共 3 个组件，本体之外为 67 px 碎片（x84–101/y308–316，原 _32 多余手五轮盒切后的边角）+ 3 px 微点（x124–125/y266–267）。仅对这两处独立组件清零 alpha（共 70 px），lossless + exact 保存——与原图逐像素比对：改动恰 70 px、人物本体 0 像素变化、画布 468×600 与基线不动；APK 内抽出该资源复验与源文件逐像素一致。
+
+- 设备侧待用户验：随便点一首走过的歌切原唱/伴奏应立竿见影（消音后残余约两三成）；长英文行扫光不再双行；绿色深度是否合眼（后台扫光颜色选绿）。

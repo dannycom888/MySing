@@ -7,12 +7,15 @@ package com.dannycom888.shieldkaraoke.state
  * over the line's unchanged cyan glow base — only the fill colour
  * changes, never the glow.
  *
- * The three hues are the ones MyLRC Auto settled on in its
- * v1.0.36: gold (the colour the sweep has had since the gradient
- * landed in v1.0.2, and the default), a light green and a light
- * pink. The orange and red MyLRC tried in between were rejected
- * by the user as harsh （太刺眼） and are deliberately NOT offered
- * here.
+ * The three hues started as the ones MyLRC Auto settled on in
+ * its v1.0.36: gold (the colour the sweep has had since the
+ * gradient landed in v1.0.2, and the default), a green and a
+ * light pink. The orange and red MyLRC tried in between were
+ * rejected by the user as harsh （太刺眼） and are deliberately
+ * NOT offered here. The green diverged from MyLRC in v1.0.38:
+ * the user found the pale #A9E5A1 too light on the TV and picked
+ * the deeper #34C759 off a swatch card — MySing only; MyLRC
+ * keeps its own palette.
  *
  * This enum only names the choice and carries the exact ARGB
  * value; the Compose rendering converts [argb] to a Color where
@@ -21,7 +24,7 @@ package com.dannycom888.shieldkaraoke.state
  */
 enum class SweepColor(val argb: Long) {
     GOLD(0xFFFFD54FL),
-    LIGHT_GREEN(0xFFA9E5A1L),
+    LIGHT_GREEN(0xFF34C759L),
     LIGHT_PINK(0xFFFFB7C5L),
     ;
 

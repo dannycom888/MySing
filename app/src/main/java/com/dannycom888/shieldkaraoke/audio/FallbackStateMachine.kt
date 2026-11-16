@@ -2,10 +2,13 @@ package com.dannycom888.shieldkaraoke.audio
 
 /**
  * Playback-error self-healing policy, kept pure so it can be unit
- * tested: a song starts on the custom audio sink (vocal-cancel DSP
- * chain). The first playback error rebuilds the player ONCE with the
- * plain default renderer (no custom sink) and retries; a second
+ * tested: a song starts on the primary player build. The first
+ * playback error rebuilds the player ONCE and retries; a second
  * error gives up and stays visible in the diagnostics line.
+ * (Pre-v1.0.38 the retry was a processor-less plain build; since
+ * v1.0.38 both builds carry the same vocal-cancel processor, so
+ * the paths here name the ATTEMPT — first vs. retry — not two
+ * different audio chains.)
  */
 class FallbackStateMachine {
 

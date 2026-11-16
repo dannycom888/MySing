@@ -23,8 +23,12 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
  *
  * v1.0.3 self-healing: if playback errors out (the custom AudioSink /
  * vocal-processor chain is the prime suspect), the player is rebuilt
- * ONCE with the plain default renderer and the song retried — see
- * [FallbackStateMachine]. The active sink path stays visible in
+ * ONCE and the song retried — see [FallbackStateMachine]. Since
+ * v1.0.38 the retry build carries the SAME vocal processor as the
+ * first build (the old plain build had none, so accompaniment
+ * silently died on every retried song); what the retry buys now
+ * is a brand-new player and renderer set, not a different chain.
+ * The active sink path stays visible in
  * the diagnostics line (on the admin page since v1.0.35); the
  * error banner shows
  * while the fault is live and clears once a plain-retry recovery
@@ -37,7 +41,11 @@ class PlayerController(private val context: Context) {
     val vocalProcessor = VocalCancelAudioProcessor()
 
     /** Media3 1.8 has no Builder.setAudioSink; a custom sink is
-     *  injected by subclassing DefaultRenderersFactory. */
+     *  injected by subclassing DefaultRenderersFactory. EVERY
+     *  player build goes through this factory (v1.0.38) — the
+     *  first attempt and the plain retry alike — so the vocal
+     *  processor rides on both paths and 原唱/伴奏 works on
+     *  retried songs too. */
     private class KaraokeRenderersFactory(
         context: Context,
         private val processor: VocalCancelAudioProcessor,
@@ -75,7 +83,7 @@ class PlayerController(private val context: Context) {
         }
     }
 
-    var player: ExoPlayer = buildPlayer(customSink = true)
+    var player: ExoPlayer = buildPlayer()
         private set
 
     private var loudnessEnhancer: LoudnessEnhancer? = null
@@ -114,11 +122,17 @@ class PlayerController(private val context: Context) {
     /** Which audio path is live: "custom" / "plain-retry" / "plain-failed". */
     val sinkLabel: String get() = fallback.sinkLabel
 
-    /** True when accompaniment was requested but the live sink is the
-     *  plain retry path, which has no vocal processor — the UI shows
-     *  a visible degradation note instead of failing silently. */
-    var accompanimentUnavailable: Boolean = false
-        private set
+    /** True when accompaniment was requested but the vocal
+     *  processor is genuinely not in effect for the current song.
+     *  Both player builds carry the processor (v1.0.38), so this
+     *  now turns true only when the sink configured the processor
+     *  and it rejected the song's format (mono, or an encoding
+     *  other than 16-bit/float PCM) — the UI shows a visible
+     *  degradation note instead of failing silently. Before the
+     *  sink has configured the processor for the song it reads
+     *  false: "not known yet" is not a degradation. */
+    val accompanimentUnavailable: Boolean
+        get() = wantAccompaniment && vocalProcessor.configured && !vocalProcessor.isActive()
 
     private var currentUri: Uri? = null
     private var currentGainDb: Double = 0.0
@@ -129,25 +143,23 @@ class PlayerController(private val context: Context) {
     private var focusRequest: AudioFocusRequest? = null
     private val focusListener = AudioManager.OnAudioFocusChangeListener { /* state only */ }
 
-    private fun buildPlayer(customSink: Boolean): ExoPlayer {
-        val built = if (customSink) {
-            ExoPlayer.Builder(context, KaraokeRenderersFactory(context, vocalProcessor)).build()
-        } else {
-            ExoPlayer.Builder(context).build()
-        }
+    private fun buildPlayer(): ExoPlayer {
+        // One build for both paths (v1.0.38): the factory always
+        // carries the vocal processor, first attempt and retry
+        // alike — there is no processor-less build any more.
+        val built = ExoPlayer.Builder(context, KaraokeRenderersFactory(context, vocalProcessor)).build()
         built.addListener(listener)
         return built
     }
 
     fun load(uri: Uri, gainDb: Double) {
-        // A fresh song gets a fresh chance on the custom sink.
+        // A fresh song gets a fresh chance on the primary path.
         if (fallback.path != FallbackStateMachine.Path.CUSTOM) {
-            rebuildPlayer(customSink = true)
+            rebuildPlayer()
         }
         fallback.onNewLoad()
         lastError = null
         errorDisplay.reset()
-        accompanimentUnavailable = false
         wantAccompaniment = false
         currentUri = uri
         currentGainDb = gainDb
@@ -161,7 +173,9 @@ class PlayerController(private val context: Context) {
         player.play()
     }
 
-    /** First error on the custom sink → rebuild plain, retry once. */
+    /** First error on the primary build → rebuild fresh, retry
+     *  once. (Pre-v1.0.38 the retry was a processor-less plain
+     *  build; now it carries the same chain — see class doc.) */
     private fun handleError(error: PlaybackException) {
         lastError = buildString {
             append(error.errorCodeName)
@@ -174,8 +188,7 @@ class PlayerController(private val context: Context) {
         if (!fallback.onError()) return // second error: stay put, error stays visible
         val uri = currentUri ?: return
         val resumeAt = try { player.currentPosition } catch (e: Exception) { 0L }
-        rebuildPlayer(customSink = false)
-        if (wantAccompaniment) accompanimentUnavailable = true
+        rebuildPlayer()
         player.setMediaItem(MediaItem.fromUri(uri))
         player.prepare()
         if (resumeAt > 0) player.seekTo(resumeAt)
@@ -184,14 +197,14 @@ class PlayerController(private val context: Context) {
         player.play()
     }
 
-    private fun rebuildPlayer(customSink: Boolean) {
+    private fun rebuildPlayer() {
         val old = player
         old.removeListener(listener)
         try { old.stop() } catch (_: Exception) {}
         old.release()
         loudnessEnhancer?.release()
         loudnessEnhancer = null
-        player = buildPlayer(customSink)
+        player = buildPlayer()
     }
 
     private fun requestAudioFocus() {
@@ -241,18 +254,19 @@ class PlayerController(private val context: Context) {
 
     fun setAccompaniment(on: Boolean) {
         wantAccompaniment = on
-        if (fallback.path == FallbackStateMachine.Path.CUSTOM) {
-            vocalProcessor.enabled = on
-            accompanimentUnavailable = false
-        } else {
-            // Plain retry sink has no vocal processor: degrade visibly.
-            vocalProcessor.enabled = false
-            accompanimentUnavailable = on
-        }
+        // v1.0.38: the processor rides on BOTH player builds, so
+        // the request always reaches the chain, whichever path is
+        // live. If this song's format is one the processor must
+        // bypass, [accompanimentUnavailable] says so truthfully
+        // instead of the toggle silently pretending.
+        vocalProcessor.enabled = on
     }
 
+    /** Accompaniment requested and the processor switched on.
+     *  Whether it is audibly in effect for this song's format is
+     *  [accompanimentUnavailable]'s story, not this flag's. */
     val isAccompaniment: Boolean
-        get() = fallback.path == FallbackStateMachine.Path.CUSTOM && vocalProcessor.enabled
+        get() = wantAccompaniment && vocalProcessor.enabled
 
     fun shiftPitch(deltaSemitones: Int) {
         semitones = (semitones + deltaSemitones).coerceIn(-12, 12)

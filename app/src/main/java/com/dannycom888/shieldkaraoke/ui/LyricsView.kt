@@ -1,6 +1,5 @@
 package com.dannycom888.shieldkaraoke.ui
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -237,49 +236,54 @@ private fun CurrentLine(
 
 /**
  * The current enhanced-LRC line: the whole line drawn once in the
- * cyan glow base, then the same text drawn again in gold with the
- * draw clipped at the sweep boundary — the x of the character
- * currently being sung, advanced by that character's own fill
- * progress, so the gold edge travels continuously through each
- * character instead of jumping character by character.
+ * cyan glow base, then the same text drawn again in the sweep
+ * colour with the draw clipped at the sweep boundary — the x of
+ * the character currently being sung, advanced by that
+ * character's own fill progress, so the gold edge travels
+ * continuously through each character instead of jumping
+ * character by character.
+ *
+ * v1.0.38 single-layout structure (the user, 2026-11-16: on a
+ * long English line the gold sat ~half a character off the cyan,
+ * "变成双行"): until now the two layers were two separate Text
+ * composables stacked in a Box, each laying the string out on
+ * its own — after the v1.0.28 fit-scaling shrank a long line,
+ * the two independent layouts could land a few pixels apart and
+ * the layers visibly doubled. Now there is exactly ONE Text:
+ * its own [TextLayoutResult] is captured via onTextLayout, and
+ * the sweep pass re-paints THAT SAME layout's multiParagraph
+ * in the sweep colour inside the SAME draw scope (drawContent
+ * for the cyan base, then save + clip to the boundary + paint),
+ * so the two layers share glyph coordinates by construction
+ * and cannot drift.
  */
 @Composable
 private fun SweepLine(line: LyricLine, positionMs: Long, fontSize: Int, glow: Shadow, sweepColor: Color) {
     val windows = remember(line.words) { SweepProgress.charWindows(line.words) }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Text(
-            text = line.text,
-            color = GLOW_COLOR,
-            fontSize = fontSize.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            style = TextStyle(shadow = glow),
-            maxLines = 1,
-            onTextLayout = { layout = it },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        val result = layout
-        if (result != null) {
-            val boundary = sweepBoundaryX(result, windows, positionMs)
-            if (boundary > 0f) {
-                Text(
-                    text = line.text,
-                    color = sweepColor,
-                    fontSize = fontSize.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth().drawWithContent {
-                        drawContext.canvas.save()
-                        drawContext.canvas.clipRect(0f, 0f, boundary, size.height)
-                        drawContent()
-                        drawContext.canvas.restore()
-                    },
-                )
+    Text(
+        text = line.text,
+        color = GLOW_COLOR,
+        fontSize = fontSize.sp,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center,
+        style = TextStyle(shadow = glow),
+        maxLines = 1,
+        onTextLayout = { layout = it },
+        modifier = Modifier.fillMaxWidth().drawWithContent {
+            drawContent()
+            val result = layout
+            if (result != null) {
+                val boundary = sweepBoundaryX(result, windows, positionMs)
+                if (boundary > 0f) {
+                    drawContext.canvas.save()
+                    drawContext.canvas.clipRect(0f, 0f, boundary, size.height)
+                    result.multiParagraph.paint(drawContext.canvas, color = sweepColor)
+                    drawContext.canvas.restore()
+                }
             }
-        }
-    }
+        },
+    )
 }
 
 /**

@@ -1686,7 +1686,7 @@ class MainActivity : ComponentActivity() {
                     DancerActivity.Phase.DANCING -> {}
                 }
             }
-            if (controller.accompanimentUnavailable) append(" · 伴奏不可用（已降级普通播放）")
+            if (controller.accompanimentUnavailable) append(" · 伴奏不可用（此歌格式不支持消音）")
         }
     }
 

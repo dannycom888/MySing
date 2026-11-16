@@ -27,9 +27,11 @@ class SweepColorTest {
     @Test
     fun argbValuesAreTheSettledHues() {
         // Gold is the sweep's colour since the v1.0.2 gradient;
-        // green/pink are MyLRC v1.0.36's exact values.
+        // pink is MyLRC v1.0.36's exact value. The green started
+        // as MyLRC's pale #A9E5A1 but the user deepened it in
+        // v1.0.38, picking #34C759 off a swatch card (MySing only).
         assertEquals(0xFFFFD54FL, SweepColor.GOLD.argb)
-        assertEquals(0xFFA9E5A1L, SweepColor.LIGHT_GREEN.argb)
+        assertEquals(0xFF34C759L, SweepColor.LIGHT_GREEN.argb)
         assertEquals(0xFFFFB7C5L, SweepColor.LIGHT_PINK.argb)
     }
 

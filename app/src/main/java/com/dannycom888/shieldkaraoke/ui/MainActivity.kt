@@ -143,6 +143,12 @@ class MainActivity : ComponentActivity() {
     private var applausePlayer: MediaPlayer? = null
 
     private var screen by mutableStateOf(Screen.HOME)
+    /** Where Back from the admin page returns to. The admin page
+     *  has two gear doors — home's (v1.0.26) and the player's
+     *  (v1.0.29) — and each door leads back where it came from,
+     *  so checking a setting mid-song lands you back on the
+     *  stage, not on the home screen. */
+    private var adminReturnTo by mutableStateOf(Screen.HOME)
     private var lyrics by mutableStateOf<List<LyricLine>>(emptyList())
     private var positionMs by mutableStateOf(0L)
     private var durationMs by mutableStateOf(-1L)
@@ -738,7 +744,7 @@ class MainActivity : ComponentActivity() {
                     // sat here; the user asked for just a gear in
                     // the front, with the settings themselves
                     // behind it). The freed space stays empty.
-                    GearButton(compact) { screen = Screen.ADMIN }
+                    GearButton(compact) { adminReturnTo = Screen.HOME; screen = Screen.ADMIN }
                 }
                 if (ip != null) {
                     // v1.0.19: the home header's big QR is gone — the
@@ -772,7 +778,7 @@ class MainActivity : ComponentActivity() {
                 // — it only points at the admin page, the picker
                 // itself is not back on the front.
                 if (app.prefs.libraryTreeUri == null) {
-                    EntryCard(s(TvKey.PICK_FOLDER_GUIDE), compact) { screen = Screen.ADMIN }
+                    EntryCard(s(TvKey.PICK_FOLDER_GUIDE), compact) { adminReturnTo = Screen.HOME; screen = Screen.ADMIN }
                 }
                 if (state.nowPlaying != null) {
                     EntryCard(s(TvKey.NOW_SINGING_CARD, state.nowPlaying!!.song.displayName), compact) { screen = Screen.PLAYER }
@@ -796,10 +802,16 @@ class MainActivity : ComponentActivity() {
      * standing frame so the host recognises who is who even after
      * a rename; a renamed row also shows the default it would
      * fall back to.
+     *
+     * Two doors lead here (home's gear, and the player screen's
+     * gear since v1.0.29); Back returns through whichever door
+     * was used ([adminReturnTo]). Coming here never touches
+     * playback — the song on stage keeps singing behind the
+     * settings, exactly as it always did from the home door.
      */
     @Composable
     private fun AdminScreen(compact: Boolean) {
-        BackHandler { screen = Screen.HOME }
+        BackHandler { screen = adminReturnTo }
         val state = app.state
         // The corner QR overlay is pinned top-right here too;
         // reserve its width so no row slides under it (same
@@ -890,7 +902,7 @@ class MainActivity : ComponentActivity() {
             Spacer(Modifier.height(if (compact) 10.dp else 18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 EntryCard(s(TvKey.ADMIN_RESTORE), compact) { confirmRestoreNames = true }
-                EntryCard(s(TvKey.ADMIN_BACK), compact) { screen = Screen.HOME }
+                EntryCard(s(TvKey.ADMIN_BACK), compact) { screen = adminReturnTo }
             }
             // Version footer (v1.0.26): the host kept forgetting
             // which build was installed, so the admin page states
@@ -1160,17 +1172,38 @@ class MainActivity : ComponentActivity() {
             val screenW = maxWidth
             Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
                 val nextUp = state.queue.nextUpText(uiLang)
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(if (compact) 26.dp else 36.dp)
-                        // The banner runs along the top: keep its
-                        // right end clear of the top-right QR card.
-                        .padding(end = if (qrPresent) (if (compact) 90.dp else 114.dp) else 0.dp),
+                // Banner row (v1.0.29): the settings gear sits at
+                // its far left — the same gear as home's. The host
+                // lives on this screen (the filler keeps the stage
+                // up for hours and he rarely goes home), so the
+                // door to the settings belongs here too; the
+                // v1.0.26 home-only gear was effectively invisible
+                // to him. The row is exactly gear-tall (36/46dp —
+                // 10dp more than the old text-only row) so the
+                // gear never overlaps the stage below; the next-up
+                // text starts after it, vertically centred, with
+                // its right end still clear of the QR card, and
+                // the lyrics band below is untouched. Entering the
+                // admin page from here never stops the song, and
+                // Back returns to this screen (adminReturnTo).
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(if (compact) 36.dp else 46.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // During the v1.0.23 ceremony the banner yields
-                    // to the big centred next-song card on the stage
-                    // (never the same line in two places at once).
-                    if (nextUp != null && ceremonyNext == null) {
-                        Text(nextUp, color = gold, fontSize = (if (compact) 14 else 19).sp, fontWeight = FontWeight.Bold)
+                    GearButton(compact) { adminReturnTo = Screen.PLAYER; screen = Screen.ADMIN }
+                    Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
+                    Box(
+                        modifier = Modifier.weight(1f)
+                            // The banner runs along the top: keep its
+                            // right end clear of the top-right QR card.
+                            .padding(end = if (qrPresent) (if (compact) 90.dp else 114.dp) else 0.dp),
+                    ) {
+                        // During the v1.0.23 ceremony the banner yields
+                        // to the big centred next-song card on the stage
+                        // (never the same line in two places at once).
+                        if (nextUp != null && ceremonyNext == null) {
+                            Text(nextUp, color = gold, fontSize = (if (compact) 14 else 19).sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -2015,13 +2048,14 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * The home screen's admin entry (v1.0.26): just a small gear
-     * in a circle next to the language chips — the user's ruling
-     * was "a little gear in the front, the settings behind it".
-     * Same focus language as every other control (a ring when
-     * focused, tap/OK to open); its content description names it
-     * ("Settings") in both UI languages, since the glyph itself
-     * carries no text.
+     * The admin entry (v1.0.26 on home, v1.0.29 also on the
+     * player screen): just a small gear in a circle — the user's
+     * ruling was "a little gear in the front, the settings
+     * behind it". Same component in both places, so the two
+     * doors can never drift apart. Same focus language as every
+     * other control (a ring when focused, tap/OK to open); its
+     * content description names it ("Settings") in both UI
+     * languages, since the glyph itself carries no text.
      */
     @Composable
     private fun GearButton(compact: Boolean, onClick: () -> Unit) {

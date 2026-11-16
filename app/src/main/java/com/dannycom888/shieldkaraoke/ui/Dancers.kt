@@ -84,7 +84,7 @@ object Dancers {
             DanceMotion.Profile.MODERN,
         ),
         Dancer(
-            DancerKeys.ANCIENT, "林语嫣", R.drawable.dancer_ancient_woman, R.drawable.dancer_ancient_woman_invite,
+            DancerKeys.ANCIENT, "陈秀颖", R.drawable.dancer_ancient_woman, R.drawable.dancer_ancient_woman_invite,
             listOf(
                 R.drawable.dancer_ancient_woman_01, R.drawable.dancer_ancient_woman_02,
                 R.drawable.dancer_ancient_woman_03, R.drawable.dancer_ancient_woman_04,
@@ -196,7 +196,7 @@ object Dancers {
             DanceMotion.Profile.SUMO,
         ),
         Dancer(
-            DancerKeys.ANCIENT_GIRL, "小蛮", R.drawable.dancer_ancient_girl, R.drawable.dancer_ancient_girl_invite,
+            DancerKeys.ANCIENT_GIRL, "汉娜", R.drawable.dancer_ancient_girl, R.drawable.dancer_ancient_girl_invite,
             listOf(
                 R.drawable.dancer_ancient_girl_01, R.drawable.dancer_ancient_girl_02,
                 R.drawable.dancer_ancient_girl_03, R.drawable.dancer_ancient_girl_04,

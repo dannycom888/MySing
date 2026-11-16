@@ -99,8 +99,8 @@ class PhonePageTest {
         // v1.0.13 the name span is language-switched (data-dancer),
         // initially rendered in Chinese like the rest of the page.
         for ((key, name) in listOf(
-            "modern" to "春丽", "ancient" to "林语嫣", "sumo" to "姿三四郎",
-            "ancient_girl" to "小蛮", "baby" to "哪吒", "robot" to "瓦力",
+            "modern" to "春丽", "ancient" to "陈秀颖", "sumo" to "姿三四郎",
+            "ancient_girl" to "汉娜", "baby" to "哪吒", "robot" to "瓦力",
         )) {
             assertTrue(html.contains("<span data-dancer=\"$key\">$name</span>"))
         }
@@ -141,7 +141,7 @@ class PhonePageTest {
         }
         // Dancer cards in English use the shared stage-name mapping
         // (DancerKeys.LABELS_EN is the authority; pinned here).
-        for (name in listOf("Chun-Li", "Lin Yuyan", "Sanshiro", "Xiaoman", "Nezha", "WALL-E")) {
+        for (name in listOf("Chun-Li", "Chen Xiuying", "Sanshiro", "Hannah", "Nezha", "WALL-E")) {
             assertTrue("missing English dancer name: $name", html.contains(name))
         }
     }

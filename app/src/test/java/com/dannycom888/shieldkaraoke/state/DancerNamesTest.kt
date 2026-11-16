@@ -31,6 +31,23 @@ class DancerNamesTest {
     }
 
     @Test
+    fun v1034RenamedDefaultsAndCustomStillWins() {
+        // v1.0.34 factory-default renames: ancient 林语嫣 → 陈秀颖,
+        // ancient_girl 小蛮 → 汉娜. Only the defaults moved — a name
+        // the host already set in the admin page still wins over the
+        // new factory default, in both languages.
+        assertEquals("陈秀颖", DancerNames.display(DancerKeys.ANCIENT, UiLang.ZH, emptyMap()))
+        assertEquals("Chen Xiuying", DancerNames.display(DancerKeys.ANCIENT, UiLang.EN, emptyMap()))
+        assertEquals("汉娜", DancerNames.display(DancerKeys.ANCIENT_GIRL, UiLang.ZH, emptyMap()))
+        assertEquals("Hannah", DancerNames.display(DancerKeys.ANCIENT_GIRL, UiLang.EN, emptyMap()))
+        val custom = mapOf(DancerKeys.ANCIENT to "阿姐", DancerKeys.ANCIENT_GIRL to "小妹")
+        assertEquals("阿姐", DancerNames.display(DancerKeys.ANCIENT, UiLang.ZH, custom))
+        assertEquals("阿姐", DancerNames.display(DancerKeys.ANCIENT, UiLang.EN, custom))
+        assertEquals("小妹", DancerNames.display(DancerKeys.ANCIENT_GIRL, UiLang.ZH, custom))
+        assertEquals("小妹", DancerNames.display(DancerKeys.ANCIENT_GIRL, UiLang.EN, custom))
+    }
+
+    @Test
     fun blankCustomFallsBackToDefault() {
         val custom = mapOf(DancerKeys.BABY to "   ")
         assertEquals("哪吒", DancerNames.display(DancerKeys.BABY, UiLang.ZH, custom))

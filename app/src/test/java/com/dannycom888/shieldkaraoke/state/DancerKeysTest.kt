@@ -30,9 +30,9 @@ class DancerKeysTest {
     @Test
     fun stageNames() {
         assertEquals("春丽", DancerKeys.label("modern"))
-        assertEquals("林语嫣", DancerKeys.label("ancient"))
+        assertEquals("陈秀颖", DancerKeys.label("ancient"))
         assertEquals("姿三四郎", DancerKeys.label("sumo"))
-        assertEquals("小蛮", DancerKeys.label("ancient_girl"))
+        assertEquals("汉娜", DancerKeys.label("ancient_girl"))
         assertEquals("哪吒", DancerKeys.label("baby"))
         assertEquals("瓦力", DancerKeys.label("robot"))
     }
@@ -43,9 +43,9 @@ class DancerKeysTest {
         // the page carries the same mapping inline and PhonePageTest
         // pins the two sides together.
         assertEquals("Chun-Li", DancerKeys.labelEn("modern"))
-        assertEquals("Lin Yuyan", DancerKeys.labelEn("ancient"))
+        assertEquals("Chen Xiuying", DancerKeys.labelEn("ancient"))
         assertEquals("Sanshiro", DancerKeys.labelEn("sumo"))
-        assertEquals("Xiaoman", DancerKeys.labelEn("ancient_girl"))
+        assertEquals("Hannah", DancerKeys.labelEn("ancient_girl"))
         assertEquals("Nezha", DancerKeys.labelEn("baby"))
         assertEquals("WALL-E", DancerKeys.labelEn("robot"))
         assertEquals(DancerKeys.ALL.toSet(), DancerKeys.LABELS_EN.keys)

@@ -1275,3 +1275,25 @@ v1.0.26 把进后台的小齿轮只放在首页。用户真机反馈（19:06「�
 
 - MySing-1.0.33.apk：28,721,104 字节（较 v1.0.32 +6,311,348，约 +6.0 MB，即 200 张补帧与重采样动画卡），SHA-256 5e6ddd5c9284087474c1415272b7650c958099d5e58b047bfeed01c1ab3a5d8f，versionName 1.0.33 / versionCode 34，共享 keystore 签名（1336ee0a…befcc）。GitHub Release v1.0.33 已发布，API 回读附件 size/digest 与本地逐字一致。
 - 待用户真机验：五位真人伴舞跳起来应明显连贯（尤其原来跨度最大的动作衔接）；瓦力照旧一格一格；鼓掌排、邀请、尾奏站立与 v1.0.32 一致无变化。
+
+## v1.0.34 — 默认名更换：林语嫣 → 陈秀颖、小蛮 → 汉娜（2026-11-15）
+
+用户令：「将林语嫣名换成陈秀颖，小蛮换成汉娜」。改的是**出厂默认名**，不是改名功能本身。
+
+### 改动
+
+- 默认名全量替换（app/src 内旧名残留为 0）：`state/DancerKeys.kt` 的 LABELS（ancient 陈秀颖、ancient_girl 汉娜）与 LABELS_EN（Chen Xiuying / Hannah）、`ui/Dancers.kt` 两处标签、`server/PhonePage.kt` 写死的卡片 alt/span 与中英两份 JS dancers 字典。
+- 英文名：陈秀颖 → **Chen Xiuying**；汉娜 → **Hannah**（通行译名）。
+- **自定义名口径不动**：后台改过名的舞者，Prefs 自定义名仍优先于新默认名（恢复默认/未改过才显新名）——`DancerNamesTest` 新增一条把这条口径连同新默认名一起钉死。
+- 历史不改：BUILD_REPORT 旧章节与 `dancers/inbetween/` 的 v1.0.33 素材生产记录（MANIFEST、集成脚本）里出现的旧名是当时史实，原样保留。
+
+### 测试
+
+- 定值/对等测试按新名更新：`DancerKeysTest`、`PhonePageTest`（中英两份字典与卡片）。
+- 新增 `DancerNamesTest.v1034RenamedDefaultsAndCustomStillWins`：新默认名双语定值 + 这两位舞者的自定义名仍压过新默认名。
+- 总数 **322 → 323，全过、0 失败**。
+
+### 产物与发布
+
+- MySing-1.0.34.apk：28,721,108 字节，SHA-256 2143a382980962e3760e2798b76e4643d5d369ae0440d83360889e86f39d5b43，versionName 1.0.34 / versionCode 35，共享 keystore 签名（1336ee0a…befcc）。GitHub Release v1.0.34 已发布，API 回读附件 size/digest 与本地逐字一致。
+- 待用户真机验：电视端与手机点歌页上，古代女显示「陈秀颖」、古代女童显示「汉娜」（若此前在后台给这两位改过名，仍显示改过的名字，属预期）。

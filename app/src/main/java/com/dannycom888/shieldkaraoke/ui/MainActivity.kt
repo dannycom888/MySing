@@ -1569,20 +1569,23 @@ class MainActivity : ComponentActivity() {
                     }
                     if (showCelebration) {
                         // Song finished: all six come out and clap together.
-                        Row(
+                        // v1.0.45: same enlarged, tightened row as
+                        // the ceremony — one "six come out" scene,
+                        // one size, one pitch.
+                        SixInRow(
+                            heightDp = SpotlightGeom.sixRowHeightDp(
+                                screenW.value, screenH.value,
+                            ).dp,
                             modifier = Modifier.align(Alignment.BottomCenter),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Dancers.ALL.forEach { dancer ->
-                                DancerImage(
-                                    dancer = dancer,
-                                    pose = DanceMotion.clapPose(dancer.profile, clapElapsed),
-                                    heightDp = screenH * if (compact) 0.36f else 0.32f,
-                                    // v1.0.25: each of the six stands
-                                    // in their own spotlight pool.
-                                    spotlight = true,
-                                )
-                            }
+                        ) { dancer, h ->
+                            DancerImage(
+                                dancer = dancer,
+                                pose = DanceMotion.clapPose(dancer.profile, clapElapsed),
+                                heightDp = h,
+                                // v1.0.25: each of the six stands
+                                // in their own spotlight pool.
+                                spotlight = true,
+                            )
                         }
                     }
                   }
@@ -2039,9 +2042,11 @@ class MainActivity : ComponentActivity() {
 
     /**
      * The v1.0.23 handover ceremony stage (see [Ceremony] for the
-     * timeline): a big centred card announcing the locked next
-     * song, the six dancers clapping / inviting in a row at the
-     * bottom, and — from the exit segment on — the keeper alone at
+     * timeline): a big card announcing the locked next song —
+     * raised to the upper stage in v1.0.45 so the enlarged row of
+     * six below never crowds it — the six dancers clapping /
+     * inviting in a row at the bottom, and — from the exit
+     * segment on — the keeper alone at
      * the regular dancer position, cross-fading in while the row
      * melts away, then inviting once more on its own. Purely a
      * function of the ceremony phase + elapsed time; the driver
@@ -2057,11 +2062,18 @@ class MainActivity : ComponentActivity() {
         screenW: Dp,
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // --- big next-song card, centred on the stage ---
+            // --- big next-song card, upper-centre on the stage
+            //     (v1.0.45 — the user: "将歌曲文件名提高"): it was
+            //     dead centre until the row of six grew; now its
+            //     top edge sits 12% of the screen height below the
+            //     stage top (the stage itself starts under the
+            //     banner row), clear of the banner above and the
+            //     enlarged dancers below, in every phase. ---
             val remainingSec =
                 ((Ceremony.TOTAL_MS - elapsedMs).coerceAtLeast(0L) + 999L) / 1000L
             Column(
-                modifier = Modifier.align(Alignment.Center)
+                modifier = Modifier.align(Alignment.TopCenter)
+                    .padding(top = screenH * 0.12f)
                     .background(cardBg, RoundedCornerShape(16.dp))
                     .padding(horizontal = 30.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -2086,50 +2098,51 @@ class MainActivity : ComponentActivity() {
             //     then melting away during the exit ---
             if (phase != Ceremony.Phase.SOLO_INVITE) {
                 val rowAlpha = 0.95f * Ceremony.leavingAlpha(elapsedMs)
-                val rowHeight = screenH * if (compact) 0.36f else 0.32f
-                Row(
+                // v1.0.45: as tall as fits — target 0.46 of the
+                // screen height, capped by the row's total width
+                // (see SpotlightGeom.sixRowHeightDp).
+                val rowHeight = SpotlightGeom.sixRowHeightDp(screenW.value, screenH.value).dp
+                SixInRow(
+                    heightDp = rowHeight,
                     modifier = Modifier.align(Alignment.BottomCenter),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Dancers.ALL.forEach { dancer ->
-                        when (phase) {
-                            Ceremony.Phase.CLAPPING -> DancerImage(
-                                dancer = dancer,
-                                pose = DanceMotion.clapPose(dancer.profile, elapsedMs),
-                                heightDp = rowHeight,
-                                alpha = rowAlpha,
-                                // v1.0.25: a spotlight pool each;
-                                // it melts with the row's alpha.
-                                spotlight = true,
-                            )
-                            Ceremony.Phase.GROUP_INVITE -> DancerImage(
-                                dancer = dancer,
-                                pose = Ceremony.invitePose(
-                                    dancer.profile,
-                                    elapsedMs - Ceremony.CLAP_MS,
-                                    Ceremony.GROUP_INVITE_MS,
-                                ),
-                                heightDp = rowHeight,
-                                invite = true,
-                                alpha = rowAlpha,
-                                spotlight = true,
-                            )
-                            else -> DancerImage(
-                                // EXITING: the invite gesture is
-                                // complete (lean back at neutral);
-                                // the row just melts away.
-                                dancer = dancer,
-                                pose = Ceremony.invitePose(
-                                    dancer.profile,
-                                    Ceremony.GROUP_INVITE_MS,
-                                    Ceremony.GROUP_INVITE_MS,
-                                ),
-                                heightDp = rowHeight,
-                                invite = true,
-                                alpha = rowAlpha,
-                                spotlight = true,
-                            )
-                        }
+                ) { dancer, h ->
+                    when (phase) {
+                        Ceremony.Phase.CLAPPING -> DancerImage(
+                            dancer = dancer,
+                            pose = DanceMotion.clapPose(dancer.profile, elapsedMs),
+                            heightDp = h,
+                            alpha = rowAlpha,
+                            // v1.0.25: a spotlight pool each;
+                            // it melts with the row's alpha.
+                            spotlight = true,
+                        )
+                        Ceremony.Phase.GROUP_INVITE -> DancerImage(
+                            dancer = dancer,
+                            pose = Ceremony.invitePose(
+                                dancer.profile,
+                                elapsedMs - Ceremony.CLAP_MS,
+                                Ceremony.GROUP_INVITE_MS,
+                            ),
+                            heightDp = h,
+                            invite = true,
+                            alpha = rowAlpha,
+                            spotlight = true,
+                        )
+                        else -> DancerImage(
+                            // EXITING: the invite gesture is
+                            // complete (lean back at neutral);
+                            // the row just melts away.
+                            dancer = dancer,
+                            pose = Ceremony.invitePose(
+                                dancer.profile,
+                                Ceremony.GROUP_INVITE_MS,
+                                Ceremony.GROUP_INVITE_MS,
+                            ),
+                            heightDp = h,
+                            invite = true,
+                            alpha = rowAlpha,
+                            spotlight = true,
+                        )
                     }
                 }
             }
@@ -2168,6 +2181,41 @@ class MainActivity : ComponentActivity() {
                         alpha = 0.95f * Ceremony.keeperSoloAlpha(elapsedMs),
                         spotlight = true,
                     )
+                }
+            }
+        }
+    }
+
+    /**
+     * The row of six (v1.0.45): all six dancers standing close,
+     * group-photo style. Each frame is [SpotlightGeom.FRAME_ASPECT]
+     * × height wide but the figure inside is centred with
+     * transparent margins on both sides, so an edge-to-edge Row
+     * read as people standing far apart (the user: "六人可以靠近
+     * 一些，现在分得太开"). Here every dancer stands at a centre
+     * pitch of [SpotlightGeom.SIX_ROW_PITCH_FRACTION] × height —
+     * the transparent margins overlap, wide-arm poses may touch
+     * slightly (intended), and the total span is exactly
+     * [SpotlightGeom.SIX_ROW_SPAN_PER_HEIGHT] × height, the span
+     * the height formula budgets for. Positions are explicit
+     * offsets inside a fixed-span box, so the pitch holds by
+     * construction, not by an arrangement's spacing arithmetic.
+     */
+    @Composable
+    private fun SixInRow(
+        heightDp: Dp,
+        modifier: Modifier = Modifier,
+        content: @Composable (dancer: Dancer, heightDp: Dp) -> Unit,
+    ) {
+        val pitch = heightDp * SpotlightGeom.SIX_ROW_PITCH_FRACTION
+        val span = heightDp * SpotlightGeom.SIX_ROW_SPAN_PER_HEIGHT
+        Box(modifier = modifier.width(span).height(heightDp)) {
+            Dancers.ALL.forEachIndexed { index, dancer ->
+                Box(
+                    modifier = Modifier.align(Alignment.BottomStart)
+                        .offset(x = pitch * index),
+                ) {
+                    content(dancer, heightDp)
                 }
             }
         }

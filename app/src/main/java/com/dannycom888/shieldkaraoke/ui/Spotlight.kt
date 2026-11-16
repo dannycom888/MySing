@@ -36,6 +36,54 @@ object SpotlightGeom {
     /** Alpha at the pool's centre (before the caller's own fade). */
     const val CENTRE_ALPHA = 0.50f
 
+    /** v1.0.45: the six-dancer row (ceremony + end-of-song
+     *  celebration) aims for this fraction of the screen height —
+     *  as tall as the width budget below allows. */
+    const val SIX_ROW_TARGET_FRACTION = 0.46f
+
+    /** v1.0.45: the row of six may span at most this fraction of
+     *  the screen width (frames + the gaps between them). */
+    const val SIX_ROW_MAX_WIDTH_FRACTION = 0.98f
+
+    /**
+     * Centre-to-centre distance of neighbouring dancers in the
+     * row of six, per unit of dancer height (v1.0.45, second
+     * note — the user: "六人可以靠近一些，现在分得太开"). Each
+     * frame is [FRAME_ASPECT] (0.78) wide but the figure inside
+     * is centred with transparent margin on both sides, so frames
+     * placed edge to edge read as people standing far apart. At a
+     * pitch of 0.60 the transparent margins overlap and the
+     * figures stand close, group-photo style; wide-arm poses may
+     * overlap slightly, which is intended.
+     */
+    const val SIX_ROW_PITCH_FRACTION = 0.60f
+
+    /** How many dancers stand in the row. */
+    const val SIX_ROW_COUNT = 6
+
+    /**
+     * Total span of the row of six per unit of dancer height: one
+     * full frame plus five pitches — 0.78 + 5 × 0.60 = 3.78.
+     */
+    const val SIX_ROW_SPAN_PER_HEIGHT =
+        FRAME_ASPECT + (SIX_ROW_COUNT - 1) * SIX_ROW_PITCH_FRACTION
+
+    /**
+     * Height of one dancer in the row of six (v1.0.45 — the user:
+     * "6人再放大"): the target fraction of the screen height,
+     * capped so the whole overlapped row (span 3.78 × height, see
+     * [SIX_ROW_SPAN_PER_HEIGHT]) fits in
+     * [SIX_ROW_MAX_WIDTH_FRACTION] of the screen width. With the
+     * tightened pitch the 0.46 target itself binds on both a 16:9
+     * TV (span ≈ 97.8% of the width there) and the user's wide
+     * phone; the width cap only binds on narrower screens.
+     */
+    fun sixRowHeightDp(screenWDp: Float, screenHDp: Float): Float {
+        val byHeight = screenHDp * SIX_ROW_TARGET_FRACTION
+        val byWidth = screenWDp * SIX_ROW_MAX_WIDTH_FRACTION / SIX_ROW_SPAN_PER_HEIGHT
+        return minOf(byHeight, byWidth).coerceAtLeast(0f)
+    }
+
     /** Rendered width of a dancer shown [dancerHeightDp] tall. */
     fun dancerWidthDp(dancerHeightDp: Float): Float = dancerHeightDp * FRAME_ASPECT
 

@@ -5,6 +5,8 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.PI
+import kotlin.math.exp
 import kotlin.math.roundToInt
 
 /**
@@ -40,9 +42,25 @@ import kotlin.math.roundToInt
  *    [configured] + [isActive] let the controller report that
  *    truthfully (see PlayerController.accompanimentUnavailable)
  *    instead of the toggle pretending.
- * The (L−R)/2 algorithm itself is unchanged — measured on the
- * user's own library files it leaves only 18–37% residual
- * energy; the bug was delivery, not strength.
+ *
+ * v1.0.44 crossover cancellation (the user: 先用 B 方案 — improve
+ * the realtime algorithm; pre-made AI accompaniments are plan A
+ * for later): until now the enabled path was a full-band
+ * (L−R)/2, which buries the CENTRED LOWS — bass, kick drum —
+ * together with the vocal, so the accompaniment came out thin
+ * and hollow and the switch felt weak. Now each of the first
+ * two channels is split by a one-pole lowpass at
+ * [CROSSOVER_HZ]: the output is the low band taken as the mono
+ * sum (LP(L)+LP(R))/2, sent identically to both channels (the
+ * lows survive whole), plus the high band cancelled exactly as
+ * before, (H(L)−H(R))/2 with H = x − LP(x). Because LP + H = x
+ * per channel, fully-panned content still comes out as the
+ * classic x/2, and the (L−R)/2 core is untouched in the band
+ * where the vocal lives. The lowpass state is per-channel,
+ * persists across buffers, and is cleared on configure /
+ * flush / reset. Processing stays in the 16-bit domain (float
+ * input is converted first, per the v1.0.40 rule); channels
+ * past the first two still pass through untouched.
  */
 class VocalCancelAudioProcessor : BaseAudioProcessor() {
 
@@ -66,6 +84,16 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
     private var inputEncoding: Int = C.ENCODING_PCM_16BIT
     private var channelCount: Int = 2
 
+    /** One-pole lowpass coefficient for [CROSSOVER_HZ] at the
+     *  configured sample rate (v1.0.44); recomputed on every
+     *  configure. The state itself is per-channel, survives
+     *  across buffers, and is cleared on configure/flush/reset
+     *  so a seek or a new stream never hears the previous
+     *  stream's bass tail. */
+    private var lpAlpha: Double = alphaFor(DEFAULT_SAMPLE_RATE)
+    private var lpStateL: Double = 0.0
+    private var lpStateR: Double = 0.0
+
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         configured = true
         val supported = (inputAudioFormat.encoding == C.ENCODING_PCM_16BIT ||
@@ -76,6 +104,8 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
         }
         inputEncoding = inputAudioFormat.encoding
         channelCount = inputAudioFormat.channelCount
+        lpAlpha = alphaFor(inputAudioFormat.sampleRate)
+        clearLowpass()
         // Output is ALWAYS 16-bit PCM (v1.0.40): float input is
         // converted inside queueInput, never passed downstream.
         return AudioProcessor.AudioFormat(
@@ -85,8 +115,18 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
         )
     }
 
+    override fun onFlush() {
+        clearLowpass()
+    }
+
     override fun onReset() {
         configured = false
+        clearLowpass()
+    }
+
+    private fun clearLowpass() {
+        lpStateL = 0.0
+        lpStateR = 0.0
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -125,8 +165,9 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
     /**
      * Float input (v1.0.40): every sample is converted to 16-bit
      * on the way in — verbatim when disabled, and through the
-     * same short-domain (L−R)/2 as native 16-bit input when
-     * enabled — so the emitted bytes always match the 16-bit
+     * same short-domain crossover cancellation (v1.0.44) as
+     * native 16-bit input when enabled — so the emitted bytes
+     * always match the 16-bit
      * output format declared in [onConfigure]. Only whole float
      * samples are converted; trailing partial-sample bytes
      * (decoders do not emit them in practice) are dropped.
@@ -146,9 +187,11 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
                 while (s + channelCount <= sampleCount) {
                     val left = floatToShort(inBuf.getFloat(s * 4)).toInt()
                     val right = floatToShort(inBuf.getFloat((s + 1) * 4)).toInt()
-                    val mid = ((left - right) / 2).coerceIn(-32768, 32767).toShort()
-                    outBuf.putShort(s * 2, mid)
-                    outBuf.putShort((s + 1) * 2, mid)
+                    // Converted first, then the very same 16-bit
+                    // crossover cancellation as native input.
+                    val out = cancelPair(left, right)
+                    outBuf.putShort(s * 2, out)
+                    outBuf.putShort((s + 1) * 2, out)
                     var c = 2
                     while (c < channelCount) {
                         outBuf.putShort((s + c) * 2, floatToShort(inBuf.getFloat((s + c) * 4)))
@@ -179,18 +222,19 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
     private fun floatToShort(f: Float): Short =
         (f * 32767f).roundToInt().coerceIn(-32768, 32767).toShort()
 
-    /** (L−R)/2 into channels 0/1 of every 16-bit frame; channels
-     *  2+ copied verbatim. Trailing partial-frame bytes (decoders
-     *  do not emit them in practice) are copied verbatim too. */
+    /** Crossover cancellation into channels 0/1 of every 16-bit
+     *  frame; channels 2+ copied verbatim. Trailing partial-frame
+     *  bytes (decoders do not emit them in practice) are copied
+     *  verbatim too. */
     private fun cancel16(input: ByteBuffer, output: ByteBuffer, size: Int) {
         val frameBytes = channelCount * 2
         var i = 0
         while (i + frameBytes <= size) {
             val left = input.getShort(i).toInt()
             val right = input.getShort(i + 2).toInt()
-            val mid = ((left - right) / 2).coerceIn(-32768, 32767).toShort()
-            output.putShort(i, mid)
-            output.putShort(i + 2, mid)
+            val out = cancelPair(left, right)
+            output.putShort(i, out)
+            output.putShort(i + 2, out)
             var c = 2
             while (c < channelCount) {
                 output.putShort(i + c * 2, input.getShort(i + c * 2))
@@ -202,6 +246,37 @@ class VocalCancelAudioProcessor : BaseAudioProcessor() {
             output.put(i, input.get(i))
             i++
         }
+    }
+
+    /**
+     * One frame of the v1.0.44 crossover cancellation. Each
+     * channel runs through the shared one-pole lowpass; the
+     * output (identical on both channels, like the classic
+     * algorithm's) is the low band preserved as the mono sum
+     * (LP(L)+LP(R))/2 plus the high band cancelled as
+     * (H(L)−H(R))/2 with H = x − LP(x). Only the first two
+     * channels ever reach this function.
+     */
+    private fun cancelPair(left: Int, right: Int): Short {
+        lpStateL += lpAlpha * (left - lpStateL)
+        lpStateR += lpAlpha * (right - lpStateR)
+        val low = (lpStateL + lpStateR) / 2.0
+        val high = ((left - lpStateL) - (right - lpStateR)) / 2.0
+        return (low + high).roundToInt().coerceIn(-32768, 32767).toShort()
+    }
+
+    companion object {
+        /** Crossover between the preserved low band and the
+         *  cancelled high band (v1.0.44). 180 Hz keeps bass and
+         *  kick whole while the vocal's fundamental and
+         *  harmonics sit in the cancelled band. */
+        const val CROSSOVER_HZ = 180.0
+
+        private const val DEFAULT_SAMPLE_RATE = 44100
+
+        /** One-pole RC lowpass coefficient for [CROSSOVER_HZ]. */
+        private fun alphaFor(sampleRate: Int): Double =
+            1.0 - exp(-2.0 * PI * CROSSOVER_HZ / sampleRate)
     }
 
 }

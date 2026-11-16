@@ -166,7 +166,7 @@ class PlayerController(private val context: Context) {
         return built
     }
 
-    fun load(uri: Uri, gainDb: Double) {
+    fun load(uri: Uri, gainDb: Double, accompanimentByDefault: Boolean) {
         // A fresh song gets a fresh chance on the custom sink.
         if (fallback.path != FallbackStateMachine.Path.CUSTOM) {
             rebuildPlayer(customSink = true)
@@ -174,12 +174,21 @@ class PlayerController(private val context: Context) {
         fallback.onNewLoad()
         lastError = null
         errorDisplay.reset()
-        wantAccompaniment = false
         currentUri = uri
         currentGainDb = gainDb
         semitones = 0
         player.playbackParameters = PlaybackParameters(1f, 1f)
-        vocalProcessor.enabled = false
+        // Per-song accompaniment default (v1.0.44): the caller
+        // derives it from the entry's source via
+        // AccompanimentPolicy — ordered songs start with
+        // accompaniment on, filler with the original vocal.
+        // Applied through setAccompaniment so the path rules
+        // stay in one place; load always lands on the custom
+        // build first, so the processor is switched to match,
+        // and if an error later drops this song to the bare
+        // retry the remembered request keeps
+        // accompanimentUnavailable truthful.
+        setAccompaniment(accompanimentByDefault)
         requestAudioFocus()
         player.setMediaItem(MediaItem.fromUri(uri))
         player.prepare()

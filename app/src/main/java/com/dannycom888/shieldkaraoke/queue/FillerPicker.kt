@@ -47,6 +47,25 @@ object FillerPolicy {
 }
 
 /**
+ * Default accompaniment at song start (v1.0.44, the user's
+ * ruling): a song somebody ordered — phone order, TV order,
+ * a remote "play now" jump, the ceremony's locked next song,
+ * all [EntrySource.ORDERED] — is there to be SUNG, so it starts
+ * with accompaniment (vocal cancellation) ON. A filler song is
+ * background listening nobody sings to, so it keeps the
+ * original vocal. Same per-song reset discipline as pitch:
+ * the default is applied fresh at every song start, and a
+ * manual toggle afterwards rules for that song only. On the
+ * bare plain-retry build the default is still recorded — the
+ * processor simply is not in that chain, and the degradation
+ * note reports it truthfully as before.
+ */
+object AccompanimentPolicy {
+    fun defaultOnStart(source: EntrySource?): Boolean =
+        source == EntrySource.ORDERED
+}
+
+/**
  * Filler *session* tracking (v1.0.24 — the fix for the user's
  * "随机唱没画面，没歌词": a filler song was singing while the TV
  * showed no player screen and no lyrics).

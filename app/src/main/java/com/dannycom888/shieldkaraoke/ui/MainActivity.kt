@@ -60,6 +60,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -98,6 +99,7 @@ import com.dannycom888.shieldkaraoke.library.SafLibrarySource
 import com.dannycom888.shieldkaraoke.library.Song
 import com.dannycom888.shieldkaraoke.lyrics.LrcParser
 import com.dannycom888.shieldkaraoke.lyrics.LyricLine
+import com.dannycom888.shieldkaraoke.queue.AccompanimentPolicy
 import com.dannycom888.shieldkaraoke.queue.EntrySource
 import com.dannycom888.shieldkaraoke.queue.FillerPicker
 import com.dannycom888.shieldkaraoke.queue.FillerPolicy
@@ -422,14 +424,18 @@ class MainActivity : ComponentActivity() {
         lyrics = emptyList()
         positionMs = 0
         errorBanner = null
-        accompaniment = false
+        // v1.0.44: the accompaniment chip starts from the
+        // per-song default — ordered songs on accompaniment,
+        // filler on the original vocal (AccompanimentPolicy);
+        // a manual toggle from here rules for this song only.
+        accompaniment = AccompanimentPolicy.defaultOnStart(entry.source)
         semitoneLabel = 0
         celebrating = false
         celebrationToken++
         clearCeremony()
         val uri = Uri.parse(entry.song.audioRef)
         val cachedGain = app.prefs.loudnessDb(entry.song.id)
-        controller.load(uri, AudioMath.normalizationGainDb(cachedGain))
+        controller.load(uri, AudioMath.normalizationGainDb(cachedGain), accompaniment)
         // Dance tempo: cached per song next to the loudness cache;
         // measured in the background when missing (default 96 BPM).
         val cachedBpm = app.prefs.bpm(entry.song.id)
@@ -1086,6 +1092,70 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * The brand logo (v1.0.36 artwork: the user's own wordmarks —
+     * brand_logo_zh in Chinese mode, brand_logo_en in English,
+     * swapped by the same uiLang the chips switch), with the
+     * v1.0.44 white halo: both logos must glow outward along
+     * their own silhouette on the navy stage (the user's ruling),
+     * not sit on a rectangular backplate. The halo is the same
+     * artwork tinted solid white (alpha preserved, so it IS the
+     * glyph outline), drawn underneath in a 12-direction ring of
+     * small offsets plus one slightly enlarged centred copy —
+     * the overlaps accumulate into a soft outward bloom. Drawn
+     * with offsets and a graphicsLayer scale only, so the box
+     * measures exactly as the plain logo did (banner height
+     * 36/46dp, width by aspect) and the glow can never push the
+     * language chips. (Modifier.blur was rejected: it is a
+     * silent no-op below API 31 and the Shield runs API 30.)
+     * Display only — never focusable.
+     */
+    @Composable
+    private fun BrandLogo(compact: Boolean) {
+        val painter = painterResource(
+            if (uiLang == UiLang.ZH) R.drawable.brand_logo_zh else R.drawable.brand_logo_en,
+        )
+        val glowRadius = if (compact) 2.2f else 3.0f
+        val ring = listOf(
+            1f to 0f, 0.87f to 0.5f, 0.5f to 0.87f, 0f to 1f,
+            -0.5f to 0.87f, -0.87f to 0.5f, -1f to 0f, -0.87f to -0.5f,
+            -0.5f to -0.87f, 0f to -1f, 0.5f to -0.87f, 0.87f to -0.5f,
+        )
+        Box(
+            modifier = Modifier.height(if (compact) 36.dp else 46.dp)
+                .aspectRatio(painter.intrinsicSize.width / painter.intrinsicSize.height),
+        ) {
+            // Enlarged centred silhouette: the halo's soft core.
+            Image(
+                painter = painter,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize()
+                    .graphicsLayer { scaleX = 1.07f; scaleY = 1.07f; alpha = 0.35f },
+                contentScale = ContentScale.Fit,
+                colorFilter = ColorFilter.tint(Color.White),
+            )
+            // Offset ring: pushes the bloom outward along the
+            // outline in every direction.
+            ring.forEach { (dx, dy) ->
+                Image(
+                    painter = painter,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize()
+                        .offset(x = (glowRadius * dx).dp, y = (glowRadius * dy).dp)
+                        .graphicsLayer { alpha = 0.16f },
+                    contentScale = ContentScale.Fit,
+                    colorFilter = ColorFilter.tint(Color.White),
+                )
+            }
+            Image(
+                painter = painter,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+            )
+        }
+    }
+
     @Composable
     private fun PlayerScreen(compact: Boolean) {
         // No BackHandler here (v1.0.31): the stage IS the home
@@ -1213,27 +1283,10 @@ class MainActivity : ComponentActivity() {
                 ) {
                     GearButton(compact) { adminReturnTo = Screen.PLAYER; screen = Screen.ADMIN }
                     Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
-                    // Brand logo (v1.0.36): the user's own
-                    // artwork replaces the gold text title — the
-                    // Chinese wordmark in Chinese mode, the
-                    // MySing wordmark in English, swapped by the
-                    // same uiLang the chips switch. Display only
-                    // — never focusable, so it can't steal the
-                    // control bar's focus or crowd the centred
-                    // now-singing line (which lives in the lyrics
-                    // band, not this row). Height is the banner
-                    // row's own (36/46dp); the width follows the
-                    // artwork's aspect ratio.
-                    val brandPainter = painterResource(
-                        if (uiLang == UiLang.ZH) R.drawable.brand_logo_zh else R.drawable.brand_logo_en,
-                    )
-                    Image(
-                        painter = brandPainter,
-                        contentDescription = null,
-                        modifier = Modifier.height(if (compact) 36.dp else 46.dp)
-                            .aspectRatio(brandPainter.intrinsicSize.width / brandPainter.intrinsicSize.height),
-                        contentScale = ContentScale.Fit,
-                    )
+                    // Brand logo (v1.0.36 artwork, v1.0.44
+                    // silhouette halo): see BrandLogo — display
+                    // only, banner-row height, width by aspect.
+                    BrandLogo(compact)
                     Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
                     // Language switch (v1.0.13, moved here in
                     // v1.0.31): the two chips label themselves in

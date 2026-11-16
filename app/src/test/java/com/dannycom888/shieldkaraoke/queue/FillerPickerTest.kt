@@ -111,6 +111,16 @@ class FillerPickerTest {
     }
 
     @Test
+    fun `accompaniment default is on for ordered songs, off for filler`() {
+        // v1.0.44 (the user's ruling): an ordered song is there
+        // to be sung — it starts on accompaniment; a filler song
+        // is background listening and keeps the original vocal.
+        assertTrue(AccompanimentPolicy.defaultOnStart(EntrySource.ORDERED))
+        assertFalse(AccompanimentPolicy.defaultOnStart(EntrySource.FILLER))
+        assertFalse(AccompanimentPolicy.defaultOnStart(null))
+    }
+
+    @Test
     fun `queue entries default to ordered, filler is marked`() {
         val ordered = QueueEntry(song("1"), "小明")
         assertEquals(EntrySource.ORDERED, ordered.source)

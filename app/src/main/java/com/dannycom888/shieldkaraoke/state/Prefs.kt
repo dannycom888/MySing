@@ -59,13 +59,6 @@ class Prefs(context: Context) {
         get() = prefs.getBoolean("dancers_enabled", true)
         set(value) = prefs.edit().putBoolean("dancers_enabled", value).apply()
 
-    /** Idle filler playback (v1.0.20): when nobody has ordered a
-     *  song, random library songs play as background. TV control-bar
-     *  switch, default on (the user's ruling 2026-11-15). */
-    var randomFillerEnabled: Boolean
-        get() = prefs.getBoolean("random_filler_enabled", true)
-        set(value) = prefs.edit().putBoolean("random_filler_enabled", value).apply()
-
     /** Karaoke sweep colour (v1.0.26), chosen on the TV admin
      *  page. Stored as the [SweepColor] enum name; parsing and
      *  the gold fallback live in [SweepColor.fromStoredName]. */

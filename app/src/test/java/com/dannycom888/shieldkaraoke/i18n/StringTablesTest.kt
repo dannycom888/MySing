@@ -65,14 +65,13 @@ class StringTablesTest {
         assertEquals("Play next", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_NEXT))
         assertEquals("删除", TvStrings.get(UiLang.ZH, TvKey.QUEUE_PANEL_DELETE))
         assertEquals("Delete", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_DELETE))
-        // v1.0.20 filler strings: the switch chip and the panel's
-        // label for a random background song.
+        // v1.0.20: the panel's label for a random background
+        // song. (The 🎲 switch chip's own strings were retired
+        // with the switch in v1.0.31 — filler is unconditional
+        // now; the parity test above proves both tables dropped
+        // the keys together.)
         assertEquals("随机", TvStrings.get(UiLang.ZH, TvKey.QUEUE_PANEL_RANDOM))
         assertEquals("Random", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_RANDOM))
-        assertTrue(TvStrings.get(UiLang.ZH, TvKey.FILLER_ON).contains("随机"))
-        assertTrue(TvStrings.get(UiLang.EN, TvKey.FILLER_ON).contains("Random"))
-        assertTrue(TvStrings.get(UiLang.ZH, TvKey.FILLER_OFF).contains("随机"))
-        assertTrue(TvStrings.get(UiLang.EN, TvKey.FILLER_OFF).contains("Random"))
         assertEquals("暂无排队", TvStrings.get(UiLang.ZH, TvKey.QUEUE_PANEL_NO_WAITING))
         assertEquals("Nothing queued", TvStrings.get(UiLang.EN, TvKey.QUEUE_PANEL_NO_WAITING))
     }
@@ -101,9 +100,7 @@ class StringTablesTest {
     @Test
     fun adminSettingsStringsRender() {
         // v1.0.26: library + sweep colour moved into the admin
-        // page; the home screen keeps only the no-folder signpost
-        // and the gear (whose description names it in both
-        // languages).
+        // page; the gear's description names it in both languages.
         assertEquals("歌库", TvStrings.get(UiLang.ZH, TvKey.ADMIN_LIBRARY_TITLE))
         assertEquals("Library", TvStrings.get(UiLang.EN, TvKey.ADMIN_LIBRARY_TITLE))
         assertEquals(
@@ -130,8 +127,24 @@ class StringTablesTest {
         // the %s slot: zh prefixes it with "v", en does not.
         assertEquals("版本 v1.0.26", TvStrings.get(UiLang.ZH, TvKey.ADMIN_VERSION, "1.0.26"))
         assertEquals("Version 1.0.26", TvStrings.get(UiLang.EN, TvKey.ADMIN_VERSION, "1.0.26"))
-        assertTrue(TvStrings.get(UiLang.ZH, TvKey.PICK_FOLDER_GUIDE).contains("后台"))
-        assertTrue(TvStrings.get(UiLang.EN, TvKey.PICK_FOLDER_GUIDE).contains("Settings"))
+    }
+
+    @Test
+    fun v1031Wording() {
+        // The brand title on the player banner: a Chinese name
+        // for the Chinese UI, the app's name for English.
+        assertEquals("一起唱卡拉OK", TvStrings.get(UiLang.ZH, TvKey.BRAND_TITLE))
+        assertEquals("MySing", TvStrings.get(UiLang.EN, TvKey.BRAND_TITLE))
+        // The dancers are 伴舞 in every user-facing Chinese
+        // string now — the word 小人 is retired (the English side
+        // always said "Dancers" and did not change).
+        assertEquals("💃 伴舞开", TvStrings.get(UiLang.ZH, TvKey.DANCERS_ON))
+        assertEquals("💃 伴舞关", TvStrings.get(UiLang.ZH, TvKey.DANCERS_OFF))
+        assertEquals("选一位伴舞，按 OK 给他改名字", TvStrings.get(UiLang.ZH, TvKey.ADMIN_HINT))
+        assertEquals("六位伴舞的名字都改回默认。", TvStrings.get(UiLang.ZH, TvKey.ADMIN_RESTORE_TEXT))
+        for (key in TvKey.values()) {
+            assertTrue("zh $key still says 小人", !TvStrings.get(UiLang.ZH, key).contains("小人"))
+        }
     }
 
     @Test

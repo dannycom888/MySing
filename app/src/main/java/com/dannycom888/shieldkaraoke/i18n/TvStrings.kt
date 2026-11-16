@@ -8,18 +8,17 @@ enum class TvKey {
     SCANNING, PICK_FOLDER, LIBRARY_COUNT, SERVER_DOWN, SCAN_QR, QR_DESC,
     ENTRY_SINGERS, ENTRY_SONGS, ENTRY_CHINESE, ENTRY_ENGLISH,
     ENTRY_FAVORITES, ENTRY_RECENTS, PICK_FOLDER_BTN, RESCAN,
-    NOW_SINGING_CARD, CREDIT,
+    CREDIT,
     // Browse
     TAB_SONGS, TAB_SINGERS, FILTER_ALL, FILTER_CHINESE, FILTER_ENGLISH,
     FILTER_ANY_GENDER, FILTER_MALE, FILTER_FEMALE, SINGER_CHIP,
     // Player
+    BRAND_TITLE,
     NEXT_UP, INTERLUDE_COUNTDOWN, NOW_SINGING_LINE,
     PAUSE, RESUME, REPLAY, ACCOMP_ON, ACCOMP_OFF,
     PITCH_DOWN, PITCH_LABEL, PITCH_UP, DANCERS_ON, DANCERS_OFF,
     QUIT, GO_ORDER, QUIT_TITLE, QUIT_TEXT, QUIT_CONFIRM, QUIT_CANCEL,
     PLAY_ERROR, CORNER_QR_CAPTION, CORNER_QR_DESC,
-    // Idle filler playback switch (v1.0.20)
-    FILLER_ON, FILLER_OFF,
     // Queue panel on the player screen (v1.0.19)
     QUEUE_PANEL_TITLE, QUEUE_PANEL_NEXT, QUEUE_PANEL_DELETE,
     QUEUE_PANEL_NO_WAITING,
@@ -39,7 +38,7 @@ enum class TvKey {
     // no-folder guidance chip and the gear button's description.
     ADMIN_LIBRARY_TITLE, ADMIN_LIBRARY_CURRENT, ADMIN_LIBRARY_NONE,
     ADMIN_SWEEP_TITLE, SWEEP_GOLD, SWEEP_GREEN, SWEEP_PINK,
-    PICK_FOLDER_GUIDE, ADMIN_GEAR_DESC, ADMIN_VERSION,
+    ADMIN_GEAR_DESC, ADMIN_VERSION,
 }
 
 /**
@@ -69,8 +68,10 @@ object TvStrings {
         TvKey.ENTRY_RECENTS to "🕘 最近唱过",
         TvKey.PICK_FOLDER_BTN to "📁 选择歌库文件夹",
         TvKey.RESCAN to "🔄 重新扫描",
-        TvKey.NOW_SINGING_CARD to "▶ 正在唱：%s",
         TvKey.CREDIT to "本软件由 Muse 协助制作",
+        // v1.0.31: the brand at the player banner's left end —
+        // the retired home screen's title, in the UI's language.
+        TvKey.BRAND_TITLE to "一起唱卡拉OK",
         TvKey.TAB_SONGS to "歌曲",
         TvKey.TAB_SINGERS to "歌手",
         TvKey.FILTER_ALL to "全部",
@@ -91,10 +92,8 @@ object TvStrings {
         TvKey.PITCH_DOWN to "降调 −",
         TvKey.PITCH_LABEL to "调 %d",
         TvKey.PITCH_UP to "升调 ＋",
-        TvKey.DANCERS_ON to "💃 小人开",
-        TvKey.DANCERS_OFF to "💃 小人关",
-        TvKey.FILLER_ON to "🎲 随机开",
-        TvKey.FILLER_OFF to "🎲 随机关",
+        TvKey.DANCERS_ON to "💃 伴舞开",
+        TvKey.DANCERS_OFF to "💃 伴舞关",
         TvKey.QUIT to "🚪 不唱了",
         TvKey.GO_ORDER to "🎵 去点歌",
         TvKey.QUIT_TITLE to "不唱了？",
@@ -112,13 +111,13 @@ object TvStrings {
         TvKey.QUEUE_PANEL_RANDOM to "随机",
         TvKey.TV_ORDERER to "电视",
         TvKey.ADMIN_TITLE to "⚙ 后台",
-        TvKey.ADMIN_HINT to "选一位小人，按 OK 给他改名字",
+        TvKey.ADMIN_HINT to "选一位伴舞，按 OK 给他改名字",
         TvKey.ADMIN_RENAME_TITLE to "给 %s 改名",
         TvKey.ADMIN_NAME_HINT to "输入新名字",
         TvKey.ADMIN_DEFAULT to "默认：%s",
         TvKey.ADMIN_RESTORE to "恢复默认名",
         TvKey.ADMIN_RESTORE_TITLE to "恢复默认名？",
-        TvKey.ADMIN_RESTORE_TEXT to "六位小人的名字都改回默认。",
+        TvKey.ADMIN_RESTORE_TEXT to "六位伴舞的名字都改回默认。",
         TvKey.ADMIN_RESTORE_CONFIRM to "恢复",
         TvKey.ADMIN_BACK to "返回",
         TvKey.SAVE to "保存",
@@ -130,7 +129,6 @@ object TvStrings {
         TvKey.SWEEP_GOLD to "金色",
         TvKey.SWEEP_GREEN to "浅绿",
         TvKey.SWEEP_PINK to "浅粉",
-        TvKey.PICK_FOLDER_GUIDE to "⚙ 请进后台选择歌库文件夹",
         TvKey.ADMIN_GEAR_DESC to "后台设置",
         TvKey.ADMIN_VERSION to "版本 v%s",
     )
@@ -150,8 +148,8 @@ object TvStrings {
         TvKey.ENTRY_RECENTS to "🕘 Recently sung",
         TvKey.PICK_FOLDER_BTN to "📁 Choose library folder",
         TvKey.RESCAN to "🔄 Rescan",
-        TvKey.NOW_SINGING_CARD to "▶ Now singing: %s",
         TvKey.CREDIT to "Built with assistance from Claude",
+        TvKey.BRAND_TITLE to "MySing",
         TvKey.TAB_SONGS to "Songs",
         TvKey.TAB_SINGERS to "Singers",
         TvKey.FILTER_ALL to "All",
@@ -174,8 +172,6 @@ object TvStrings {
         TvKey.PITCH_UP to "Key ＋",
         TvKey.DANCERS_ON to "💃 Dancers on",
         TvKey.DANCERS_OFF to "💃 Dancers off",
-        TvKey.FILLER_ON to "🎲 Random on",
-        TvKey.FILLER_OFF to "🎲 Random off",
         TvKey.QUIT to "🚪 End song",
         TvKey.GO_ORDER to "🎵 Order songs",
         TvKey.QUIT_TITLE to "End this song?",
@@ -211,7 +207,6 @@ object TvStrings {
         TvKey.SWEEP_GOLD to "Gold",
         TvKey.SWEEP_GREEN to "Light green",
         TvKey.SWEEP_PINK to "Light pink",
-        TvKey.PICK_FOLDER_GUIDE to "⚙ Choose the library folder in Settings",
         TvKey.ADMIN_GEAR_DESC to "Settings",
         TvKey.ADMIN_VERSION to "Version %s",
     )

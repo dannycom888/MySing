@@ -106,7 +106,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Screen { HOME, BROWSE, PLAYER, ADMIN }
+private enum class Screen { BROWSE, PLAYER, ADMIN }
 private enum class ListType { SONGS, SINGERS }
 private enum class Special { NONE, FAVORITES, RECENTS }
 
@@ -142,13 +142,17 @@ class MainActivity : ComponentActivity() {
     private lateinit var controller: PlayerController
     private var applausePlayer: MediaPlayer? = null
 
-    private var screen by mutableStateOf(Screen.HOME)
+    /** The stage is the home now (v1.0.31: the old home screen is
+     *  retired) — the app opens on the player screen, or straight
+     *  into the admin page when no library folder was ever chosen
+     *  (decided in onCreate, once prefs are readable). */
+    private var screen by mutableStateOf(Screen.PLAYER)
     /** Where Back from the admin page returns to. The admin page
-     *  has two gear doors — home's (v1.0.26) and the player's
-     *  (v1.0.29) — and each door leads back where it came from,
-     *  so checking a setting mid-song lands you back on the
-     *  stage, not on the home screen. */
-    private var adminReturnTo by mutableStateOf(Screen.HOME)
+     *  has two gear doors — the player's (v1.0.29) and the browse
+     *  page's (v1.0.31) — and each door leads back where it came
+     *  from, so checking a setting mid-song lands you back on the
+     *  stage, not wherever else you happened to come from. */
+    private var adminReturnTo by mutableStateOf(Screen.PLAYER)
     private var lyrics by mutableStateOf<List<LyricLine>>(emptyList())
     private var positionMs by mutableStateOf(0L)
     private var durationMs by mutableStateOf(-1L)
@@ -157,8 +161,6 @@ class MainActivity : ComponentActivity() {
     private var errorBanner by mutableStateOf<String?>(null)
     private var tickMs by mutableStateOf(0L)
     private var dancersOn by mutableStateOf(true)
-    /** Idle filler playback switch (v1.0.20), persisted in prefs. */
-    private var fillerOn by mutableStateOf(true)
     private val fillerPicker = FillerPicker()
 
     /** Filler session tracking (v1.0.24): only the first filler
@@ -192,8 +194,10 @@ class MainActivity : ComponentActivity() {
     private var scanning by mutableStateOf(false)
     private var quitting = false
 
-    /** TV interface language (v1.0.13), switched on the home
-     *  screen and persisted in prefs. Every user-facing string on
+    /** TV interface language (v1.0.13), switched on the player
+     *  banner's language chips (v1.0.31 — they lived on the home
+     *  screen until it retired) and persisted in prefs. Every
+     *  user-facing string on
      *  the TV goes through [s] and the zh/en table — song and
      *  singer names are file-name data and stay untranslated. */
     private var uiLang by mutableStateOf(UiLang.ZH)
@@ -221,7 +225,6 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         app = application as KaraokeApp
         dancersOn = app.prefs.dancersEnabled
-        fillerOn = app.prefs.randomFillerEnabled
         sweepColor = app.prefs.sweepColor
         customDancerNames = app.prefs.customDancerNames()
         uiLang = UiLang.parse(app.prefs.uiLangCode)
@@ -230,6 +233,11 @@ class MainActivity : ComponentActivity() {
         app.state.onShouldStart = { entry ->
             runOnUiThread { startSong(entry); screen = Screen.PLAYER }
         }
+        // First run (v1.0.31): with no library folder ever chosen
+        // there is nothing to sing and nothing to fill with — land
+        // on the admin page so the host picks the folder first.
+        // Back from there returns to the (idle) stage.
+        if (app.prefs.libraryTreeUri == null) screen = Screen.ADMIN
         app.prefs.libraryTreeUri?.let { loadLibrary(Uri.parse(it)) }
 
         setContent {
@@ -250,21 +258,16 @@ class MainActivity : ComponentActivity() {
                     // drifting field on the shared navy base.
                     BubbleBackground(compact, Modifier.fillMaxSize())
                     when (screen) {
-                        Screen.HOME -> HomeScreen(compact)
                         Screen.BROWSE -> BrowseScreen(compact)
                         Screen.PLAYER -> PlayerScreen(compact)
                         Screen.ADMIN -> AdminScreen(compact)
                     }
                     // Corner QR: pinned to the TOP-RIGHT corner at
                     // all times so a phone can join in mid-song
-                    // (v1.0.19 — it lived bottom-right before, and
-                    // Home had its own big QR; now every screen uses
-                    // this one card in this one corner. Home renders
-                    // the same card in-flow in its header instead of
-                    // this overlay, so the language chips next to it
-                    // are never covered.)
+                    // (v1.0.19 — it lived bottom-right before; every
+                    // screen uses this one card in this one corner).
                     val cornerIp = remember(app.state.version) { Qr.lanIpAddress() }
-                    if (cornerIp != null && screen != Screen.HOME) {
+                    if (cornerIp != null) {
                         CornerQrCard(
                             ip = cornerIp,
                             port = app.localServerPort(),
@@ -462,25 +465,25 @@ class MainActivity : ComponentActivity() {
     /**
      * Start a filler song if the policy says the stage is free for
      * one. Returns true when a song was started. Called when the
-     * library becomes ready, when the real queue drains (naturally
-     * or by quit), and when the filler switch is turned on.
+     * library becomes ready and when the real queue drains
+     * (naturally or by quit). There is no switch (v1.0.31): nobody
+     * orders, filler simply starts.
      *
      * Screen rule (v1.0.24): the first filler song of a session —
      * the [FillerSession] entry edge — brings the player screen
-     * forward from wherever the TV is (Home, Browse, Admin), so a
+     * forward from wherever the TV is (Browse, Admin), so a
      * filler session can never sing invisibly behind another
      * screen. Rollovers inside the session never touch the screen:
-     * a host who backed out to Home on purpose stays there, and
-     * opens the player screen (the home screen's now-singing card)
-     * to find the filler song's full picture — lyrics, dancer,
-     * title — because [startSong] loaded it exactly like an
-     * ordered song. (Before v1.0.24 the entry edge fired only from
-     * Home and rollovers never fired at all, which is how filler
-     * ended up singing with no picture and no lyrics.)
+     * a host who backed out to Browse on purpose stays there, and
+     * opens the player screen to find the filler song's full
+     * picture — lyrics, dancer, title — because [startSong]
+     * loaded it exactly like an ordered song. (Before v1.0.24 the
+     * entry edge fired only from the old home screen and rollovers
+     * never fired at all, which is how filler ended up singing
+     * with no picture and no lyrics.)
      */
     private fun maybeStartFiller(): Boolean {
         val canStart = FillerPolicy.shouldAutoStart(
-            enabled = fillerOn,
             catalogReady = app.state.catalog.songs.isNotEmpty(),
             queueIdle = app.state.queue.isIdle,
             somethingPlaying = app.state.nowPlaying != null || celebrating,
@@ -493,38 +496,13 @@ class MainActivity : ComponentActivity() {
     }
 
     /** A filler song ended (or was quit): no applause, no interlude
-     *  countdown — straight to the next random pick, or back to the
-     *  idle home screen when filler is off / the library is empty. */
-    private fun startNextFillerOrHome() {
+     *  countdown — straight to the next random pick. When no next
+     *  pick can start (the library went away), the session is over
+     *  and the stage simply idles where it is. */
+    private fun startNextFillerOrIdle() {
         app.state.nowPlaying = null
         if (!maybeStartFiller()) {
-            // No next filler could start: the session is over, and
-            // the stage falls back to the idle home screen.
             fillerSession.onStopped()
-            if (screen == Screen.PLAYER) screen = Screen.HOME
-        }
-    }
-
-    /** The control-bar 随机 switch. Turning it off mid-filler stops
-     *  the song and returns to the idle home screen (the pre-v1.0.20
-     *  behaviour); turning it on starts filler if the stage is free. */
-    private fun toggleFiller() {
-        fillerOn = !fillerOn
-        app.prefs.randomFillerEnabled = fillerOn
-        if (!fillerOn) {
-            if (app.state.nowPlaying?.isFiller == true) {
-                quitting = true
-                controller.stop()
-                quitting = false
-                celebrating = false
-                celebrationToken++
-                app.state.interludeSeconds = 0
-                app.state.nowPlaying = null
-                fillerSession.onStopped()
-                screen = Screen.HOME
-            }
-        } else {
-            maybeStartFiller()
         }
     }
 
@@ -537,7 +515,7 @@ class MainActivity : ComponentActivity() {
             // arrived meanwhile would already have cut the filler
             // off via onShouldStart, so the queue is idle here.
             if (app.state.nowPlaying?.isFiller == true) {
-                startNextFillerOrHome()
+                startNextFillerOrIdle()
                 return@runOnUiThread
             }
             val next = app.state.advanceAfterFinish()
@@ -550,8 +528,8 @@ class MainActivity : ComponentActivity() {
             val token = ++celebrationToken
             if (next == null) {
                 // No next song: stay on the player screen until the
-                // applause has played out — only then go home, so the
-                // celebration is never swallowed by the screen switch.
+                // applause has played out, so the celebration is
+                // never swallowed early.
                 lifecycleScope.launch {
                     delay(APPLAUSE_MS + 300)
                     if (celebrationToken == token && celebrating) {
@@ -560,8 +538,10 @@ class MainActivity : ComponentActivity() {
                         // The applause belonged to that last ordered
                         // song; with the real queue drained, the idle
                         // filler takes over from here (v1.0.20
-                        // trigger b) — or home when filler is off.
-                        if (!maybeStartFiller()) screen = Screen.HOME
+                        // trigger b). If no filler can start, the
+                        // stage simply idles on the player screen —
+                        // it IS the home screen now (v1.0.31).
+                        maybeStartFiller()
                     }
                 }
             } else {
@@ -573,7 +553,7 @@ class MainActivity : ComponentActivity() {
                 // ceremony is locked to this entry; at every segment
                 // boundary the lock is re-checked (Ceremony's
                 // interruption rule) — a superseding flow (token
-                // bump: quit, filler toggle…) simply ends it.
+                // bump: quit, a jump-cut…) simply ends it.
                 ceremonyNext = next
                 ceremonyKeeperKey = Dancers.byKey(app.prefs.dancerFor(next.orderedBy)).key
                 ceremonyStartMs = applauseStartMs
@@ -603,7 +583,11 @@ class MainActivity : ComponentActivity() {
                                     clearCeremony()
                                     celebrating = false
                                     app.state.nowPlaying = null
-                                    if (!maybeStartFiller()) screen = Screen.HOME
+                                    // Idle: filler takes over if it
+                                    // can; otherwise the stage just
+                                    // waits (v1.0.31 — no home
+                                    // screen to fall back to).
+                                    maybeStartFiller()
                                     return@launch
                                 }
                             }
@@ -631,7 +615,7 @@ class MainActivity : ComponentActivity() {
             // Cutting a filler song (the remote holder's 切歌 on a
             // background song): it was never in the queue, so there
             // is nothing to advance — just deal the next random one.
-            startNextFillerOrHome()
+            startNextFillerOrIdle()
             return
         }
         val next = app.state.advanceAfterQuit()
@@ -639,10 +623,10 @@ class MainActivity : ComponentActivity() {
             app.state.nowPlaying = null
             // The stage is idle: the filler takes over (v1.0.24 —
             // quitting the last ordered song used to strand the TV
-            // on a silent home screen even with the filler switch
-            // on, unlike the natural-end drain). Home only when no
-            // filler can start (switch off / library empty).
-            if (!maybeStartFiller()) screen = Screen.HOME
+            // on a silent screen, unlike the natural-end drain).
+            // If no filler can start (library empty), the stage
+            // simply idles here (v1.0.31).
+            maybeStartFiller()
         } else {
             startSong(next)
         }
@@ -702,112 +686,26 @@ class MainActivity : ComponentActivity() {
 
     // ---------- screens ----------
 
-    @Composable
-    private fun HomeScreen(compact: Boolean) {
-        val state = app.state
-        val ip = remember(state.version) { Qr.lanIpAddress() }
-        val port = app.localServerPort()
-        Column(modifier = Modifier.fillMaxSize().padding(if (compact) 14.dp else 28.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("MySing", color = gold, fontSize = (if (compact) 24 else 36).sp, fontWeight = FontWeight.Bold)
-                    Text(
-                        when {
-                            scanning -> s(TvKey.SCANNING)
-                            state.catalog.songs.isEmpty() -> s(TvKey.PICK_FOLDER)
-                            else -> s(TvKey.LIBRARY_COUNT, state.catalog.songs.size)
-                        },
-                        color = soft, fontSize = (if (compact) 13 else 17).sp,
-                    )
-                    if (!app.serverAlive) {
-                        Text(
-                            s(TvKey.SERVER_DOWN) +
-                                (app.serverError?.let { "（$it）" } ?: ""),
-                            color = Color(0xFFFF7043), fontSize = (if (compact) 12 else 15).sp,
-                        )
-                    }
-                }
-                // Language switch (v1.0.13): William can't read
-                // Chinese, so the whole TV UI flips to English here
-                // and stays flipped across restarts (prefs). The two
-                // chips label themselves in their own language, so
-                // the switch is findable from either side.
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(end = if (compact) 8.dp else 16.dp),
-                ) {
-                    Chip("中文", uiLang == UiLang.ZH) { switchUiLang(UiLang.ZH) }
-                    Chip("EN", uiLang == UiLang.EN) { switchUiLang(UiLang.EN) }
-                    // Admin entry: a small gear under the language
-                    // chips (v1.0.26 — until now a full text chip
-                    // sat here; the user asked for just a gear in
-                    // the front, with the settings themselves
-                    // behind it). The freed space stays empty.
-                    GearButton(compact) { adminReturnTo = Screen.HOME; screen = Screen.ADMIN }
-                }
-                if (ip != null) {
-                    // v1.0.19: the home header's big QR is gone — the
-                    // header carries the same corner card as every
-                    // other screen, in-flow at the row's right end
-                    // (the top-right corner), so nothing overlaps.
-                    CornerQrCard(ip = ip, port = port, compact = compact)
-                }
-            }
-            Spacer(Modifier.height(if (compact) 10.dp else 20.dp))
-            val entries = listOf(
-                s(TvKey.ENTRY_SINGERS) to { openBrowse(ListType.SINGERS, null, null, Special.NONE) },
-                s(TvKey.ENTRY_SONGS) to { openBrowse(ListType.SONGS, null, null, Special.NONE) },
-                s(TvKey.ENTRY_CHINESE) to { openBrowse(ListType.SONGS, Language.CHINESE, null, Special.NONE) },
-                s(TvKey.ENTRY_ENGLISH) to { openBrowse(ListType.SONGS, Language.ENGLISH, null, Special.NONE) },
-                s(TvKey.ENTRY_FAVORITES) to { openBrowse(ListType.SONGS, null, null, Special.FAVORITES) },
-                s(TvKey.ENTRY_RECENTS) to { openBrowse(ListType.SONGS, null, null, Special.RECENTS) },
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(entries) { (label, action) ->
-                    EntryCard(label, compact, action)
-                }
-            }
-            Spacer(Modifier.height(if (compact) 8.dp else 16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // v1.0.26: picking the library folder and rescanning
-                // moved into the admin page (settings live behind
-                // the gear now). The one exception: before any
-                // folder has EVER been chosen, home keeps this
-                // signpost chip so a fresh install can find its way
-                // — it only points at the admin page, the picker
-                // itself is not back on the front.
-                if (app.prefs.libraryTreeUri == null) {
-                    EntryCard(s(TvKey.PICK_FOLDER_GUIDE), compact) { adminReturnTo = Screen.HOME; screen = Screen.ADMIN }
-                }
-                if (state.nowPlaying != null) {
-                    EntryCard(s(TvKey.NOW_SINGING_CARD, state.nowPlaying!!.song.displayName), compact) { screen = Screen.PLAYER }
-                }
-            }
-            Spacer(Modifier.weight(1f))
-            Text(s(TvKey.CREDIT), color = soft.copy(alpha = 0.6f), fontSize = 11.sp)
-        }
-    }
-
     // ---------- admin: settings behind the gear ----------
 
     /**
      * The TV admin page — everything settable lives here since
      * v1.0.26 (the user's layout: 选文件夹、改名、改颜色进后台，
-     * 改中英在前台）, reached from the home screen's little gear:
-     * the library folder and rescan (moved in from home), the
-     * sweep colour, and the dancer renames (v1.0.21). Renaming is
+     * 改中英在前台）: the library folder and rescan, the sweep
+     * colour, and the dancer renames (v1.0.21). Renaming is
      * TV-only: the phone server reads the names for its picker
      * cards but has no write path. Rows carry the dancer's
      * standing frame so the host recognises who is who even after
      * a rename; a renamed row also shows the default it would
      * fall back to.
      *
-     * Two doors lead here (home's gear, and the player screen's
-     * gear since v1.0.29); Back returns through whichever door
-     * was used ([adminReturnTo]). Coming here never touches
-     * playback — the song on stage keeps singing behind the
-     * settings, exactly as it always did from the home door.
+     * Two doors lead here (the player screen's gear since
+     * v1.0.29, and the browse page's gear since v1.0.31); Back
+     * returns through whichever door was used ([adminReturnTo]).
+     * Coming here never touches playback — the song on stage
+     * keeps singing behind the settings. The page footer carries
+     * the version number and, under it, the credit line that used
+     * to sit at the retired home screen's bottom (v1.0.31).
      */
     @Composable
     private fun AdminScreen(compact: Boolean) {
@@ -917,6 +815,11 @@ class MainActivity : ComponentActivity() {
                     fontSize = (if (compact) 11 else 13).sp,
                 )
             }
+            // Credit line (v1.0.31): it lived at the bottom of the
+            // home screen until that screen retired; now it closes
+            // the admin page, under the version number.
+            Spacer(Modifier.height(4.dp))
+            Text(s(TvKey.CREDIT), color = soft.copy(alpha = 0.6f), fontSize = 11.sp)
         }
         if (confirmRestoreNames) {
             AlertDialog(
@@ -1021,7 +924,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun BrowseScreen(compact: Boolean) {
-        BackHandler { screen = Screen.HOME }
+        BackHandler { screen = Screen.PLAYER }
         @Suppress("UNUSED_VARIABLE") val versionTick = app.state.version
         val catalog = app.state.catalog
         // The corner QR is pinned top-right (v1.0.19): browse content
@@ -1041,6 +944,50 @@ class MainActivity : ComponentActivity() {
                 end = (if (compact) 12.dp else 24.dp) + qrEndReserve,
             ),
         ) {
+            // v1.0.31: the retired home screen's furniture moved
+            // here — its library status line (small print at the
+            // top, with the server-down warning under the old
+            // title's wording), a gear door to the admin page, and
+            // the six big entries. The entries are shortcuts into
+            // THIS page's own state: they set the same listType /
+            // filterLang / special the chips below reflect, so
+            // there is one navigation system, not two — tapping
+            // 「中文」 above lights the 中文 chip below.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        when {
+                            scanning -> s(TvKey.SCANNING)
+                            catalog.songs.isEmpty() -> s(TvKey.PICK_FOLDER)
+                            else -> s(TvKey.LIBRARY_COUNT, catalog.songs.size)
+                        },
+                        color = soft, fontSize = (if (compact) 12 else 15).sp,
+                    )
+                    if (!app.serverAlive) {
+                        Text(
+                            s(TvKey.SERVER_DOWN) +
+                                (app.serverError?.let { "（$it）" } ?: ""),
+                            color = Color(0xFFFF7043), fontSize = (if (compact) 11 else 13).sp,
+                        )
+                    }
+                }
+                GearButton(compact) { adminReturnTo = Screen.BROWSE; screen = Screen.ADMIN }
+            }
+            Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
+            val entries = listOf(
+                s(TvKey.ENTRY_SINGERS) to { openBrowse(ListType.SINGERS, null, null, Special.NONE) },
+                s(TvKey.ENTRY_SONGS) to { openBrowse(ListType.SONGS, null, null, Special.NONE) },
+                s(TvKey.ENTRY_CHINESE) to { openBrowse(ListType.SONGS, Language.CHINESE, null, Special.NONE) },
+                s(TvKey.ENTRY_ENGLISH) to { openBrowse(ListType.SONGS, Language.ENGLISH, null, Special.NONE) },
+                s(TvKey.ENTRY_FAVORITES) to { openBrowse(ListType.SONGS, null, null, Special.FAVORITES) },
+                s(TvKey.ENTRY_RECENTS) to { openBrowse(ListType.SONGS, null, null, Special.RECENTS) },
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(entries) { (label, action) ->
+                    EntryCard(label, compact, action)
+                }
+            }
+            Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip(s(TvKey.TAB_SONGS), listType == ListType.SONGS) { listType = ListType.SONGS }
                 Chip(s(TvKey.TAB_SINGERS), listType == ListType.SINGERS) { listType = ListType.SINGERS }
@@ -1090,7 +1037,10 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun PlayerScreen(compact: Boolean) {
-        BackHandler { screen = Screen.HOME }
+        // No BackHandler here (v1.0.31): the stage IS the home
+        // screen now — Back at the stage leaves the app, the
+        // platform default. (The queue panel's own two-stage Back
+        // below still owns Back while the panel has focus.)
         @Suppress("UNUSED_VARIABLE") val versionTick = app.state.version
         val state = app.state
         val entry = state.nowPlaying
@@ -1128,6 +1078,17 @@ class MainActivity : ComponentActivity() {
         val promoteRequester = remember { FocusRequester() }
         val deleteRequester = remember { FocusRequester() }
         val controlRequester = remember { FocusRequester() }
+        // The stage is the launch screen now (v1.0.31): whenever
+        // it is entered, D-pad focus starts on the control bar —
+        // the pause chip — never on the banner's gear or title.
+        LaunchedEffect(Unit) {
+            try {
+                controlRequester.requestFocus()
+            } catch (e: Exception) {
+                // Control bar not composed yet; the first D-pad
+                // press resolves focus spatially instead.
+            }
+        }
         // The expanded row may vanish under the panel (a phone
         // deleted that song): collapse its actions instead of
         // pointing at a song that is no longer there.
@@ -1173,24 +1134,48 @@ class MainActivity : ComponentActivity() {
             Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
                 val nextUp = state.queue.nextUpText(uiLang)
                 // Banner row (v1.0.29): the settings gear sits at
-                // its far left — the same gear as home's. The host
-                // lives on this screen (the filler keeps the stage
-                // up for hours and he rarely goes home), so the
-                // door to the settings belongs here too; the
-                // v1.0.26 home-only gear was effectively invisible
-                // to him. The row is exactly gear-tall (36/46dp —
-                // 10dp more than the old text-only row) so the
-                // gear never overlaps the stage below; the next-up
-                // text starts after it, vertically centred, with
-                // its right end still clear of the QR card, and
-                // the lyrics band below is untouched. Entering the
-                // admin page from here never stops the song, and
-                // Back returns to this screen (adminReturnTo).
+                // its far left. The host lives on this screen (the
+                // filler keeps the stage up for hours), so the
+                // door to the settings belongs here; the v1.0.26
+                // home-only gear was effectively invisible to him.
+                // v1.0.31: the retired home screen's two front-row
+                // items join the gear here — the brand title right
+                // of the gear (gold, the home title's own colour;
+                // 一起唱卡拉OK in Chinese, MySing in English) and
+                // the language chips, still switchable in the
+                // front as the user ruled. The row is exactly
+                // gear-tall (36/46dp) so nothing overlaps the
+                // stage below; the next-up text runs after the
+                // chips, vertically centred, with its right end
+                // still clear of the QR card, and the lyrics band
+                // below is untouched. Entering the admin page from
+                // here never stops the song, and Back returns to
+                // this screen (adminReturnTo).
                 Row(
                     modifier = Modifier.fillMaxWidth().height(if (compact) 36.dp else 46.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     GearButton(compact) { adminReturnTo = Screen.PLAYER; screen = Screen.ADMIN }
+                    Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
+                    // Brand title: display only — never focusable,
+                    // so it can't steal the control bar's focus or
+                    // crowd the centred now-singing line (which
+                    // lives in the lyrics band, not this row).
+                    Text(
+                        s(TvKey.BRAND_TITLE),
+                        color = gold,
+                        fontSize = (if (compact) 17 else 24).sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                    )
+                    Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
+                    // Language switch (v1.0.13, moved here in
+                    // v1.0.31): the two chips label themselves in
+                    // their own language, so the switch is findable
+                    // from either side; the choice persists.
+                    Chip("中文", uiLang == UiLang.ZH, compact = compact) { switchUiLang(UiLang.ZH) }
+                    Spacer(Modifier.width(4.dp))
+                    Chip("EN", uiLang == UiLang.EN, compact = compact) { switchUiLang(UiLang.EN) }
                     Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
                     Box(
                         modifier = Modifier.weight(1f)
@@ -1528,7 +1513,7 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                     // v1.0.25: tighter spacing + compact chips, so
-                    // the ten chips fit the compact landscape width
+                    // the chips fit the compact landscape width
                     // in one row and the bar hugs the screen bottom
                     // (the old overflow is the v1.0.25 root cause).
                     horizontalArrangement = Arrangement.spacedBy(
@@ -1559,11 +1544,8 @@ class MainActivity : ComponentActivity() {
                     ) {
                         dancersOn = !dancersOn; app.prefs.dancersEnabled = dancersOn
                     }
-                    Chip(
-                        if (fillerOn) s(TvKey.FILLER_ON) else s(TvKey.FILLER_OFF), fillerOn,
-                        onFocused = { panelFocused = false },
-                        compact = compact,
-                    ) { toggleFiller() }
+                    // v1.0.31: no 🎲 filler chip any more — filler
+                    // is unconditional (nobody orders, it starts).
                     Chip(s(TvKey.QUIT), false, onFocused = { panelFocused = false }, compact = compact) { confirmQuit = true }
                     Chip(s(TvKey.GO_ORDER), false, onFocused = { panelFocused = false }, compact = compact) { screen = Screen.BROWSE }
                 }
@@ -1610,22 +1592,26 @@ class MainActivity : ComponentActivity() {
      * The always-on corner QR card: a small white rounded card with
      * the phone-ordering QR and a "扫码点歌" caption, pinned to the
      * top-right corner of every screen (v1.0.19; it sat bottom-right
-     * until then, and Home used to draw a bigger copy in its header —
-     * the header now embeds this same card in-flow). Deliberately
-     * has no clickable/focusable modifier — D-pad focus must never
-     * land on it. The QR itself stays pure black on white so it
-     * scans; only the thin border is translucent dark, to blend
-     * with the stage.
+     * until then). Deliberately has no clickable/focusable modifier
+     * — D-pad focus must never land on it. The QR itself stays pure
+     * black on white so it scans; only the thin border is
+     * translucent dark, to blend with the stage.
+     *
+     * v1.0.31: the card shrank a full size step (the user: the
+     * white card was too big). What shrank is only the card's own
+     * white trim — the QR bitmap keeps ZXing's built-in 4-module
+     * quiet zone untouched inside the image, so the code still
+     * scans as reliably as before; the caption stays.
      */
     @Composable
     private fun CornerQrCard(ip: String, port: Int, compact: Boolean, modifier: Modifier = Modifier) {
-        val qrDp = if (compact) 72.dp else 92.dp
+        val qrDp = if (compact) 60.dp else 76.dp
         val bitmap = remember(ip, port) { Qr.encode("http://$ip:$port/", 220) }
         Column(
             modifier = modifier
                 .border(1.dp, Color.Black.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
                 .background(Color.White, RoundedCornerShape(10.dp))
-                .padding(if (compact) 5.dp else 7.dp),
+                .padding(if (compact) 3.dp else 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Image(
@@ -1633,7 +1619,7 @@ class MainActivity : ComponentActivity() {
                 contentDescription = s(TvKey.CORNER_QR_DESC),
                 modifier = Modifier.width(qrDp).height(qrDp),
             )
-            Text(s(TvKey.CORNER_QR_CAPTION), color = Color(0xFF26325E), fontSize = (if (compact) 9 else 11).sp)
+            Text(s(TvKey.CORNER_QR_CAPTION), color = Color(0xFF26325E), fontSize = (if (compact) 8 else 10).sp)
         }
     }
 
@@ -2058,11 +2044,12 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * The admin entry (v1.0.26 on home, v1.0.29 also on the
-     * player screen): just a small gear in a circle — the user's
-     * ruling was "a little gear in the front, the settings
-     * behind it". Same component in both places, so the two
-     * doors can never drift apart. Same focus language as every
+     * The admin entry (v1.0.26 on the old home screen, v1.0.29
+     * also on the player screen, v1.0.31 also on the browse
+     * page): just a small gear in a circle — the user's ruling
+     * was "a little gear in the front, the settings behind it".
+     * Same component everywhere, so the doors can never drift
+     * apart. Same focus language as every
      * other control (a ring when focused, tap/OK to open); its
      * content description names it ("Settings") in both UI
      * languages, since the glyph itself carries no text.

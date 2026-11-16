@@ -87,11 +87,13 @@ class FillerPickerTest {
 
     @Test
     fun `auto start needs every gate open`() {
-        assertTrue(FillerPolicy.shouldAutoStart(true, true, true, false))
-        assertFalse("switch off", FillerPolicy.shouldAutoStart(false, true, true, false))
-        assertFalse("no library yet", FillerPolicy.shouldAutoStart(true, false, true, false))
-        assertFalse("real queue busy", FillerPolicy.shouldAutoStart(true, true, false, false))
-        assertFalse("already playing", FillerPolicy.shouldAutoStart(true, true, true, true))
+        // v1.0.31: the on/off switch gate is gone — filler is
+        // unconditional. The three remaining gates (library ready,
+        // real queue idle, stage free) each still veto on their own.
+        assertTrue(FillerPolicy.shouldAutoStart(true, true, false))
+        assertFalse("no library yet", FillerPolicy.shouldAutoStart(false, true, false))
+        assertFalse("real queue busy", FillerPolicy.shouldAutoStart(true, false, false))
+        assertFalse("already playing", FillerPolicy.shouldAutoStart(true, true, true))
     }
 
     @Test

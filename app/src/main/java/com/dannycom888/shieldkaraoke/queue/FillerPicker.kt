@@ -11,6 +11,11 @@ import kotlin.random.Random
  * background. A real order cuts the filler off at once; a filler
  * song that ends naturally earns no applause.
  *
+ * v1.0.31: there is no switch any more (the user's ruling the
+ * same evening: "没人点歌自动就开" — nobody orders, it just
+ * starts). Filler is unconditional behaviour, gated only by the
+ * stage actually being free for it.
+ *
  * This file is the pure logic: which song to pick next, and the
  * policy decisions the Activity consults. Playback glue lives in
  * MainActivity; the filler entry itself never enters [PlayQueue].
@@ -18,17 +23,16 @@ import kotlin.random.Random
 object FillerPolicy {
 
     /**
-     * Auto-start a filler song only when the feature is on, the
-     * library is there, the real queue is completely idle (no
-     * current, nobody waiting — a non-empty real queue must never
-     * be shadowed by filler) and nothing else is already playing.
+     * Auto-start a filler song whenever the library is there, the
+     * real queue is completely idle (no current, nobody waiting —
+     * a non-empty real queue must never be shadowed by filler)
+     * and nothing else is already playing.
      */
     fun shouldAutoStart(
-        enabled: Boolean,
         catalogReady: Boolean,
         queueIdle: Boolean,
         somethingPlaying: Boolean,
-    ): Boolean = enabled && catalogReady && queueIdle && !somethingPlaying
+    ): Boolean = catalogReady && queueIdle && !somethingPlaying
 
     /** Applause is for a singer who finished their song. A filler
      *  song ending naturally just hands over to the next one. */
@@ -63,10 +67,9 @@ object FillerPolicy {
  * entry edge — it brings the player screen forward from wherever
  * the TV is. Rollovers inside the session never touch the screen
  * (a host who backed out on purpose is not yanked back). The
- * session ends when an ordered song takes the stage, when filler
- * is switched off mid-session, or when a filler start fails and
- * the stage falls idle — the next filler start after any of those
- * is a fresh entry edge.
+ * session ends when an ordered song takes the stage, or when a
+ * filler start fails and the stage falls idle — the next filler
+ * start after any of those is a fresh entry edge.
  */
 class FillerSession {
 
@@ -87,8 +90,8 @@ class FillerSession {
         active = false
     }
 
-    /** Filler stopped (switch turned off, or no filler song could
-     *  be started and the stage fell idle): session over. */
+    /** Filler stopped (no filler song could be started and the
+     *  stage fell idle): session over. */
     fun onStopped() {
         active = false
     }

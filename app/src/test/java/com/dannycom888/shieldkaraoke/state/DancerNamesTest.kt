@@ -32,8 +32,8 @@ class DancerNamesTest {
 
     @Test
     fun v1034RenamedDefaultsAndCustomStillWins() {
-        // v1.0.34 factory-default renames: ancient 林语嫣 → 陈秀颖,
-        // ancient_girl 小蛮 → 汉娜. Only the defaults moved — a name
+        // v1.0.34: the two ancient dancers got new factory-default
+        // names. Only the defaults moved — a name
         // the host already set in the admin page still wins over the
         // new factory default, in both languages.
         assertEquals("陈秀颖", DancerNames.display(DancerKeys.ANCIENT, UiLang.ZH, emptyMap()))

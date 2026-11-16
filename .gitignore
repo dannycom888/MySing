@@ -18,3 +18,8 @@ keystore.properties
 
 # OS
 .DS_Store
+
+# Asset-pipeline scratch — never commit (a swept-in venv with a
+# 178 MB .so made the v1.0.37 commit unpushable; see v1.0.38 notes)
+.venv*/
+__pycache__/

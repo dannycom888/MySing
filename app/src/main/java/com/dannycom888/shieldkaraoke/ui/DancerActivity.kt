@@ -43,11 +43,68 @@ object DancerActivity {
 
     /**
      * Does this song have an intro phase? Only when the singing
-     * starts at or after [MIN_INTRO_MS]; an earlier first line (or
-     * no LRC at all) means dancing from the very beginning.
+     * starts at or after [MIN_INTRO_MS]; an earlier first sung line
+     * (or no LRC at all) means dancing from the very beginning.
+     * The start in question is the first SUNG line's — see
+     * [firstSungStartMs] for why the file's first line cannot be
+     * trusted with this.
      */
-    fun hasIntro(firstLyricStartMs: Long?): Boolean =
-        firstLyricStartMs != null && firstLyricStartMs >= MIN_INTRO_MS
+    fun hasIntro(firstSungStartMs: Long?): Boolean =
+        firstSungStartMs != null && firstSungStartMs >= MIN_INTRO_MS
+
+    /**
+     * A credit label at the head of a timed line: 作词/作曲/编曲…
+     * or the English "Lyrics by / Composed by …" shapes. The label
+     * must be followed by a colon (either width) — a sung line that
+     * merely starts with the same character (词不达意， 曲终人散）
+     * carries no colon and stays a lyric.
+     */
+    private val creditLabelRegex = Regex(
+        """^(作词|作曲|编曲|词曲|制作人|制作|监制|演唱|原唱|和声|混音|录音|出品|发行|词|曲)\s*[:：]"""
+    )
+    private val creditByRegex = Regex(
+        """^(lyrics|music|words|composed|arranged|performed|produced|sung)\s+by\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val creditColonEnRegex = Regex(
+        """^(lyrics|music|words|composer|arranger|performer|producer)\s*[:：]""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /**
+     * Is this timed line a credit line （词：/曲：/作词 …) rather
+     * than a sung lyric? This library's converter writes a header
+     * block of timed credit lines at the head of every enhanced
+     * LRC — a title line, then 词/曲 lines — before the first sung
+     * line. They are displayed like lyrics (and swept like them),
+     * but nobody sings them, so they must not pose as the start
+     * of the singing.
+     */
+    fun isCreditLine(text: String): Boolean {
+        val t = text.trim()
+        return creditLabelRegex.containsMatchIn(t) ||
+            creditByRegex.containsMatchIn(t) ||
+            creditColonEnRegex.containsMatchIn(t)
+    }
+
+    /**
+     * Is this line the song's title card — the header line whose
+     * text is exactly the song's own artist and title joined by
+     * " - ", in either order ("Beyond - 海阔天空" in the file
+     * name, "海阔天空 - Beyond" inside the LRC)? Only the pair
+     * match counts: a sung line that merely contains " - " is a
+     * lyric, and without the song's artist/title nothing is
+     * guessed.
+     */
+    fun isTitleLine(text: String, artist: String?, title: String?): Boolean {
+        if (artist.isNullOrBlank() || title.isNullOrBlank()) return false
+        val parts = text.trim().split(" - ").map { it.trim() }
+        if (parts.size != 2) return false
+        val a = artist.trim()
+        val t = title.trim()
+        return (parts[0].equals(a, ignoreCase = true) && parts[1].equals(t, ignoreCase = true)) ||
+            (parts[0].equals(t, ignoreCase = true) && parts[1].equals(a, ignoreCase = true))
+    }
 
     /** The dancer's phases over one song (OUTRO_HOLD added in
      *  v1.0.22 — see [OUTRO_HOLD_MS]). */
@@ -73,18 +130,36 @@ object DancerActivity {
     const val OUTRO_SETTLE_MS = 400L
 
     /**
-     * When the singing starts in [lines]: the first line's start.
-     * No lines at all → null (no intro phase exists — symmetric
-     * with [lastLyricEndMs] being null for the outro).
+     * When the singing starts in [lines]: the first SUNG line's
+     * start, skipping the converter's header block (title card +
+     * credit lines — see [isCreditLine] / [isTitleLine]).
+     *
+     * v1.0.30 root cause: this used to be simply the first line's
+     * start, but the header block sits at 0–2 s in nearly every
+     * file of this library while the singing starts 10–30 s in —
+     * so [hasIntro] judged almost every song "no intro" and the
+     * invite NEVER appeared (measured over the real library:
+     * 924 of 1,092 songs have a first sung line at ≥ 2.5 s hidden
+     * behind a header first line at < 2.5 s; only 12 headerless
+     * songs could ever invite). Header lines are skipped only
+     * while they lead the file — the scan stops at the first
+     * line that is neither a credit nor the title card.
+     * No sung lines at all → null (no intro phase exists —
+     * symmetric with [lastLyricEndMs] being null for the outro).
      */
-    fun firstLyricStartMs(lines: List<LyricLine>): Long? =
-        lines.firstOrNull()?.timeMs
+    fun firstSungStartMs(lines: List<LyricLine>, artist: String?, title: String?): Long? {
+        for (line in lines) {
+            if (isCreditLine(line.text) || isTitleLine(line.text, artist, title)) continue
+            return line.timeMs
+        }
+        return null
+    }
 
     /**
-     * The phase at [positionMs]: before the first lyric line →
+     * The phase at [positionMs]: before the first sung line →
      * INVITING (the invite frame + slow bow) — but only when the
-     * song actually has an intro (see [hasIntro]; a first line
-     * starting before [MIN_INTRO_MS] means dancing from 0);
+     * song actually has an intro (see [hasIntro]; a first sung
+     * line starting before [MIN_INTRO_MS] means dancing from 0);
      * the first [OUTRO_HOLD_MS] past the last lyric's end →
      * OUTRO_HOLD (last dance pose held, settling to neutral);
      * beyond that → STILL (standing frame + breathing); in
@@ -94,11 +169,11 @@ object DancerActivity {
      */
     fun phase(
         positionMs: Long,
-        firstLyricStartMs: Long?,
+        firstSungStartMs: Long?,
         lastLyricEndMs: Long?,
         durationMs: Long? = null,
     ): Phase = when {
-        hasIntro(firstLyricStartMs) && positionMs < firstLyricStartMs!! -> Phase.INVITING
+        hasIntro(firstSungStartMs) && positionMs < firstSungStartMs!! -> Phase.INVITING
         // v1.0.22: the outro opens with a 2 s hold on the last
         // dance pose before the standing frame. A song whose
         // outro is shorter than the hold simply ends inside it

@@ -159,13 +159,118 @@ class DancerActivityTest {
 
     @Test
     fun noLyricsMeansNoStart() {
-        assertNull(DancerActivity.firstLyricStartMs(emptyList()))
+        assertNull(DancerActivity.firstSungStartMs(emptyList(), "歌手", "歌名"))
     }
 
     @Test
-    fun firstLyricStartIsTheFirstLinesStart() {
+    fun firstSungStartIsTheFirstSungLine() {
         val lines = listOf(plainLine(12_500), plainLine(180_000))
-        assertEquals(12_500L, DancerActivity.firstLyricStartMs(lines))
+        assertEquals(12_500L, DancerActivity.firstSungStartMs(lines, "歌手", "歌名"))
+    }
+
+    // --- the header block must not poison the intro (v1.0.30) ---
+    //
+    // Root cause of "开头单人邀请动作没出现": this library's
+    // enhanced LRCs open with a timed header block — a title card
+    // at ~0 s, then 词/曲 credit lines — while the first sung line
+    // lands 10–30 s in. firstLyricStartMs took the header's first
+    // line, so hasIntro judged nearly every song "no intro" and
+    // the dancer danced through the whole instrumental intro.
+    // The fixtures below are the real files' actual opening lines.
+
+    @Test
+    fun creditLabelsAreRecognised() {
+        assertTrue(DancerActivity.isCreditLine("词：小美"))
+        assertTrue(DancerActivity.isCreditLine("曲：胡伟立"))
+        assertTrue(DancerActivity.isCreditLine("作词：黄家驹"))
+        assertTrue(DancerActivity.isCreditLine("作曲 : mc六道"))
+        assertTrue(DancerActivity.isCreditLine("编曲：刀郎"))
+        assertTrue(DancerActivity.isCreditLine("Lyrics by Adele"))
+        // A sung line that merely STARTS with the same character
+        // is not a credit: no colon, no label.
+        assertFalse(DancerActivity.isCreditLine("词不达意"))
+        assertFalse(DancerActivity.isCreditLine("曲终人散了"))
+        assertFalse(DancerActivity.isCreditLine("如何面对"))
+    }
+
+    @Test
+    fun titleCardMatchesTheSongsOwnPairEitherOrder() {
+        assertTrue(DancerActivity.isTitleLine("Beyond - 海阔天空", "Beyond", "海阔天空"))
+        assertTrue(DancerActivity.isTitleLine("海阔天空 - Beyond", "Beyond", "海阔天空"))
+        // Some other song's title card is not this song's.
+        assertFalse(DancerActivity.isTitleLine("Beyond - 大地", "Beyond", "海阔天空"))
+        // No pair handed in → nothing is guessed.
+        assertFalse(DancerActivity.isTitleLine("Beyond - 海阔天空", null, null))
+    }
+
+    @Test
+    fun realFileTitleAndCreditsBeforeAn18SecondIntro() {
+        // Beyond《海阔天空》as the converter wrote it: title card
+        // at 0.72 s, 词 at 7.87 s, 曲 at 8.87 s, singing at
+        // 18.35 s. The whole instrumental intro must be INVITING.
+        val lines = com.dannycom888.shieldkaraoke.lyrics.LrcParser.parse(
+            """
+            [00:00.72]<00:00.72>Beyond - 海阔天空
+            [00:07.87]<00:07.87>词：黄家驹
+            [00:08.87]<00:08.87>曲：黄家驹
+            [00:18.35]<00:18.35>今天我 寒夜里看雪飘过
+            [00:25.01]<00:25.01>怀着冷却了的心窝漂远方
+            """.trimIndent()
+        )
+        val start = DancerActivity.firstSungStartMs(lines, "Beyond", "海阔天空")
+        assertEquals(18_350L, start)
+        assertTrue(DancerActivity.hasIntro(start))
+        assertEquals(DancerActivity.Phase.INVITING, DancerActivity.phase(0L, start, 200_000L))
+        assertEquals(DancerActivity.Phase.INVITING, DancerActivity.phase(18_349L, start, 200_000L))
+        assertEquals(DancerActivity.Phase.DANCING, DancerActivity.phase(18_350L, start, 200_000L))
+    }
+
+    @Test
+    fun creditsWithinTheFirstSecondAndSingingAt18Seconds() {
+        // The reported shape, minimal: header lines inside the
+        // first second, the first sung line at 18 s.
+        val lines = listOf(
+            LyricLine(0L, "曲婉婷 - 我的歌声里"),
+            LyricLine(500L, "词：曲婉婷"),
+            LyricLine(900L, "曲：曲婉婷"),
+            LyricLine(18_000L, "没有一点点防备"),
+        )
+        val start = DancerActivity.firstSungStartMs(lines, "曲婉婷", "我的歌声里")
+        assertEquals(18_000L, start)
+        assertEquals(DancerActivity.Phase.INVITING, DancerActivity.phase(0L, start, 200_000L))
+        assertEquals(DancerActivity.Phase.INVITING, DancerActivity.phase(17_999L, start, 200_000L))
+        assertEquals(DancerActivity.Phase.DANCING, DancerActivity.phase(18_000L, start, 200_000L))
+    }
+
+    @Test
+    fun creditFirstFileStillFindsItsIntro() {
+        // Beyond《大地》opens with the credit, no title card:
+        // 作词 at 0 s, singing at 26 s.
+        val lines = listOf(
+            LyricLine(0L, "作词：刘卓辉"),
+            LyricLine(26_000L, "在黑夜中 站在高山上"),
+        )
+        assertEquals(
+            26_000L,
+            DancerActivity.firstSungStartMs(lines, "Beyond", "大地"),
+        )
+    }
+
+    @Test
+    fun titleCardThenImmediateSingingStaysNoIntro() {
+        // Youngblood's real opening: title card at 0.58 s, the
+        // singing starts at 0.75 s — under MIN_INTRO_MS, so the
+        // dancer still dances from 0 (the user's own rule).
+        val lines = com.dannycom888.shieldkaraoke.lyrics.LrcParser.parse(
+            """
+            [00:00.58]<00:00.58>5 Seconds of Summer - Youngblood
+            [00:00.75]<00:00.75>Remember the words you told me
+            """.trimIndent()
+        )
+        val start = DancerActivity.firstSungStartMs(lines, "5 Seconds of Summer", "Youngblood")
+        assertEquals(750L, start)
+        assertFalse(DancerActivity.hasIntro(start))
+        assertEquals(DancerActivity.Phase.DANCING, DancerActivity.phase(0L, start, 200_000L))
     }
 
     @Test

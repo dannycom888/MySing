@@ -1243,7 +1243,15 @@ class MainActivity : ComponentActivity() {
                         // A song without an LRC has neither
                         // boundary and dances throughout.
                         val lastLyricEnd = remember(lyrics) { DancerActivity.lastLyricEndMs(lyrics) }
-                        val firstLyricStart = remember(lyrics) { DancerActivity.firstLyricStartMs(lyrics) }
+                        // v1.0.30: the intro boundary is the first
+                        // SUNG line — the LRC's header block (title
+                        // card + 词/曲 credit lines at 0–2 s) used to
+                        // pose as it and the invite never appeared.
+                        val firstLyricStart = remember(lyrics, entry?.song?.id) {
+                            DancerActivity.firstSungStartMs(
+                                lyrics, entry?.song?.artist, entry?.song?.title,
+                            )
+                        }
                         val dancerPhase = DancerActivity.phase(
                             positionMs, firstLyricStart, lastLyricEnd,
                             durationMs.takeIf { it > 0 },
@@ -1584,7 +1592,9 @@ class MainActivity : ComponentActivity() {
                 append(" · 舞者：").append(dancerDisplayName(dancer.key)).append("（")
                     .append(if (entry.isFiller) "随机" else entry.orderedBy).append("选的）")
                 val lastEnd = DancerActivity.lastLyricEndMs(lyrics)
-                val firstStart = DancerActivity.firstLyricStartMs(lyrics)
+                val firstStart = DancerActivity.firstSungStartMs(
+                    lyrics, entry.song.artist, entry.song.title,
+                )
                 when (DancerActivity.phase(positionMs, firstStart, lastEnd)) {
                     DancerActivity.Phase.INVITING -> append(" · 伴舞：前奏邀请")
                     DancerActivity.Phase.OUTRO_HOLD -> append(" · 伴舞：尾奏定格")

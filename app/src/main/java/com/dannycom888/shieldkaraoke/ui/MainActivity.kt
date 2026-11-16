@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -1271,8 +1272,52 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.BottomCenter,
                                 ) {
+                                    // v1.0.32: during the intro invite
+                                    // she takes one big step toward
+                                    // the audience — her LAYOUT height
+                                    // grows from the dancing height
+                                    // (0.80 of the stage, compact
+                                    // 0.72) to 0.95 (compact 0.88)
+                                    // across the intro's first ~0.7 s,
+                                    // holds while she invites, and
+                                    // steps back across the singing's
+                                    // first ~0.7 s (DancerActivity
+                                    // .stepProgress — a pure function
+                                    // of position; the robot's
+                                    // envelope is quantised into hard
+                                    // steps). Layout height, not a
+                                    // layer scale, so the spotlight
+                                    // pool inside her wrapper — sized
+                                    // off her own rect — grows with
+                                    // her, and BottomCenter keeps her
+                                    // feet on the stage floor while
+                                    // she grows upward.
+                                    val stepP = DancerActivity.stepProgress(
+                                        positionMs, firstLyricStart, dancer.profile,
+                                    )
+                                    val baseDancerH = maxHeight * if (compact) 0.72f else 0.80f
+                                    val bigDancerH = maxHeight * if (compact) 0.88f else 0.95f
+                                    val dancerH = baseDancerH + (bigDancerH - baseDancerH) * stepP
+                                    // Lyrics-band guard (v1.0.28's
+                                    // invariant, kept): her width
+                                    // grows with her height; if the
+                                    // grown width would pass the
+                                    // dancer zone's right edge — the
+                                    // lyrics band starts one gap
+                                    // beyond it — shift her left by
+                                    // exactly the centred overflow,
+                                    // so she grows leftward over the
+                                    // bubble backdrop and her right
+                                    // edge never reaches a lyric.
+                                    val stepOverflowDp =
+                                        (SpotlightGeom.dancerWidthDp(dancerH.value) - maxWidth.value) / 2f
                                     DancerImage(
                                         dancer = dancer,
+                                        modifier = if (stepOverflowDp > 0f) {
+                                            Modifier.offset(x = (-stepOverflowDp).dp)
+                                        } else {
+                                            Modifier
+                                        },
                                         pose = when (dancerPhase) {
                                             DancerActivity.Phase.DANCING -> DanceMotion.pose(
                                                 dancer.profile, positionMs, currentBpm,
@@ -1370,8 +1415,12 @@ class MainActivity : ComponentActivity() {
                                         // v1.0.25: of the STAGE height
                                         // (this zone's own height), feet
                                         // on the stage floor, spotlight
-                                        // pool under them.
-                                        heightDp = maxHeight * if (compact) 0.72f else 0.80f,
+                                        // pool under them. v1.0.32:
+                                        // dancerH carries the intro
+                                        // step-forward envelope computed
+                                        // above (== the base height
+                                        // whenever no step is running).
+                                        heightDp = dancerH,
                                         spotlight = true,
                                     )
                                 }

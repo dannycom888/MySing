@@ -338,4 +338,76 @@ object DancerActivity {
             scale = 1f,
         )
     }
+
+    // ---- v1.0.32: the intro step-forward --------------------------
+    //
+    // The user's staging note: "邀请的时候伴舞向前一大步，变大。
+    // 跳舞时再退后" — while she invites during the intro she takes
+    // one big step toward the audience and stands larger; the
+    // moment the singing starts she steps back to her dancing
+    // size. The renderer turns this progress into a LAYOUT height
+    // change (dancing height 0.80 of the stage → 0.95, compact
+    // 0.72 → 0.88), so she grows upward from the stage floor (her
+    // feet stay planted on the bottom edge) and the spotlight
+    // pool inside her wrapper — sized off her own rect — grows
+    // with her. This function only decides HOW FAR the step has
+    // progressed at a playback position; it is a pure function of
+    // position like everything else here, so pausing freezes the
+    // step mid-stride exactly like it freezes the bow.
+
+    /** How long stepping forward (and stepping back) takes, in ms
+     *  of playback position. */
+    const val STEP_RAMP_MS = 700L
+
+    /** Hard size levels the robot's step is quantised to, both
+     *  ends included: 0, 1/3, 2/3, 1 — he approaches in mechanical
+     *  steps, like everything else he does (v1.0.10's stepped
+     *  frame cuts, the quarter-beat pose table). */
+    const val ROBOT_STEP_LEVELS = 4
+
+    /**
+     * Step-forward progress at [positionMs], 0 (dancing size) to
+     * 1 (fully stepped forward): ramps up across the intro's
+     * first [STEP_RAMP_MS] with a smoothstep, holds at 1 for the
+     * rest of the intro, then ramps back down across the first
+     * [STEP_RAMP_MS] after the first sung line starts. Songs
+     * without an intro — no LRC, or a first sung line before
+     * [MIN_INTRO_MS] — never step (they have no INVITING phase
+     * to step in), and the outro phases sit long past the
+     * step-back window, so they read 0 as well. The ramp window
+     * is capped at half the intro length so the up and down
+     * ramps can never overlap (defensive: [hasIntro] already
+     * guarantees an intro of at least 2.5 s against a 0.7 s
+     * ramp). The robot's progress is quantised into
+     * [ROBOT_STEP_LEVELS] hard levels.
+     */
+    fun stepProgress(
+        positionMs: Long,
+        firstSungStartMs: Long?,
+        profile: DanceMotion.Profile,
+    ): Float {
+        if (!hasIntro(firstSungStartMs)) return 0f
+        val start = firstSungStartMs!!
+        val ramp = minOf(STEP_RAMP_MS, start / 2).coerceAtLeast(1L)
+        val raw = when {
+            positionMs < 0L -> 0f
+            positionMs < ramp -> stepSmooth(positionMs.toFloat() / ramp.toFloat())
+            positionMs < start -> 1f
+            positionMs < start + ramp ->
+                1f - stepSmooth((positionMs - start).toFloat() / ramp.toFloat())
+            else -> 0f
+        }
+        return if (profile == DanceMotion.Profile.ROBOT) {
+            val steps = (ROBOT_STEP_LEVELS - 1).toFloat()
+            (kotlin.math.round(raw * steps) / steps).coerceIn(0f, 1f)
+        } else {
+            raw
+        }
+    }
+
+    /** Smoothstep 0→1 (same curve [outroHoldPose] settles with). */
+    private fun stepSmooth(t: Float): Float {
+        val x = t.coerceIn(0f, 1f)
+        return x * x * (3f - 2f * x)
+    }
 }

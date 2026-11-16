@@ -502,4 +502,164 @@ class DancerActivityTest {
         // the v1.0.7 period; amplitude and shape are unchanged.
         assertEquals(4_000L, DancerActivity.INVITE_PERIOD_MS)
     }
+
+    // ---- v1.0.32: the intro step-forward envelope ----
+    //
+    // "邀请的时候伴舞向前一大步，变大。跳舞时再退后" — during the
+    // intro invite the dancer steps toward the audience (progress
+    // 1 = fully forward at the bigger size); the moment the
+    // singing starts she steps back to dancing size (progress 0).
+    // The renderer maps progress onto her layout height; here we
+    // pin the envelope itself.
+
+    private val introStart = 18_350L // 《海阔天空》's real first sung line
+
+    @Test
+    fun stepRampIsPointSevenSeconds() {
+        assertEquals(700L, DancerActivity.STEP_RAMP_MS)
+    }
+
+    @Test
+    fun stepNeverHappensWithoutLyrics() {
+        for (t in listOf(0L, 350L, 10_000L, 3_600_000L)) {
+            assertEquals(0f, DancerActivity.stepProgress(t, null, human), 0.0001f)
+        }
+    }
+
+    @Test
+    fun stepNeverHappensForShortIntroSongs() {
+        // First sung line at 2.4 s: no INVITING phase exists, so
+        // there is nothing to step forward in — not even at the
+        // positions where an invite would have run.
+        val first = 2_400L
+        for (t in listOf(0L, 350L, 700L, 1_200L, 2_399L, 2_400L, 3_100L, 60_000L)) {
+            assertEquals(0f, DancerActivity.stepProgress(t, first, human), 0.0001f)
+        }
+    }
+
+    @Test
+    fun stepStartsAtDancingSize() {
+        assertEquals(0f, DancerActivity.stepProgress(0L, introStart, human), 0.0001f)
+        assertEquals(0f, DancerActivity.stepProgress(-500L, introStart, human), 0.0001f)
+    }
+
+    @Test
+    fun stepRampsUpAcrossTheFirstRampWindow() {
+        // Smoothstep: exactly half at the ramp's midpoint, fully
+        // forward at its end, monotonically growing in between.
+        assertEquals(
+            0.5f,
+            DancerActivity.stepProgress(DancerActivity.STEP_RAMP_MS / 2, introStart, human),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            DancerActivity.stepProgress(DancerActivity.STEP_RAMP_MS, introStart, human),
+            0.0001f,
+        )
+        var prev = -1f
+        var t = 0L
+        while (t <= DancerActivity.STEP_RAMP_MS) {
+            val p = DancerActivity.stepProgress(t, introStart, human)
+            assertTrue(p >= prev)
+            prev = p
+            t += 50L
+        }
+    }
+
+    @Test
+    fun stepHoldsFullyForwardThroughTheRestOfTheIntro() {
+        assertEquals(1f, DancerActivity.stepProgress(5_000L, introStart, human), 0.0001f)
+        assertEquals(1f, DancerActivity.stepProgress(introStart - 1, introStart, human), 0.0001f)
+        assertEquals(1f, DancerActivity.stepProgress(introStart, introStart, human), 0.0001f)
+    }
+
+    @Test
+    fun stepReturnsAcrossTheSingingsFirstRampWindow() {
+        assertEquals(
+            0.5f,
+            DancerActivity.stepProgress(
+                introStart + DancerActivity.STEP_RAMP_MS / 2, introStart, human,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            0f,
+            DancerActivity.stepProgress(
+                introStart + DancerActivity.STEP_RAMP_MS, introStart, human,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            0f,
+            DancerActivity.stepProgress(introStart + 60_000L, introStart, human),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun stepStaysInsideBoundsAcrossTheWholeSong() {
+        var t = 0L
+        while (t <= 200_000L) {
+            val p = DancerActivity.stepProgress(t, introStart, human)
+            assertTrue("progress $p at $t", p >= 0f && p <= 1f)
+            t += 37L
+        }
+    }
+
+    @Test
+    fun robotStepIsQuantisedIntoHardLevels() {
+        assertEquals(4, DancerActivity.ROBOT_STEP_LEVELS)
+        val levels = setOf(0f, 1f / 3f, 2f / 3f, 1f)
+        var t = 0L
+        while (t <= introStart + 2 * DancerActivity.STEP_RAMP_MS) {
+            val p = DancerActivity.stepProgress(t, introStart, DanceMotion.Profile.ROBOT)
+            assertTrue("robot progress $p at $t not a hard level", levels.any { kotlin.math.abs(it - p) < 0.0001f })
+            t += 33L // the player's own polling step
+        }
+    }
+
+    @Test
+    fun robotStepStillReachesFullAndReturns() {
+        val robot = DanceMotion.Profile.ROBOT
+        assertEquals(0f, DancerActivity.stepProgress(0L, introStart, robot), 0.0001f)
+        assertEquals(
+            1f,
+            DancerActivity.stepProgress(DancerActivity.STEP_RAMP_MS, introStart, robot),
+            0.0001f,
+        )
+        assertEquals(1f, DancerActivity.stepProgress(introStart, introStart, robot), 0.0001f)
+        assertEquals(
+            0f,
+            DancerActivity.stepProgress(
+                introStart + DancerActivity.STEP_RAMP_MS, introStart, robot,
+            ),
+            0.0001f,
+        )
+        // Mid-ramp the robot sits on a step, never between steps:
+        // the smooth envelope's midpoint 0.5 quantises to 2/3.
+        assertEquals(
+            2f / 3f,
+            DancerActivity.stepProgress(DancerActivity.STEP_RAMP_MS / 2, introStart, robot),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun stepAlignsWithTheInvitingPhase() {
+        // Fully forward exactly while INVITING runs (past the
+        // opening ramp), back at dancing size once DANCING is
+        // under way — the envelope never leaks into the outro.
+        val end = 184_500L
+        assertEquals(
+            DancerActivity.Phase.INVITING,
+            DancerActivity.phase(introStart - 1, introStart, end),
+        )
+        assertEquals(1f, DancerActivity.stepProgress(introStart - 1, introStart, human), 0.0001f)
+        assertEquals(
+            0f,
+            DancerActivity.stepProgress(end + DancerActivity.OUTRO_HOLD_MS + 1_000L, introStart, human),
+            0.0001f,
+        )
+    }
 }

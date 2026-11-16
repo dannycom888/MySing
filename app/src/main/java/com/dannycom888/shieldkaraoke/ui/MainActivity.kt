@@ -113,6 +113,7 @@ import com.dannycom888.shieldkaraoke.queue.FillerPicker
 import com.dannycom888.shieldkaraoke.queue.FillerPolicy
 import com.dannycom888.shieldkaraoke.queue.FillerSession
 import com.dannycom888.shieldkaraoke.queue.QueueEntry
+import com.dannycom888.shieldkaraoke.state.DancerKeys
 import com.dannycom888.shieldkaraoke.state.DancerNames
 import com.dannycom888.shieldkaraoke.state.SweepColor
 import androidx.documentfile.provider.DocumentFile
@@ -1870,12 +1871,24 @@ class MainActivity : ComponentActivity() {
                         // Song finished: all six come out and clap together.
                         // v1.0.45: same enlarged, tightened row as
                         // the ceremony — one "six come out" scene,
-                        // one size, one pitch.
+                        // one size, one pitch. v1.0.48: same
+                        // panel-avoidance placement as the ceremony
+                        // row — sized against, and centred inside,
+                        // the width left of the queue panel's
+                        // reserve band, so the panel can never
+                        // cover the robot again.
+                        val reserveW = LyricsBand.reserveWidthDp(screenW.value)
+                        val rowH = SpotlightGeom.sixRowHeightDp(
+                            screenW.value, screenH.value, reserveW,
+                        )
                         SixInRow(
-                            heightDp = SpotlightGeom.sixRowHeightDp(
-                                screenW.value, screenH.value,
-                            ).dp,
-                            modifier = Modifier.align(Alignment.BottomCenter),
+                            heightDp = rowH.dp,
+                            modifier = Modifier.align(Alignment.BottomStart)
+                                .offset(
+                                    x = SpotlightGeom.sixRowLeftDp(
+                                        screenW.value, rowH, reserveW,
+                                    ).dp,
+                                ),
                         ) { dancer, h ->
                             DancerImage(
                                 dancer = dancer,
@@ -2370,16 +2383,17 @@ class MainActivity : ComponentActivity() {
         Box(modifier = Modifier.fillMaxSize()) {
             // --- big next-song card, upper-centre on the stage
             //     (v1.0.45 — the user: "将歌曲文件名提高"): it was
-            //     dead centre until the row of six grew; now its
-            //     top edge sits 12% of the screen height below the
-            //     stage top (the stage itself starts under the
-            //     banner row), clear of the banner above and the
-            //     enlarged dancers below, in every phase. ---
+            //     dead centre until the row of six grew; v1.0.45
+            //     put its top edge 12% of the screen height below
+            //     the stage top, v1.0.48 raises it to 5% — just
+            //     under the banner row — in every phase (the stage
+            //     itself starts under the banner row), clear of
+            //     the enlarged dancers below. ---
             val remainingSec =
                 ((Ceremony.TOTAL_MS - elapsedMs).coerceAtLeast(0L) + 999L) / 1000L
             Column(
                 modifier = Modifier.align(Alignment.TopCenter)
-                    .padding(top = screenH * 0.12f)
+                    .padding(top = screenH * 0.05f)
                     .background(cardBg, RoundedCornerShape(16.dp))
                     .padding(horizontal = 30.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -2405,12 +2419,24 @@ class MainActivity : ComponentActivity() {
             if (phase != Ceremony.Phase.SOLO_INVITE) {
                 val rowAlpha = 0.95f * Ceremony.leavingAlpha(elapsedMs)
                 // v1.0.45: as tall as fits — target 0.46 of the
-                // screen height, capped by the row's total width
-                // (see SpotlightGeom.sixRowHeightDp).
-                val rowHeight = SpotlightGeom.sixRowHeightDp(screenW.value, screenH.value).dp
+                // screen height, capped by the row's total width.
+                // v1.0.48: target 0.58, capped by the tightened
+                // span AND the queue panel's reserve band; the
+                // row is centred in the width left of the band,
+                // so it can never slide under the panel (see
+                // SpotlightGeom.sixRowHeightDp / sixRowLeftDp).
+                val reserveW = LyricsBand.reserveWidthDp(screenW.value)
+                val rowHeight = SpotlightGeom.sixRowHeightDp(
+                    screenW.value, screenH.value, reserveW,
+                ).dp
                 SixInRow(
                     heightDp = rowHeight,
-                    modifier = Modifier.align(Alignment.BottomCenter),
+                    modifier = Modifier.align(Alignment.BottomStart)
+                        .offset(
+                            x = SpotlightGeom.sixRowLeftDp(
+                                screenW.value, rowHeight.value, reserveW,
+                            ).dp,
+                        ),
                 ) { dancer, h ->
                     when (phase) {
                         Ceremony.Phase.CLAPPING -> DancerImage(
@@ -2506,6 +2532,15 @@ class MainActivity : ComponentActivity() {
      * the height formula budgets for. Positions are explicit
      * offsets inside a fixed-span box, so the pitch holds by
      * construction, not by an arrangement's spacing arithmetic.
+     *
+     * v1.0.48: the robot's slot additionally shifts left by
+     * [SpotlightGeom.sixRowRobotShiftDp] — his wider canvas left
+     * his figure visually closer to the right screen edge than
+     * Amy's is to the left one (measured: 0.1975 vs 0.2358 of the
+     * dancer height); the shift equalises the two visual margins.
+     * His spotlight pool rides inside the same slot box, so it
+     * follows him; nobody else moves, and his solo / invite
+     * placement outside this row is untouched.
      */
     @Composable
     private fun SixInRow(
@@ -2515,11 +2550,15 @@ class MainActivity : ComponentActivity() {
     ) {
         val pitch = heightDp * SpotlightGeom.SIX_ROW_PITCH_FRACTION
         val span = heightDp * SpotlightGeom.SIX_ROW_SPAN_PER_HEIGHT
+        val robotShift = SpotlightGeom.sixRowRobotShiftDp(heightDp.value).dp
         Box(modifier = modifier.width(span).height(heightDp)) {
             Dancers.ALL.forEachIndexed { index, dancer ->
                 Box(
                     modifier = Modifier.align(Alignment.BottomStart)
-                        .offset(x = pitch * index),
+                        .offset(
+                            x = pitch * index -
+                                if (dancer.key == DancerKeys.ROBOT) robotShift else 0.dp,
+                        ),
                 ) {
                     content(dancer, heightDp)
                 }

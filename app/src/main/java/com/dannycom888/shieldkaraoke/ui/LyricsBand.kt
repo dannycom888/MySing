@@ -59,9 +59,15 @@ object LyricsBand {
         val rightDp: Float get() = leftDp + widthDp
     }
 
+    /** The reserve band's width on its own (v1.0.48): the row of
+     *  six sizes and places itself against this same number, so
+     *  the panel's territory is computed here and nowhere else. */
+    fun reserveWidthDp(screenWidthDp: Float): Float =
+        PANEL_FRACTION * screenWidthDp + GAP_DP
+
     fun compute(stageWidthDp: Float, screenWidthDp: Float): Band {
         val dancer = DANCER_FRACTION * screenWidthDp
-        val reserve = PANEL_FRACTION * screenWidthDp + GAP_DP
+        val reserve = reserveWidthDp(screenWidthDp)
         val left = dancer + GAP_DP
         val width = (stageWidthDp - left - reserve).coerceAtLeast(0f)
         return Band(

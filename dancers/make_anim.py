@@ -23,6 +23,14 @@ the cards now sample the NEW dance order evenly — tour positions
 0, 6, 12, …, 54 mapped through dancers/resequence_orders.json —
 so the picker previews the same sequence the TV dances.
 
+v1.0.33: the five human dancers' tours grew to 100 steps with
+the generated in-between frames spliced in (see
+dancers/inbetween/MANIFEST.md). Their cards now sample the
+100-step tour evenly — positions 0, 10, 20, …, 90 mapped through
+dancers/inbetween/inbetween_orders.json — so the picker previews
+the smoothed sequence, in-betweens included. The robot keeps
+his 60-step tour and the v1.0.22 sampling.
+
 Run from the project root:  python3 dancers/make_anim.py
 """
 
@@ -44,18 +52,22 @@ DANCERS = {
     "robot": "dancer_robot",
 }
 
-# Tour positions sampled from the 60-step dance order; build()
-# maps them through resequence_orders.json to file numbers.
+# Tour positions sampled from the dance order; build() maps
+# them through the order tables to file numbers. The 60-step
+# tours (robot) sample every 6th step; the 100-step tours
+# (v1.0.33, the five humans) every 10th.
 TOUR_POSITIONS = [0, 6, 12, 18, 24, 30, 36, 42, 48, 54]  # 10 of 60
+TOUR_POSITIONS_100 = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]  # 10 of 100
 ORDERS_JSON = PROJECT / "dancers/resequence_orders.json"
+INBETWEEN_ORDERS_JSON = PROJECT / "dancers/inbetween/inbetween_orders.json"
 FRAME_DURATION_MS = 280
 TARGET_HEIGHT = 420
 QUALITY = 80
 
 
-def build(key: str, prefix: str, order: list) -> Path:
+def build(key: str, prefix: str, order: list, positions: list) -> Path:
     resized = []
-    for pos in TOUR_POSITIONS:
+    for pos in positions:
         i = order[pos] + 1  # tour value is 0-based; files are 1-based
         src = FRAMES_DIR / f"{prefix}_{i:02d}.webp"
         im = Image.open(src).convert("RGBA")
@@ -89,10 +101,15 @@ def main() -> None:
 
     orders = {k: v["order"] for k, v in
               json.loads(ORDERS_JSON.read_text()).items()}
+    if INBETWEEN_ORDERS_JSON.exists():
+        for k, v in json.loads(INBETWEEN_ORDERS_JSON.read_text()).items():
+            orders[k] = v["order"]  # v1.0.33: 100-step spliced tours
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     total = 0
     for key, prefix in DANCERS.items():
-        out = build(key, prefix, orders[key])
+        order = orders[key]
+        positions = TOUR_POSITIONS_100 if len(order) == 100 else TOUR_POSITIONS
+        out = build(key, prefix, order, positions)
         size = out.stat().st_size
         total += size
         print(f"{key:14s} {size:>8,} bytes  -> {out.relative_to(PROJECT)}")

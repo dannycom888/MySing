@@ -9,19 +9,33 @@ import org.junit.Test
  * v1.0.17: the dance order (see [DancerPoseOrder]). The tables are
  * generated offline by dancers/resequence.py; these tests pin the
  * invariants the player relies on — every table is a true
- * permutation of the 60 frames (no frame shown twice per loop, no
+ * permutation of its frames (no frame shown twice per loop, no
  * frame dropped), every tour starts from the neutral standing
  * frame, and [PoseCycle]'s ordered overloads visit the frames in
- * exactly the table's order, one per beat.
+ * exactly the table's order, one per beat. Since v1.0.33 the
+ * five human tables run to 100 steps (60 originals + 40 spliced
+ * in-betweens, pinned in detail by DancerInbetweenOrderTest);
+ * the robot's stays at 60.
  */
 class DancerPoseOrderTest {
 
     @Test
-    fun everyDancerOrderIsATruePermutationOfAllSixtyFrames() {
-        for (key in DancerKeys.ALL) {
+    fun robotOrderIsATruePermutationOfAllSixtyFrames() {
+        // v1.0.33: the robot keeps his 60-step tour (no
+        // in-betweens — his stepped motion is his character).
+        val order = DancerPoseOrder.orderFor(DancerKeys.ROBOT)
+        assertEquals(60, order.size)
+        assertEquals((0 until 60).toList(), order.sorted())
+    }
+
+    @Test
+    fun humanOrdersAreTruePermutationsOfAllHundredFrames() {
+        // v1.0.33: the five human tours grew to 100 steps (the
+        // splice itself is pinned in DancerInbetweenOrderTest).
+        for (key in DancerKeys.ALL - DancerKeys.ROBOT) {
             val order = DancerPoseOrder.orderFor(key)
-            assertEquals("size for $key", 60, order.size)
-            assertEquals("permutation for $key", (0 until 60).toList(), order.sorted())
+            assertEquals("size for $key", 100, order.size)
+            assertEquals("permutation for $key", (0 until 100).toList(), order.sorted())
         }
     }
 
@@ -46,7 +60,7 @@ class DancerPoseOrderTest {
 
     @Test
     fun orderedFrameIndexVisitsTheTourOneFramePerBeat() {
-        val order = DancerPoseOrder.orderFor(DancerKeys.MODERN)
+        val order = DancerPoseOrder.orderFor(DancerKeys.ROBOT)
         // 120 BPM: beat k starts at k*500 ms and shows order[k].
         val seen = (0 until 60).map { PoseCycle.frameIndex(it * 500L, 120.0, order) }
         assertEquals(order, seen)
@@ -83,9 +97,9 @@ class DancerPoseOrderTest {
         assertEquals(order[sheet.currentIndex], mapped.currentIndex)
         assertEquals(order[sheet.previousIndex], mapped.previousIndex)
         // Across the wrap the previous frame is the tour's last one.
-        val wrap = PoseCycle.blend(60 * 500L, 120.0, order)
+        val wrap = PoseCycle.blend(order.size * 500L, 120.0, order)
         assertEquals(order[0], wrap.currentIndex)
-        assertEquals(order[59], wrap.previousIndex)
+        assertEquals(order.last(), wrap.previousIndex)
     }
 
     @Test
@@ -126,6 +140,6 @@ class DancerPoseOrderTest {
                 PoseCycle.blend(12_345L, 96.0, order),
             )
         }
-        assertTrue(PoseCycle.frameIndex(12_345L, 96.0, order) in 0 until 60)
+        assertTrue(PoseCycle.frameIndex(12_345L, 96.0, order) in 0 until 100)
     }
 }

@@ -29,8 +29,8 @@ class DancerKeysTest {
 
     @Test
     fun stageNames() {
-        assertEquals("春丽", DancerKeys.label("modern"))
-        assertEquals("陈秀颖", DancerKeys.label("ancient"))
+        assertEquals("Amy", DancerKeys.label("modern"))
+        assertEquals("秀颖", DancerKeys.label("ancient"))
         assertEquals("姿三四郎", DancerKeys.label("sumo"))
         assertEquals("汉娜", DancerKeys.label("ancient_girl"))
         assertEquals("哪吒", DancerKeys.label("baby"))
@@ -42,22 +42,22 @@ class DancerKeysTest {
         // v1.0.13: the phone page's English cards read these names;
         // the page carries the same mapping inline and PhonePageTest
         // pins the two sides together.
-        assertEquals("Chun-Li", DancerKeys.labelEn("modern"))
-        assertEquals("Chen Xiuying", DancerKeys.labelEn("ancient"))
+        assertEquals("Amy", DancerKeys.labelEn("modern"))
+        assertEquals("Xiuying", DancerKeys.labelEn("ancient"))
         assertEquals("Sanshiro", DancerKeys.labelEn("sumo"))
         assertEquals("Hannah", DancerKeys.labelEn("ancient_girl"))
         assertEquals("Nezha", DancerKeys.labelEn("baby"))
         assertEquals("WALL-E", DancerKeys.labelEn("robot"))
         assertEquals(DancerKeys.ALL.toSet(), DancerKeys.LABELS_EN.keys)
-        assertEquals("Chun-Li", DancerKeys.labelEn("girl"))
-        assertEquals("Chun-Li", DancerKeys.labelEn(null))
+        assertEquals("Amy", DancerKeys.labelEn("girl"))
+        assertEquals("Amy", DancerKeys.labelEn(null))
     }
 
     @Test
     fun retiredAndUnknownKeysFallBackToDefault() {
-        assertEquals("春丽", DancerKeys.label("girl"))
-        assertEquals("春丽", DancerKeys.label("nonsense"))
-        assertEquals("春丽", DancerKeys.label(null))
+        assertEquals("Amy", DancerKeys.label("girl"))
+        assertEquals("Amy", DancerKeys.label("nonsense"))
+        assertEquals("Amy", DancerKeys.label(null))
         assertEquals(DancerKeys.MODERN, DancerKeys.DEFAULT)
     }
 }

@@ -23,8 +23,8 @@ class DancerNamesTest {
 
     @Test
     fun noCustomFallsBackToBilingualDefaults() {
-        assertEquals("春丽", DancerNames.display(DancerKeys.MODERN, UiLang.ZH, emptyMap()))
-        assertEquals("Chun-Li", DancerNames.display(DancerKeys.MODERN, UiLang.EN, emptyMap()))
+        assertEquals("Amy", DancerNames.display(DancerKeys.MODERN, UiLang.ZH, emptyMap()))
+        assertEquals("Amy", DancerNames.display(DancerKeys.MODERN, UiLang.EN, emptyMap()))
         assertEquals("姿三四郎", DancerNames.display(DancerKeys.SUMO, UiLang.ZH, emptyMap()))
         assertEquals("Sanshiro", DancerNames.display(DancerKeys.SUMO, UiLang.EN, emptyMap()))
         assertEquals("WALL-E", DancerNames.display(DancerKeys.ROBOT, UiLang.EN, emptyMap()))
@@ -36,8 +36,8 @@ class DancerNamesTest {
         // names. Only the defaults moved — a name
         // the host already set in the admin page still wins over the
         // new factory default, in both languages.
-        assertEquals("陈秀颖", DancerNames.display(DancerKeys.ANCIENT, UiLang.ZH, emptyMap()))
-        assertEquals("Chen Xiuying", DancerNames.display(DancerKeys.ANCIENT, UiLang.EN, emptyMap()))
+        assertEquals("秀颖", DancerNames.display(DancerKeys.ANCIENT, UiLang.ZH, emptyMap()))
+        assertEquals("Xiuying", DancerNames.display(DancerKeys.ANCIENT, UiLang.EN, emptyMap()))
         assertEquals("汉娜", DancerNames.display(DancerKeys.ANCIENT_GIRL, UiLang.ZH, emptyMap()))
         assertEquals("Hannah", DancerNames.display(DancerKeys.ANCIENT_GIRL, UiLang.EN, emptyMap()))
         val custom = mapOf(DancerKeys.ANCIENT to "阿姐", DancerKeys.ANCIENT_GIRL to "小妹")
@@ -57,7 +57,7 @@ class DancerNamesTest {
     @Test
     fun customOnAnotherDancerDoesNotLeak() {
         val custom = mapOf(DancerKeys.SUMO to "大壮")
-        assertEquals("春丽", DancerNames.display(DancerKeys.MODERN, UiLang.ZH, custom))
+        assertEquals("Amy", DancerNames.display(DancerKeys.MODERN, UiLang.ZH, custom))
         assertEquals("大壮", DancerNames.display(DancerKeys.SUMO, UiLang.EN, custom))
     }
 
@@ -66,8 +66,8 @@ class DancerNamesTest {
         val custom = mapOf(DancerKeys.MODERN to "小明")
         assertEquals("小明", DancerNames.display("girl", UiLang.ZH, custom))
         assertEquals("小明", DancerNames.display(null, UiLang.EN, custom))
-        assertEquals("春丽", DancerNames.display("nonsense", UiLang.ZH, emptyMap()))
-        assertEquals("Chun-Li", DancerNames.display(null, UiLang.EN, emptyMap()))
+        assertEquals("Amy", DancerNames.display("nonsense", UiLang.ZH, emptyMap()))
+        assertEquals("Amy", DancerNames.display(null, UiLang.EN, emptyMap()))
     }
 
     @Test

@@ -13,7 +13,6 @@ enum class TvKey {
     TAB_SONGS, TAB_SINGERS, FILTER_ALL, FILTER_CHINESE, FILTER_ENGLISH,
     FILTER_ANY_GENDER, FILTER_MALE, FILTER_FEMALE, SINGER_CHIP,
     // Player
-    BRAND_TITLE,
     NEXT_UP, INTERLUDE_COUNTDOWN, NOW_SINGING_LINE,
     PAUSE, RESUME, REPLAY, ACCOMP_ON, ACCOMP_OFF,
     PITCH_DOWN, PITCH_LABEL, PITCH_UP, DANCERS_ON, DANCERS_OFF,
@@ -73,9 +72,6 @@ object TvStrings {
         TvKey.PICK_FOLDER_BTN to "📁 选择歌库文件夹",
         TvKey.RESCAN to "🔄 重新扫描",
         TvKey.CREDIT to "本软件由 Muse 协助制作",
-        // v1.0.31: the brand at the player banner's left end —
-        // the retired home screen's title, in the UI's language.
-        TvKey.BRAND_TITLE to "一起唱卡拉OK",
         TvKey.TAB_SONGS to "歌曲",
         TvKey.TAB_SINGERS to "歌手",
         TvKey.FILTER_ALL to "全部",
@@ -154,7 +150,6 @@ object TvStrings {
         TvKey.PICK_FOLDER_BTN to "📁 Choose library folder",
         TvKey.RESCAN to "🔄 Rescan",
         TvKey.CREDIT to "Built with assistance from Claude",
-        TvKey.BRAND_TITLE to "MySing",
         TvKey.TAB_SONGS to "Songs",
         TvKey.TAB_SINGERS to "Singers",
         TvKey.FILTER_ALL to "All",

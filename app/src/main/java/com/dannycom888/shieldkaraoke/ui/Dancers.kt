@@ -28,7 +28,7 @@ data class Dancer(
 object Dancers {
     val ALL: List<Dancer> = listOf(
         Dancer(
-            DancerKeys.MODERN, "春丽", R.drawable.dancer_modern_woman, R.drawable.dancer_modern_woman_invite,
+            DancerKeys.MODERN, "Amy", R.drawable.dancer_modern_woman, R.drawable.dancer_modern_woman_invite,
             listOf(
                 R.drawable.dancer_modern_woman_01, R.drawable.dancer_modern_woman_02,
                 R.drawable.dancer_modern_woman_03, R.drawable.dancer_modern_woman_04,
@@ -84,7 +84,7 @@ object Dancers {
             DanceMotion.Profile.MODERN,
         ),
         Dancer(
-            DancerKeys.ANCIENT, "陈秀颖", R.drawable.dancer_ancient_woman, R.drawable.dancer_ancient_woman_invite,
+            DancerKeys.ANCIENT, "秀颖", R.drawable.dancer_ancient_woman, R.drawable.dancer_ancient_woman_invite,
             listOf(
                 R.drawable.dancer_ancient_woman_01, R.drawable.dancer_ancient_woman_02,
                 R.drawable.dancer_ancient_woman_03, R.drawable.dancer_ancient_woman_04,
@@ -345,7 +345,7 @@ object Dancers {
         ),
     )
 
-    /** Unknown / unset keys fall back to the default (Chun-Li). */
+    /** Unknown / unset keys fall back to the default (Amy). */
     fun byKey(key: String?): Dancer = ALL.firstOrNull { it.key == key } ?: ALL[0]
 
     fun indexOf(dancer: Dancer): Int = ALL.indexOf(dancer).coerceAtLeast(0)

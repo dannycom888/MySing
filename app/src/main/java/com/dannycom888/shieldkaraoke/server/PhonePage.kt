@@ -93,8 +93,8 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <h1 data-i="dancerTitle">💃 选伴舞</h1>
 <p class="small" data-i="dancerHint">你选的伴舞，只在你点的歌时出来；唱到你的歌时想换人，点一下电视上立刻换。</p>
 <div id="dancers" class="dcards">
-<div class="dcard" data-who="modern"><img src="/dancer-anim/modern" onerror="this.onerror=null;this.src='/dancer-img/modern'" alt="春丽"><span data-dancer="modern">春丽</span></div>
-<div class="dcard" data-who="ancient"><img src="/dancer-anim/ancient" onerror="this.onerror=null;this.src='/dancer-img/ancient'" alt="陈秀颖"><span data-dancer="ancient">陈秀颖</span></div>
+<div class="dcard" data-who="modern"><img src="/dancer-anim/modern" onerror="this.onerror=null;this.src='/dancer-img/modern'" alt="Amy"><span data-dancer="modern">Amy</span></div>
+<div class="dcard" data-who="ancient"><img src="/dancer-anim/ancient" onerror="this.onerror=null;this.src='/dancer-img/ancient'" alt="秀颖"><span data-dancer="ancient">秀颖</span></div>
 <div class="dcard" data-who="sumo"><img src="/dancer-anim/sumo" onerror="this.onerror=null;this.src='/dancer-img/sumo'" alt="姿三四郎"><span data-dancer="sumo">姿三四郎</span></div>
 <div class="dcard" data-who="ancient_girl"><img src="/dancer-anim/ancient_girl" onerror="this.onerror=null;this.src='/dancer-img/ancient_girl'" alt="汉娜"><span data-dancer="ancient_girl">汉娜</span></div>
 <div class="dcard" data-who="baby"><img src="/dancer-anim/baby" onerror="this.onerror=null;this.src='/dancer-img/baby'" alt="哪吒"><span data-dancer="baby">哪吒</span></div>
@@ -124,7 +124,7 @@ zh: {
   sugMore: '还有更多结果，继续输入缩小范围',
   netErr: '发送失败：连不上电视，请确认同一个 WiFi，或关掉页面重新扫码',
   tvRestarted: '电视已重启，正在刷新页面…',
-  dancers: {modern: '春丽', ancient: '陈秀颖', sumo: '姿三四郎', ancient_girl: '汉娜', baby: '哪吒', robot: '瓦力'}
+  dancers: {modern: 'Amy', ancient: '秀颖', sumo: '姿三四郎', ancient_girl: '汉娜', baby: '哪吒', robot: '瓦力'}
 },
 en: {
   title: 'MySing — Order Songs',
@@ -144,7 +144,7 @@ en: {
   sugMore: 'More matches — keep typing to narrow it down',
   netErr: "Couldn't send — can't reach the TV. Check you're on the same Wi-Fi, or close this page and scan again.",
   tvRestarted: 'The TV app restarted — refreshing…',
-  dancers: {modern: 'Chun-Li', ancient: 'Chen Xiuying', sumo: 'Sanshiro', ancient_girl: 'Hannah', baby: 'Nezha', robot: 'WALL-E'}
+  dancers: {modern: 'Amy', ancient: 'Xiuying', sumo: 'Sanshiro', ancient_girl: 'Hannah', baby: 'Nezha', robot: 'WALL-E'}
 }
 };
 var ui = localStorage.getItem('mysing_lang') || 'zh';

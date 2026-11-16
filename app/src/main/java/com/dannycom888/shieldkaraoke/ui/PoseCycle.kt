@@ -47,6 +47,39 @@ object PoseCycle {
      */
     const val FADE_FRACTION = 0.35
 
+    // ---- v1.0.36: the fade window widens a little as songs get
+    // faster. The user's "抖动得很厉害" complaint is mostly the
+    // motion amplitudes (see DanceMotion.tempoFactor), but at
+    // 140+ BPM a 35%-of-beat fade is only ~150 ms — pose changes
+    // still land as snaps. [fadeFraction] keeps the normal-speed
+    // 0.35 up to [FADE_TAPER_START_BPM], then eases the window
+    // open to [FADE_FRACTION_FAST] at [FADE_TAPER_FULL_BPM] so
+    // fast songs melt between poses instead of snapping. The
+    // robot never blends at all (call-site exemption, unchanged).
+
+    /** Fade window at the fastest tempos. */
+    const val FADE_FRACTION_FAST = 0.50
+
+    /** At or below this tempo the fade window is [FADE_FRACTION]. */
+    const val FADE_TAPER_START_BPM = 120.0
+
+    /** At this tempo the fade window reaches [FADE_FRACTION_FAST]. */
+    const val FADE_TAPER_FULL_BPM = 150.0
+
+    /**
+     * The cross-fade window, as a fraction of one beat, at [bpm]:
+     * [FADE_FRACTION] at or below 120 BPM, a smoothstep ease up
+     * to [FADE_FRACTION_FAST] at 150 BPM, flat beyond. Pure
+     * function of the tempo.
+     */
+    fun fadeFraction(bpm: Double): Double {
+        if (bpm <= FADE_TAPER_START_BPM) return FADE_FRACTION.toDouble()
+        val t = ((bpm - FADE_TAPER_START_BPM) / (FADE_TAPER_FULL_BPM - FADE_TAPER_START_BPM))
+            .coerceIn(0.0, 1.0)
+        val s = t * t * (3.0 - 2.0 * t)
+        return FADE_FRACTION + (FADE_FRACTION_FAST - FADE_FRACTION) * s
+    }
+
     /**
      * The two frames to draw for a beat, and how far the cross-fade
      * between them has run: draw [previousIndex] at alpha
@@ -90,7 +123,10 @@ object PoseCycle {
         val phase = stepped - step
         val current = (((step % frameCount) + frameCount) % frameCount).toInt()
         val previous = (((step - 1) % frameCount + frameCount) % frameCount).toInt()
-        val alpha = (phase / FADE_FRACTION).coerceIn(0.0, 1.0).toFloat()
+        // v1.0.36: the fade window widens with tempo (see
+        // fadeFraction); at normal speeds this is exactly the
+        // v1.0.10 FADE_FRACTION division.
+        val alpha = (phase / fadeFraction(safeBpm)).coerceIn(0.0, 1.0).toFloat()
         return Blend(previous, current, alpha)
     }
 

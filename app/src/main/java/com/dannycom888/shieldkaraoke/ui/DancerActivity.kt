@@ -87,23 +87,42 @@ object DancerActivity {
             creditColonEnRegex.containsMatchIn(t)
     }
 
+    /** Whitespace hugging a hyphen — insignificant in a title
+     *  card (v1.0.36 — see [isTitleLine]). */
+    private val hyphenSpacing = Regex("""\s*-\s*""")
+
     /**
      * Is this line the song's title card — the header line whose
      * text is exactly the song's own artist and title joined by
-     * " - ", in either order ("Beyond - 海阔天空" in the file
+     * a hyphen, in either order ("Beyond - 海阔天空" in the file
      * name, "海阔天空 - Beyond" inside the LRC)? Only the pair
-     * match counts: a sung line that merely contains " - " is a
-     * lyric, and without the song's artist/title nothing is
+     * match counts: a sung line that merely contains a hyphen is
+     * a lyric, and without the song's artist/title nothing is
      * guessed.
+     *
+     * The spacing around the hyphen is NOT significant
+     * (v1.0.36): this library's file names are "歌手 -歌名"
+     * (space before the hyphen, none after), and the title
+     * cards inside the LRCs mirror the file name — 张宇《雨一直下》
+     * opens with "张宇 -雨一直下" at 0.60 s. Splitting on the
+     * exact " - " missed those cards, so the title line posed
+     * as the first sung line and a 40-second intro got no
+     * invite (user report, 2026-11-15). The comparison
+     * therefore squeezes the whitespace around hyphens on
+     * both sides and then compares the WHOLE line against
+     * the pair — never a split into parts, so a name that
+     * itself carries a hyphen (Toy-Box, a title ending in
+     * "Candy-") still matches exactly. The strictness that
+     * matters is unchanged: the line must still be exactly
+     * the song's own pair, nothing looser.
      */
     fun isTitleLine(text: String, artist: String?, title: String?): Boolean {
         if (artist.isNullOrBlank() || title.isNullOrBlank()) return false
-        val parts = text.trim().split(" - ").map { it.trim() }
-        if (parts.size != 2) return false
+        val line = hyphenSpacing.replace(text.trim(), "-")
         val a = artist.trim()
         val t = title.trim()
-        return (parts[0].equals(a, ignoreCase = true) && parts[1].equals(t, ignoreCase = true)) ||
-            (parts[0].equals(t, ignoreCase = true) && parts[1].equals(a, ignoreCase = true))
+        return line.equals(hyphenSpacing.replace("$a - $t", "-"), ignoreCase = true) ||
+            line.equals(hyphenSpacing.replace("$t - $a", "-"), ignoreCase = true)
     }
 
     /** The dancer's phases over one song (OUTRO_HOLD added in

@@ -204,6 +204,53 @@ class DancerActivityTest {
     }
 
     @Test
+    fun titleCardSpacingAroundTheHyphenDoesNotMatter() {
+        // The library's own spacing: file names are "歌手 -歌名"
+        // (space before the hyphen, none after) and the title
+        // cards mirror them (v1.0.36, the 雨一直下 report).
+        assertTrue(DancerActivity.isTitleLine("张宇 -雨一直下", "张宇", "雨一直下"))
+        assertTrue(DancerActivity.isTitleLine("张宇-雨一直下", "张宇", "雨一直下"))
+        assertTrue(DancerActivity.isTitleLine("张宇 - 雨一直下", "张宇", "雨一直下"))
+        assertTrue(DancerActivity.isTitleLine("雨一直下 -张宇", "张宇", "雨一直下"))
+        // Still exactly the pair, nothing looser: a near-miss
+        // title or a different song stays a lyric.
+        assertFalse(DancerActivity.isTitleLine("张宇 -雨一直下吧", "张宇", "雨一直下"))
+        assertFalse(DancerActivity.isTitleLine("张宇 -下雨", "张宇", "雨一直下"))
+        assertFalse(DancerActivity.isTitleLine("雨一直下", "张宇", "雨一直下"))
+        // A name that itself carries a hyphen is not broken by
+        // the spacing squeeze (whole-line comparison, never a
+        // split): the library's Toy-Box and the "Candy-" file.
+        assertTrue(DancerActivity.isTitleLine("Toy-Box - Tarzan Jane", "Toy-Box", "Tarzan Jane"))
+        assertTrue(DancerActivity.isTitleLine("Mandy Moore - Candy-", "Mandy Moore", "Candy-"))
+    }
+
+    @Test
+    fun rainSongRealOpeningInvitesForTheWhole40SecondIntro() {
+        // 张宇《雨一直下》as the file on disk opens (user report
+        // 2026-11-15: no invite at all): the title card at
+        // 0.60 s reads "张宇 -雨一直下" — space before the
+        // hyphen, none after — then 词 at 1.60 s, 曲 at 2.60 s,
+        // and the singing only starts at 40.44 s. The whole
+        // 40-second intro must be INVITING.
+        val lines = com.dannycom888.shieldkaraoke.lyrics.LrcParser.parse(
+            """
+            [00:00.60]<00:00.60>张<00:00.71>宇<00:00.82> <00:00.93>-<00:01.04>雨<00:01.15>一<00:01.26>直<00:01.37>下<00:01.48>
+            [00:01.60]<00:01.60>词<00:01.80>：<00:02.00>十<00:02.20>一<00:02.40>郎<00:02.60>
+            [00:02.60]<00:02.60>曲<00:03.40>：<00:04.20>张<00:05.00>宇<00:05.80>
+            [00:40.44]<00:40.44>雨<00:40.95>一<00:41.47>直<00:41.99>下<00:42.51>
+            [00:43.85]<00:43.85>气<00:44.42>氛<00:45.00>不<00:45.57>算<00:46.15>融<00:46.72>洽<00:47.30>
+            """.trimIndent()
+        )
+        assertEquals("张宇 -雨一直下", lines[0].text)
+        val start = DancerActivity.firstSungStartMs(lines, "张宇", "雨一直下")
+        assertEquals(40_440L, start)
+        assertTrue(DancerActivity.hasIntro(start))
+        assertEquals(DancerActivity.Phase.INVITING, DancerActivity.phase(0L, start, 300_000L))
+        assertEquals(DancerActivity.Phase.INVITING, DancerActivity.phase(40_439L, start, 300_000L))
+        assertEquals(DancerActivity.Phase.DANCING, DancerActivity.phase(40_440L, start, 300_000L))
+    }
+
+    @Test
     fun realFileTitleAndCreditsBeforeAn18SecondIntro() {
         // Beyond《海阔天空》as the converter wrote it: title card
         // at 0.72 s, 词 at 7.87 s, 曲 at 8.87 s, singing at

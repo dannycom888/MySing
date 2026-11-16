@@ -160,6 +160,35 @@ class PoseCycleTest {
         }
     }
 
+    // --- v1.0.36: the fade window widens with tempo ---
+
+    @Test
+    fun fadeFractionPins() {
+        // The normal-speed window is the v1.0.10 value, flat
+        // through 120 BPM.
+        assertEquals(0.35, PoseCycle.fadeFraction(96.0), 1e-9)
+        assertEquals(0.35, PoseCycle.fadeFraction(120.0), 1e-9)
+        // Smoothstep up to 0.50 at 150 BPM; 135 is the midpoint.
+        assertEquals(0.425, PoseCycle.fadeFraction(135.0), 1e-9)
+        assertEquals(0.50, PoseCycle.fadeFraction(150.0), 1e-9)
+        assertEquals(0.50, PoseCycle.fadeFraction(200.0), 1e-9)
+    }
+
+    @Test
+    fun blendAtFastTempoMeltsLonger() {
+        // 150 BPM: a beat is 400 ms and the fade window is half
+        // the beat. A quarter-beat in, the blend is only half
+        // done (at 120 BPM it would already be ~71% done).
+        val b = PoseCycle.blend(500L, 150.0, 10)
+        assertEquals(1, b.currentIndex)
+        assertEquals(0.5f, b.currentAlpha, 0.01f)
+        // Half a beat in, the fade completes exactly.
+        assertEquals(1f, PoseCycle.blend(600L, 150.0, 10).currentAlpha, 0.001f)
+        // The same phase at 120 BPM still uses the 0.35 window:
+        // phase 0.25 is ~71% blended there.
+        assertEquals(0.25f / 0.35f, PoseCycle.blend(625L, 120.0, 10).currentAlpha, 0.01f)
+    }
+
     @Test
     fun phaseOffsetShiftsTheCycle() {
         // A frame step is a whole beat: quarter- and half-beat

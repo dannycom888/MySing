@@ -24,8 +24,8 @@ object DancerKeys {
     val ALL = listOf(MODERN, ANCIENT, SUMO, ANCIENT_GIRL, BABY, ROBOT)
 
     val LABELS = mapOf(
-        MODERN to "春丽",
-        ANCIENT to "陈秀颖",
+        MODERN to "Amy",
+        ANCIENT to "秀颖",
         SUMO to "姿三四郎",
         ANCIENT_GIRL to "汉娜",
         BABY to "哪吒",
@@ -35,21 +35,21 @@ object DancerKeys {
     /**
      * English stage names (v1.0.13), the shared mapping behind the
      * phone page's English picker cards: William can't read the
-     * Chinese names, so in English mode the cards read Chun-Li /
-     * Chen Xiuying / Sanshiro / Hannah / Nezha / WALL-E. The phone
+     * Chinese names, so in English mode the cards read Amy /
+     * Xiuying / Sanshiro / Hannah / Nezha / WALL-E. The phone
      * page is static HTML and carries the same six names inline;
      * tests pin both sides to this table.
      */
     val LABELS_EN = mapOf(
-        MODERN to "Chun-Li",
-        ANCIENT to "Chen Xiuying",
+        MODERN to "Amy",
+        ANCIENT to "Xiuying",
         SUMO to "Sanshiro",
         ANCIENT_GIRL to "Hannah",
         BABY to "Nezha",
         ROBOT to "WALL-E",
     )
 
-    /** TV-ordered songs and unknown orderers get Chun-Li （春丽）. */
+    /** TV-ordered songs and unknown orderers get Amy （Amy）. */
     const val DEFAULT = MODERN
 
     fun isValid(key: String): Boolean = key in ALL

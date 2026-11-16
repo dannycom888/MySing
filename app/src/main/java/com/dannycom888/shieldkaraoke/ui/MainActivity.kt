@@ -21,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -67,6 +68,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -78,6 +80,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
 import com.dannycom888.shieldkaraoke.KaraokeApp
+import com.dannycom888.shieldkaraoke.R
 import com.dannycom888.shieldkaraoke.audio.AudioMath
 import com.dannycom888.shieldkaraoke.audio.LoudnessAnalyzer
 import com.dannycom888.shieldkaraoke.audio.PlayerController
@@ -1176,6 +1179,9 @@ class MainActivity : ComponentActivity() {
                 // items join the gear here — the brand title right
                 // of the gear (gold, the home title's own colour;
                 // 一起唱卡拉OK in Chinese, MySing in English) and
+                // (v1.0.36: that text title is now the user's logo
+                // artwork — brand_logo_zh / brand_logo_en — still
+                // language-switched, at the row's full height) and
                 // the language chips, still switchable in the
                 // front as the user ruled. The row is exactly
                 // gear-tall (36/46dp) so nothing overlaps the
@@ -1191,16 +1197,26 @@ class MainActivity : ComponentActivity() {
                 ) {
                     GearButton(compact) { adminReturnTo = Screen.PLAYER; screen = Screen.ADMIN }
                     Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
-                    // Brand title: display only — never focusable,
-                    // so it can't steal the control bar's focus or
-                    // crowd the centred now-singing line (which
-                    // lives in the lyrics band, not this row).
-                    Text(
-                        s(TvKey.BRAND_TITLE),
-                        color = gold,
-                        fontSize = (if (compact) 17 else 24).sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
+                    // Brand logo (v1.0.36): the user's own
+                    // artwork replaces the gold text title — the
+                    // Chinese wordmark in Chinese mode, the
+                    // MySing wordmark in English, swapped by the
+                    // same uiLang the chips switch. Display only
+                    // — never focusable, so it can't steal the
+                    // control bar's focus or crowd the centred
+                    // now-singing line (which lives in the lyrics
+                    // band, not this row). Height is the banner
+                    // row's own (36/46dp); the width follows the
+                    // artwork's aspect ratio.
+                    val brandPainter = painterResource(
+                        if (uiLang == UiLang.ZH) R.drawable.brand_logo_zh else R.drawable.brand_logo_en,
+                    )
+                    Image(
+                        painter = brandPainter,
+                        contentDescription = null,
+                        modifier = Modifier.height(if (compact) 36.dp else 46.dp)
+                            .aspectRatio(brandPainter.intrinsicSize.width / brandPainter.intrinsicSize.height),
+                        contentScale = ContentScale.Fit,
                     )
                     Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
                     // Language switch (v1.0.13, moved here in
@@ -1688,16 +1704,25 @@ class MainActivity : ComponentActivity() {
      * white trim — the QR bitmap keeps ZXing's built-in 4-module
      * quiet zone untouched inside the image, so the code still
      * scans as reliably as before; the caption stays.
+     *
+     * v1.0.36 (the user's final word on this card, 2026-11-15):
+     * ONLY the white trim shrinks — the card padding is down to
+     * 2dp and the QR to 56/44dp, so the whole card is notably
+     * smaller than the v1.0.31 76/60dp card; the caption stays
+     * BELOW the code, hugging the card's bottom edge. The QR
+     * bitmap itself is pixel-for-pixel what Qr.encode produces
+     * (quiet zone included) — nothing is drawn into it, so
+     * scanning reliability is unchanged.
      */
     @Composable
     private fun CornerQrCard(ip: String, port: Int, compact: Boolean, modifier: Modifier = Modifier) {
-        val qrDp = if (compact) 60.dp else 76.dp
+        val qrDp = if (compact) 44.dp else 56.dp
         val bitmap = remember(ip, port) { Qr.encode("http://$ip:$port/", 220) }
         Column(
             modifier = modifier
                 .border(1.dp, Color.Black.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
                 .background(Color.White, RoundedCornerShape(10.dp))
-                .padding(if (compact) 3.dp else 4.dp),
+                .padding(2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Image(

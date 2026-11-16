@@ -78,6 +78,63 @@ object DanceMotion {
         return strength * exp(-frac * decay)
     }
 
+    // ---- v1.0.36: the tempo taper --------------------------------
+    //
+    // The user (2026-11-15): on fast songs the dancer "抖动得很
+    // 厉害" — shakes hard. The frame art is not the cause (the
+    // five humans' adjacent-frame foot baselines measure within
+    // a pixel of each other); the motion layer is. Bounce + sway
+    // + the beat-accent dip stack on EVERY beat at full amplitude
+    // regardless of tempo — pleasant at 90 BPM, but at 142 BPM
+    // the whole stack pumps 2.4 times a second and reads as
+    // shaking. So above [TEMPO_TAPER_START_BPM] the human
+    // profiles' bounce, sway and accent (and the small scale
+    // pulse riding with them) are scaled down by [tempoFactor]:
+    // 1.0 up to 110 BPM, easing to ~0.40 at 140 BPM and to a
+    // 0.35 floor at 160 BPM. The factor multiplies the existing
+    // slow-song 0.7 gentling; the two never overlap (the 0.7
+    // applies below 80 BPM, the taper above 110), so nothing is
+    // double-discounted. The robot is exempt — his discrete
+    // steps are his character — and the baby's fall state
+    // machine is exempt; only his dancing-phase wobble and
+    // accent are tapered, like the other humans'.
+
+    /** Tempo taper starts here: at or below, factor is 1.0. */
+    const val TEMPO_TAPER_START_BPM = 110.0
+
+    /** By this tempo the factor has eased to [TEMPO_FACTOR_AT_140]. */
+    const val TEMPO_TAPER_FULL_BPM = 140.0
+
+    /** The factor at [TEMPO_TAPER_FULL_BPM]. */
+    const val TEMPO_FACTOR_AT_140 = 0.40
+
+    /** From this tempo on, the factor sits at [TEMPO_FACTOR_FLOOR]. */
+    const val TEMPO_FLOOR_BPM = 160.0
+
+    /** The lowest the tempo factor ever goes. */
+    const val TEMPO_FACTOR_FLOOR = 0.35
+
+    /**
+     * How much of the human motion amplitude survives at [bpm]:
+     * 1.0 at or below 110 BPM, a smoothstep ease down to 0.40 at
+     * 140 BPM, then a gentler ease to the 0.35 floor at 160 BPM,
+     * flat beyond. Pure function of the tempo, like everything
+     * here — the same song at the same tempo always dances the
+     * same.
+     */
+    fun tempoFactor(bpm: Double): Double {
+        if (bpm <= TEMPO_TAPER_START_BPM) return 1.0
+        if (bpm <= TEMPO_TAPER_FULL_BPM) {
+            val t = (bpm - TEMPO_TAPER_START_BPM) / (TEMPO_TAPER_FULL_BPM - TEMPO_TAPER_START_BPM)
+            val s = t * t * (3.0 - 2.0 * t)
+            return 1.0 - (1.0 - TEMPO_FACTOR_AT_140) * s
+        }
+        val t = ((bpm - TEMPO_TAPER_FULL_BPM) / (TEMPO_FLOOR_BPM - TEMPO_TAPER_FULL_BPM))
+            .coerceIn(0.0, 1.0)
+        val s = t * t * (3.0 - 2.0 * t)
+        return TEMPO_FACTOR_AT_140 - (TEMPO_FACTOR_AT_140 - TEMPO_FACTOR_FLOOR) * s
+    }
+
     fun pose(profile: Profile, positionMs: Long, bpm: Double, phaseOffsetBeats: Double = 0.0): Pose {
         val safeBpm = bpm.coerceIn(40.0, 220.0)
         val beats = positionMs / (60_000.0 / safeBpm) + phaseOffsetBeats
@@ -99,15 +156,19 @@ object DanceMotion {
      */
     private fun sumoPose(beats: Double, bpm: Double): Pose {
         val slow = if (bpm < 80.0) 0.7f else 1.0f
-        val rotation = sin(PI * beats) * 4.5 * slow
-        val bounce = Math.pow(abs(sin(PI * beats)), 0.6) * 0.30 * slow
+        // v1.0.36: the tempo taper (see tempoFactor) — his rock,
+        // bounce, knee sink and accent all calm down as the song
+        // speeds up, exactly like the other humans'.
+        val tempo = tempoFactor(bpm).toFloat()
+        val rotation = sin(PI * beats) * 4.5 * slow * tempo
+        val bounce = Math.pow(abs(sin(PI * beats)), 0.6) * 0.30 * slow * tempo
         val frac = beats - floor(beats)
         // Knee-bend sink on every beat, plus the v1.0.22 accent at
         // half frequency: the downbeat of each two-beat sway cycle
         // lands heavier than the off beat.
-        val sink = exp(-frac * 6.0) * 0.10 * slow +
-            beatAccent(beats / 2.0, ACCENT_SUMO, decay = 5.0) * slow
-        val pulse = exp(-frac * 5.0) * 0.015
+        val sink = exp(-frac * 6.0) * 0.10 * slow * tempo +
+            beatAccent(beats / 2.0, ACCENT_SUMO, decay = 5.0) * slow * tempo
+        val pulse = exp(-frac * 5.0) * 0.015 * tempo
         return Pose(
             bounceFraction = bounce.toFloat(),
             rotationDeg = rotation.toFloat(),
@@ -121,15 +182,21 @@ object DanceMotion {
         // so the whole-body transform is only a gentle assist —
         // amplitudes roughly halved versus v1.0.3.
         val slow = if (bpm < 80.0) 0.7f else 1.0f // slow songs: bounce one notch down
-        val bounceAmp = (if (bounceHeavy) 0.55f else 0.28f) * slow
-        val swayAmp = if (bounceHeavy) 2.0f else 3.5f
+        // v1.0.36: the tempo taper (see tempoFactor) multiplies
+        // the slow-song gentling — the two never overlap (0.7
+        // below 80 BPM, the taper above 110), and at or below
+        // 110 BPM the factor is exactly 1.0, so normal-speed
+        // songs dance bit-for-bit as before.
+        val tempo = tempoFactor(bpm).toFloat()
+        val bounceAmp = (if (bounceHeavy) 0.55f else 0.28f) * slow * tempo
+        val swayAmp = (if (bounceHeavy) 2.0f else 3.5f) * tempo
         val bounce = abs(sin(PI * beats)) * bounceAmp
         val rotation = sin(2 * PI * beats) * swayAmp
         val frac = beats - floor(beats)
-        val pulse = exp(-frac * 5.0) * (if (bounceHeavy) 0.03 else 0.02)
+        val pulse = exp(-frac * 5.0) * (if (bounceHeavy) 0.03 else 0.02) * tempo
         // v1.0.22 beat accent: a dip that lands on the beat and
         // rebounds inside it — strong for modern, soft for ancient.
-        val accent = beatAccent(beats, if (bounceHeavy) ACCENT_MODERN else ACCENT_ANCIENT) * slow
+        val accent = beatAccent(beats, if (bounceHeavy) ACCENT_MODERN else ACCENT_ANCIENT) * slow * tempo
         return Pose(
             bounceFraction = bounce.toFloat(),
             rotationDeg = rotation.toFloat(),
@@ -236,14 +303,21 @@ object BabyFall {
                 // Unsteady toddler: faster, bigger sway + a slow extra
                 // wobble. Amplitudes trimmed in v1.0.5 (the pose
                 // frames dance too) but still the wobbliest dancer.
+                // v1.0.36: the tempo taper (see
+                // DanceMotion.tempoFactor) scales his dancing-phase
+                // wobble and accent like the other humans' — only
+                // the FALLING / DOWN / RISING phases are exempt,
+                // because the fall is a timed gag (0.3 s down,
+                // one beat down, 0.4 s up), not a beat amplitude.
+                val tempo = DanceMotion.tempoFactor(bpm)
                 val wobble = beats * 1.5
-                val bounce = abs(sin(PI * wobble)) * 0.35f
-                val rotation = sin(2 * PI * wobble) * 5.0 + sin(PI * beats) * 1.8
+                val bounce = abs(sin(PI * wobble)) * 0.35f * tempo
+                val rotation = (sin(2 * PI * wobble) * 5.0 + sin(PI * beats) * 1.8) * tempo
                 // v1.0.22: a small beat accent on the song's beat
                 // grid (not the 1.5x wobble), dancing phase only —
                 // the fall phases own the sink while he is down.
                 val slow = if (bpm < 80.0) 0.7 else 1.0
-                val accent = DanceMotion.beatAccent(beats, DanceMotion.ACCENT_BABY) * slow
+                val accent = DanceMotion.beatAccent(beats, DanceMotion.ACCENT_BABY) * slow * tempo
                 DanceMotion.Pose(
                     bounce.toFloat(), rotation.toFloat(), 1.0f,
                     sinkFraction = accent.toFloat(),

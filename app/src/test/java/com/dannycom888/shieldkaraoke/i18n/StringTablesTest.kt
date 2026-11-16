@@ -81,10 +81,10 @@ class StringTablesTest {
         // v1.0.21 TV admin page: rename the dancers.
         assertEquals("⚙ 后台", TvStrings.get(UiLang.ZH, TvKey.ADMIN_TITLE))
         assertEquals("⚙ Admin", TvStrings.get(UiLang.EN, TvKey.ADMIN_TITLE))
-        assertEquals("给 春丽 改名", TvStrings.get(UiLang.ZH, TvKey.ADMIN_RENAME_TITLE, "春丽"))
-        assertEquals("Rename Chun-Li", TvStrings.get(UiLang.EN, TvKey.ADMIN_RENAME_TITLE, "Chun-Li"))
-        assertEquals("默认：春丽", TvStrings.get(UiLang.ZH, TvKey.ADMIN_DEFAULT, "春丽"))
-        assertEquals("Default: Chun-Li", TvStrings.get(UiLang.EN, TvKey.ADMIN_DEFAULT, "Chun-Li"))
+        assertEquals("给 Amy 改名", TvStrings.get(UiLang.ZH, TvKey.ADMIN_RENAME_TITLE, "Amy"))
+        assertEquals("Rename Amy", TvStrings.get(UiLang.EN, TvKey.ADMIN_RENAME_TITLE, "Amy"))
+        assertEquals("默认：Amy", TvStrings.get(UiLang.ZH, TvKey.ADMIN_DEFAULT, "Amy"))
+        assertEquals("Default: Amy", TvStrings.get(UiLang.EN, TvKey.ADMIN_DEFAULT, "Amy"))
         assertEquals("恢复默认名", TvStrings.get(UiLang.ZH, TvKey.ADMIN_RESTORE))
         assertEquals("Restore default names", TvStrings.get(UiLang.EN, TvKey.ADMIN_RESTORE))
         assertEquals("恢复默认名？", TvStrings.get(UiLang.ZH, TvKey.ADMIN_RESTORE_TITLE))
@@ -140,10 +140,10 @@ class StringTablesTest {
 
     @Test
     fun v1031Wording() {
-        // The brand title on the player banner: a Chinese name
-        // for the Chinese UI, the app's name for English.
-        assertEquals("一起唱卡拉OK", TvStrings.get(UiLang.ZH, TvKey.BRAND_TITLE))
-        assertEquals("MySing", TvStrings.get(UiLang.EN, TvKey.BRAND_TITLE))
+        // (The v1.0.31 brand-title pins are gone with the key:
+        // v1.0.36 replaced the banner's text title with the
+        // user's logo artwork, so BRAND_TITLE was removed from
+        // the tables as a dead key.)
         // The dancers are 伴舞 in every user-facing Chinese
         // string now — the word 小人 is retired (the English side
         // always said "Dancers" and did not change).

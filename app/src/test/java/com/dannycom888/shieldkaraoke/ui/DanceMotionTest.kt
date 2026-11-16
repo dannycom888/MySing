@@ -122,16 +122,20 @@ class DanceMotionTest {
 
     @Test
     fun accentPeaksExactlyOnTheBeat() {
-        // 120 BPM: one beat is 500 ms; position 0 is a beat line.
-        val onBeat = DanceMotion.pose(DanceMotion.Profile.MODERN, 0L, 120.0)
+        // v1.0.36: run at 96 BPM (one beat is 625 ms) — inside
+        // the tempo taper's flat zone (<= 110 BPM), so the accent
+        // still peaks at the full ACCENT_MODERN, exactly as
+        // before the taper existed. (At 120 BPM the peak is the
+        // tapered value; see fastSongsAreCalmerByTheTempoFactor.)
+        val onBeat = DanceMotion.pose(DanceMotion.Profile.MODERN, 0L, 96.0)
         assertEquals(DanceMotion.ACCENT_MODERN.toFloat(), onBeat.sinkFraction, 0.001f)
         // Half a beat later the accent has decayed to ~nothing.
-        val midBeat = DanceMotion.pose(DanceMotion.Profile.MODERN, 250L, 120.0)
+        val midBeat = DanceMotion.pose(DanceMotion.Profile.MODERN, 312L, 96.0)
         assertTrue(midBeat.sinkFraction < 0.01f)
         assertTrue(midBeat.sinkFraction < onBeat.sinkFraction)
         // The next beat line peaks again — it is a grid, not a
         // one-shot.
-        val nextBeat = DanceMotion.pose(DanceMotion.Profile.MODERN, 500L, 120.0)
+        val nextBeat = DanceMotion.pose(DanceMotion.Profile.MODERN, 625L, 96.0)
         assertEquals(onBeat.sinkFraction, nextBeat.sinkFraction, 0.001f)
     }
 
@@ -150,8 +154,10 @@ class DanceMotionTest {
 
     @Test
     fun modernAccentHitsHarderThanAncient() {
-        val modern = DanceMotion.pose(DanceMotion.Profile.MODERN, 0L, 120.0)
-        val ancient = DanceMotion.pose(DanceMotion.Profile.ANCIENT, 0L, 120.0)
+        // v1.0.36: at 96 BPM (tempo factor exactly 1.0) so the
+        // ancient peak is the untapered ACCENT_ANCIENT.
+        val modern = DanceMotion.pose(DanceMotion.Profile.MODERN, 0L, 96.0)
+        val ancient = DanceMotion.pose(DanceMotion.Profile.ANCIENT, 0L, 96.0)
         assertEquals(DanceMotion.ACCENT_ANCIENT.toFloat(), ancient.sinkFraction, 0.001f)
         assertTrue(modern.sinkFraction > ancient.sinkFraction)
     }
@@ -199,6 +205,131 @@ class DanceMotionTest {
             return best
         }
         assertTrue(maxSink(70.0) < maxSink(120.0))
+    }
+
+    // ---- v1.0.36: the tempo taper — human motion amplitudes
+    // scale down as songs get faster, so a 140+ BPM song no
+    // longer pumps the whole bounce/sway/accent stack at full
+    // strength 2.4 times a second ("跳舞时人抖动得很厉害").
+
+    @Test
+    fun tempoFactorCurvePins() {
+        // Flat 1.0 through the start of the taper.
+        assertEquals(1.0, DanceMotion.tempoFactor(60.0), 1e-9)
+        assertEquals(1.0, DanceMotion.tempoFactor(96.0), 1e-9)
+        assertEquals(1.0, DanceMotion.tempoFactor(110.0), 1e-9)
+        // Smoothstep down the 110 -> 140 ramp: 120 sits at
+        // 1 - 0.6 * smoothstep(1/3) = 1 - 0.6 * 7/27.
+        assertEquals(0.844444, DanceMotion.tempoFactor(120.0), 1e-6)
+        assertEquals(0.70, DanceMotion.tempoFactor(125.0), 1e-9)
+        assertEquals(0.40, DanceMotion.tempoFactor(140.0), 1e-9)
+        // The gentler second ease to the floor.
+        assertEquals(0.375, DanceMotion.tempoFactor(150.0), 1e-9)
+        assertEquals(0.35, DanceMotion.tempoFactor(160.0), 1e-9)
+        assertEquals(0.35, DanceMotion.tempoFactor(220.0), 1e-9)
+        // Monotonic non-increasing across the whole taper.
+        var prev = Double.MAX_VALUE
+        var bpm = 100.0
+        while (bpm <= 180.0) {
+            val f = DanceMotion.tempoFactor(bpm)
+            assertTrue("factor rose at $bpm", f <= prev + 1e-12)
+            prev = f
+            bpm += 5.0
+        }
+    }
+
+    @Test
+    fun normalSpeedSongsDanceExactlyAsBeforeTheTaper() {
+        // Regression pins at 96 BPM (tempo factor exactly 1.0,
+        // slow factor 1.0): the values below are the pre-taper
+        // formulas evaluated by hand — if the taper ever leaks
+        // into the flat zone, these break.
+        // MODERN at beat 1.6 (1000 ms at 96 BPM).
+        val modern = DanceMotion.pose(DanceMotion.Profile.MODERN, 1_000L, 96.0)
+        assertEquals(0.523086f, modern.bounceFraction, 0.001f)
+        assertEquals(-1.175571f, modern.rotationDeg, 0.001f)
+        assertEquals(1.001494f, modern.scale, 0.001f)
+        assertEquals(0.001799f, modern.sinkFraction, 0.001f)
+        // ANCIENT at the same beat.
+        val ancient = DanceMotion.pose(DanceMotion.Profile.ANCIENT, 1_000L, 96.0)
+        assertEquals(0.266298f, ancient.bounceFraction, 0.001f)
+        assertEquals(-2.057248f, ancient.rotationDeg, 0.001f)
+        assertEquals(1.000996f, ancient.scale, 0.001f)
+        assertEquals(0.000900f, ancient.sinkFraction, 0.001f)
+        // SUMO at the same beat.
+        val sumo = DanceMotion.pose(DanceMotion.Profile.SUMO, 1_000L, 96.0)
+        assertEquals(0.291104f, sumo.bounceFraction, 0.001f)
+        assertEquals(-4.279793f, sumo.rotationDeg, 0.001f)
+        assertEquals(1.000747f, sumo.scale, 0.001f)
+        assertEquals(0.004198f, sumo.sinkFraction, 0.001f)
+        // BABY dancing at beat 1.0 (cycle 0 dances 12+ beats, so
+        // beat 1 is safely inside DANCING): full wobble amplitude.
+        val baby = BabyFall.pose(1.0, 96.0)
+        assertEquals(0.35f, baby.bounceFraction, 0.001f)
+        assertEquals(0.05f, baby.sinkFraction, 0.001f)
+    }
+
+    @Test
+    fun fastSongsAreCalmerByTheTempoFactor() {
+        // At 140 BPM the modern accent peak is 0.40x the full
+        // ACCENT_MODERN — the stack no longer pumps full-size.
+        val onBeat = DanceMotion.pose(DanceMotion.Profile.MODERN, 0L, 140.0)
+        assertEquals(
+            (DanceMotion.ACCENT_MODERN * 0.40).toFloat(),
+            onBeat.sinkFraction, 0.001f,
+        )
+        fun maxBounce(bpm: Double): Float {
+            var best = 0f
+            var pos = 0L
+            while (pos < 20_000L) {
+                best = maxOf(best, DanceMotion.pose(DanceMotion.Profile.MODERN, pos, bpm).bounceFraction)
+                pos += 10
+            }
+            return best
+        }
+        assertEquals(0.55f, maxBounce(96.0), 0.01f)
+        assertEquals(0.55f * 0.40f, maxBounce(140.0), 0.01f)
+        assertTrue(maxBounce(160.0) < maxBounce(140.0))
+        // The baby's dancing wobble is tapered too.
+        val babyFast = BabyFall.pose(1.0, 140.0)
+        assertEquals(0.35f * 0.40f, babyFast.bounceFraction, 0.001f)
+        assertEquals(0.05f * 0.40f, babyFast.sinkFraction, 0.001f)
+    }
+
+    @Test
+    fun robotIsExemptFromTheTempoTaper() {
+        // 150 BPM (factor 0.375 for humans): the robot's hard
+        // accent step and his scale table are bit-for-bit the
+        // pre-taper values — stepped is his character.
+        assertEquals(
+            DanceMotion.ACCENT_ROBOT,
+            DanceMotion.pose(DanceMotion.Profile.ROBOT, 0L, 150.0).sinkFraction,
+        )
+        // Quarter-beat step 1 at 150 BPM is 100 ms in.
+        val step1 = DanceMotion.pose(DanceMotion.Profile.ROBOT, 100L, 150.0)
+        assertEquals(1.04f, step1.scale)
+        assertEquals(0.55f, step1.bounceFraction)
+        assertEquals(-5f, step1.rotationDeg)
+    }
+
+    @Test
+    fun babyFallPhasesAreExemptFromTheTempoTaper() {
+        // The fall is a timed gag, not a beat amplitude: even at
+        // 150 BPM a DOWN baby lies at the full 84 degrees / 0.38
+        // sink the state machine has always used.
+        var beats = 0.0
+        var found = false
+        while (beats < 300.0) {
+            if (BabyFall.stateAt(beats, 150.0).phase == BabyFall.Phase.DOWN) {
+                val p = BabyFall.pose(beats, 150.0)
+                assertEquals(84f, p.rotationDeg)
+                assertEquals(0.38f, p.sinkFraction)
+                found = true
+                break
+            }
+            beats += 0.01
+        }
+        assertTrue(found)
     }
 
     @Test

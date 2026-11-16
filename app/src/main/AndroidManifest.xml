@@ -9,6 +9,24 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
+    <!-- Voice search (v1.0.46): the browse page's 🎤 button feeds
+         the device's own speech-recognition service. This is the
+         ONLY permission this feature adds — recognition runs in
+         the system service, not in this app, and the microphone
+         hears search commands only, never the singing (the sing
+         microphone is a separate amp chain the app never touches). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Android 11+ package visibility: without this, the speech
+         recognition service is invisible to the app and
+         SpeechRecognizer.isRecognitionAvailable wrongly reports
+         false on devices that do have one. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <!-- TV-capable but NOT TV-only: the user trials the app on a
          Galaxy Note10+ phone first, so leanback is optional and a
          plain LAUNCHER entry exists beside LEANBACK_LAUNCHER. -->

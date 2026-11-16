@@ -43,6 +43,12 @@ enum class TvKey {
     // The diagnostics section on the admin page (v1.0.35): the
     // line moved off the player stage gets a section title here.
     ADMIN_DIAG_TITLE,
+    // Browse-page search field + voice search (v1.0.46). The
+    // microphone hears search commands only — never the singing.
+    SEARCH_HINT, SEARCH_EDIT_HINT, SEARCH_CLEAR,
+    VOICE_BUTTON, VOICE_LISTENING,
+    VOICE_PERM_TITLE, VOICE_PERM_TEXT, VOICE_PERM_GO,
+    VOICE_DENIED, VOICE_NO_SERVICE, VOICE_NOT_HEARD, VOICE_ERROR,
 }
 
 /**
@@ -135,6 +141,18 @@ object TvStrings {
         TvKey.ADMIN_GEAR_DESC to "后台设置",
         TvKey.ADMIN_VERSION to "版本 v%s",
         TvKey.ADMIN_DIAG_TITLE to "诊断",
+        TvKey.SEARCH_HINT to "🔍 搜索歌名或歌手",
+        TvKey.SEARCH_EDIT_HINT to "输入歌名或歌手",
+        TvKey.SEARCH_CLEAR to "✕ 清除",
+        TvKey.VOICE_BUTTON to "🎤 语音",
+        TvKey.VOICE_LISTENING to "正在听…说出歌名或歌手",
+        TvKey.VOICE_PERM_TITLE to "语音搜索",
+        TvKey.VOICE_PERM_TEXT to "按歌手名或歌名说话就能搜歌。麦克风只听搜索的话，不录唱歌。第一次用需要允许一次麦克风权限。",
+        TvKey.VOICE_PERM_GO to "继续",
+        TvKey.VOICE_DENIED to "没有麦克风权限，用打字搜索吧",
+        TvKey.VOICE_NO_SERVICE to "本设备没有语音服务",
+        TvKey.VOICE_NOT_HEARD to "没听清，再试一次",
+        TvKey.VOICE_ERROR to "语音识别出错，再试一次",
     )
 
     private val EN: Map<TvKey, String> = mapOf(
@@ -214,6 +232,18 @@ object TvStrings {
         TvKey.ADMIN_GEAR_DESC to "Settings",
         TvKey.ADMIN_VERSION to "Version %s",
         TvKey.ADMIN_DIAG_TITLE to "Diagnostics",
+        TvKey.SEARCH_HINT to "🔍 Search title or singer",
+        TvKey.SEARCH_EDIT_HINT to "Type a title or singer",
+        TvKey.SEARCH_CLEAR to "✕ Clear",
+        TvKey.VOICE_BUTTON to "🎤 Voice",
+        TvKey.VOICE_LISTENING to "Listening… say a song or singer",
+        TvKey.VOICE_PERM_TITLE to "Voice search",
+        TvKey.VOICE_PERM_TEXT to "Say a singer or song title to search. The microphone only hears search commands — it never records singing. First use needs the microphone permission once.",
+        TvKey.VOICE_PERM_GO to "Continue",
+        TvKey.VOICE_DENIED to "No microphone permission — type to search instead",
+        TvKey.VOICE_NO_SERVICE to "No voice service on this device",
+        TvKey.VOICE_NOT_HEARD to "Didn't catch that — try again",
+        TvKey.VOICE_ERROR to "Voice recognition failed — try again",
     )
 
     /** Key set of each language's table, for the parity test. */

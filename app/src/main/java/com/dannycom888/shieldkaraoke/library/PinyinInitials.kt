@@ -20,6 +20,19 @@ object PinyinInitials {
         return sb.toString()
     }
 
+    /** True when [query] matches a bare text (a singer name on the
+     *  TV browse page, v1.0.46) by substring or by pinyin initials —
+     *  the same two rules [matches] applies to a song's fields. */
+    fun matchesText(text: String, query: String): Boolean {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) return true
+        if (text.lowercase().contains(q)) return true
+        if (q.all { it in 'a'..'z' || it in '0'..'9' }) {
+            return initialsOf(text).contains(q)
+        }
+        return false
+    }
+
     /** True when [query] (already lowercased) matches the song by full
      *  text substring or by pinyin initials of artist/title. */
     fun matches(song: Song, query: String): Boolean {

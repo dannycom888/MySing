@@ -1,10 +1,15 @@
 package com.dannycom888.shieldkaraoke.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.text.InputFilter
 import android.view.WindowManager
 import android.widget.EditText
@@ -38,6 +43,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -79,6 +85,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
 import com.dannycom888.shieldkaraoke.KaraokeApp
@@ -95,6 +102,7 @@ import com.dannycom888.shieldkaraoke.library.Gender
 import com.dannycom888.shieldkaraoke.library.Language
 import com.dannycom888.shieldkaraoke.library.LibraryCacheStore
 import com.dannycom888.shieldkaraoke.library.LibraryScanner
+import com.dannycom888.shieldkaraoke.library.PinyinInitials
 import com.dannycom888.shieldkaraoke.library.SafLibrarySource
 import com.dannycom888.shieldkaraoke.library.Song
 import com.dannycom888.shieldkaraoke.lyrics.LrcParser
@@ -321,6 +329,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         applausePlayer?.release()
+        try {
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {
+            // The recognizer may already be gone with its service;
+            // teardown continues regardless.
+        }
+        speechRecognizer = null
         controller.release()
         super.onDestroy()
     }
@@ -970,11 +985,170 @@ class MainActivity : ComponentActivity() {
         edit.requestFocus()
     }
 
+    /**
+     * The browse search field's editor (v1.0.46): the same native
+     * EditText dialog pattern as the rename editor, so the Shield
+     * gets its Leanback keyboard. Prefilled with the current
+     * query — which is how a voice result stays editable: tap the
+     * field, fix the misheard character, save. Saving an empty
+     * field clears the search.
+     */
+    private fun showSearchDialog() {
+        val edit = EditText(this).apply {
+            setText(browseQuery)
+            setSelectAllOnFocus(true)
+            isSingleLine = true
+            hint = s(TvKey.SEARCH_EDIT_HINT)
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle(s(TvKey.SEARCH_HINT))
+            .setView(edit)
+            .setPositiveButton(s(TvKey.SAVE)) { _, _ ->
+                applyBrowseQuery(edit.text?.toString()?.trim().orEmpty())
+            }
+            .setNegativeButton(s(TvKey.CANCEL), null)
+            .show()
+        edit.requestFocus()
+    }
+
     private var listType by mutableStateOf(ListType.SONGS)
     private var filterLang by mutableStateOf<Language?>(null)
     private var filterGender by mutableStateOf<Gender?>(null)
     private var filterArtist by mutableStateOf<String?>(null)
     private var special by mutableStateOf(Special.NONE)
+
+    // ---------- browse search + voice search (v1.0.46) ----------
+
+    /** The browse page's search query. Typed via the search
+     *  field's editor dialog or filled by voice recognition; it
+     *  narrows whatever list the chips selected, through the same
+     *  text/pinyin-initials matching the phone page uses
+     *  ([PinyinInitials.matches]). Editable at all times — a
+     *  misheard character from voice input is fixed by tapping
+     *  the field, never by re-speaking. */
+    private var browseQuery by mutableStateOf("")
+    /** True while the system recognizer is listening; drives the
+     *  "正在听…" overlay on the browse page. */
+    private var voiceListening by mutableStateOf(false)
+    /** One short line of voice-search feedback under the search
+     *  row (denied / not heard / error / no service). */
+    private var voiceHint by mutableStateOf<String?>(null)
+    /** Set once the host refuses the microphone permission: the
+     *  🎤 button then just shows the type-instead hint and never
+     *  re-pops the system permission dialog (the user's rule:
+     *  ask once, don't nag). */
+    private var voicePermDenied by mutableStateOf(false)
+    private var speechRecognizer: SpeechRecognizer? = null
+    /** Focus anchors for the voice flow: after a result lands,
+     *  focus goes to the first result row; after an error, back
+     *  to the 🎤 button. Plain fields (not remember) because the
+     *  recognizer's listener — an activity callback, not a
+     *  composable — is what asks for the moves. */
+    private val voiceButtonRequester = FocusRequester()
+    private val firstResultRequester = FocusRequester()
+    /** Bumped by [applyBrowseQuery]; a LaunchedEffect on the
+     *  browse page performs the actual focus move once the
+     *  filtered list has recomposed. */
+    private var focusFirstResultTick by mutableStateOf(0)
+
+    private fun hasMicPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /**
+     * A new query takes effect: voice results land on the songs
+     * list (a spoken singer name finds their songs — the matcher
+     * checks artist too) across the whole library, so the
+     * favourites/recents special is cleared; the language, gender
+     * and singer chips keep whatever they were. Focus then moves
+     * to the first result so the remote can take it from there.
+     */
+    private fun applyBrowseQuery(text: String) {
+        browseQuery = text
+        if (text.isNotBlank()) {
+            listType = ListType.SONGS
+            special = Special.NONE
+        }
+        voiceHint = null
+        focusFirstResultTick++
+    }
+
+    private fun refocusVoiceButton() {
+        try {
+            voiceButtonRequester.requestFocus()
+        } catch (e: Exception) {
+            // Button not composed (page left mid-listen): nowhere
+            // to send focus; the next D-pad press resolves it.
+        }
+    }
+
+    private val voiceListener = object : RecognitionListener {
+        override fun onResults(results: Bundle?) {
+            voiceListening = false
+            val heard = VoiceSearch.firstCandidate(
+                results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION),
+            )
+            if (heard != null) {
+                applyBrowseQuery(heard)
+            } else {
+                voiceHint = s(TvKey.VOICE_NOT_HEARD)
+                refocusVoiceButton()
+            }
+        }
+
+        override fun onError(error: Int) {
+            voiceListening = false
+            voiceHint = s(TvKey.VOICE_ERROR)
+            refocusVoiceButton()
+        }
+
+        override fun onReadyForSpeech(params: Bundle?) = Unit
+        override fun onBeginningOfSpeech() = Unit
+        override fun onRmsChanged(rmsdB: Float) = Unit
+        override fun onBufferReceived(buffer: ByteArray?) = Unit
+        override fun onEndOfSpeech() = Unit
+        override fun onPartialResults(partialResults: Bundle?) = Unit
+        override fun onEvent(eventType: Int, params: Bundle?) = Unit
+    }
+
+    /**
+     * Start the system recognizer in the UI's language. Callers
+     * have already checked availability and permission; the
+     * availability check is repeated here so no path can crash on
+     * a service-less device.
+     */
+    private fun startVoiceListening() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            voiceHint = s(TvKey.VOICE_NO_SERVICE)
+            return
+        }
+        val recognizer = speechRecognizer
+            ?: SpeechRecognizer.createSpeechRecognizer(this).also { speechRecognizer = it }
+        recognizer.setRecognitionListener(voiceListener)
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, VoiceSearch.languageTag(uiLang))
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+        }
+        voiceHint = null
+        voiceListening = true
+        try {
+            recognizer.startListening(intent)
+        } catch (e: Exception) {
+            voiceListening = false
+            voiceHint = s(TvKey.VOICE_ERROR)
+        }
+    }
+
+    private fun cancelVoiceListening() {
+        try {
+            speechRecognizer?.cancel()
+        } catch (e: Exception) {
+            // Already idle/torn down: the overlay state below is
+            // what the user sees, and it is reset either way.
+        }
+        voiceListening = false
+    }
 
     private fun openBrowse(type: ListType, lang: Language?, gender: Gender?, sp: Special) {
         listType = type; filterLang = lang; filterGender = gender; filterArtist = null; special = sp
@@ -986,6 +1160,46 @@ class MainActivity : ComponentActivity() {
         BackHandler { screen = Screen.PLAYER }
         @Suppress("UNUSED_VARIABLE") val versionTick = app.state.version
         val catalog = app.state.catalog
+        // Voice search (v1.0.46): service availability is a device
+        // fact, read once per entry to this page. The permission
+        // ask is a Compose launcher owned by this screen; the
+        // recognizer itself and its state live on the activity
+        // (its listener is an activity callback).
+        val voiceAvailable = remember { SpeechRecognizer.isRecognitionAvailable(this@MainActivity) }
+        var showVoiceRationale by remember { mutableStateOf(false) }
+        val voicePermLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            if (granted) {
+                startVoiceListening()
+            } else {
+                voicePermDenied = true
+                voiceHint = s(TvKey.VOICE_DENIED)
+                refocusVoiceButton()
+            }
+        }
+        // A fresh query (voice result or typed save) asks for
+        // focus on the first result row; the move runs here, after
+        // the filtered list has recomposed with the new query.
+        LaunchedEffect(focusFirstResultTick) {
+            if (focusFirstResultTick > 0) {
+                try {
+                    firstResultRequester.requestFocus()
+                } catch (e: Exception) {
+                    // No results composed (empty list): focus
+                    // stays where it is.
+                }
+            }
+        }
+        val onVoiceClick: () -> Unit = {
+            when {
+                !VoiceSearch.buttonEnabled(voiceAvailable) ->
+                    voiceHint = s(TvKey.VOICE_NO_SERVICE)
+                hasMicPermission() -> startVoiceListening()
+                voicePermDenied -> voiceHint = s(TvKey.VOICE_DENIED)
+                else -> showVoiceRationale = true
+            }
+        }
         // The corner card is pinned top-right (v1.0.19): browse content
         // reserves the card's width on the right so neither the
         // filter chips nor the list rows slide under it. Since
@@ -1061,8 +1275,74 @@ class MainActivity : ComponentActivity() {
                 }
             }
             Spacer(Modifier.height(8.dp))
+            // Search row (v1.0.46): the query field (tap to edit
+            // with the keyboard), the 🎤 voice button, and — while
+            // a query stands — a clear chip. All inside this page's
+            // own column: the player stage and its lyrics safety
+            // band are not touched, and the row lives under the
+            // same right-side QR reserve as the chips above.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SearchField(compact, Modifier.weight(1f)) { showSearchDialog() }
+                VoiceButton(compact, VoiceSearch.buttonState(voiceAvailable)) { onVoiceClick() }
+                if (browseQuery.isNotBlank()) {
+                    Chip(s(TvKey.SEARCH_CLEAR), false) {
+                        browseQuery = ""
+                        voiceHint = null
+                    }
+                }
+            }
+            // One feedback line under the row: a transient voice
+            // outcome when there is one, otherwise the standing
+            // no-service note on devices without a recognizer.
+            val hintToShow = voiceHint
+                ?: if (!voiceAvailable) s(TvKey.VOICE_NO_SERVICE) else null
+            if (hintToShow != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    hintToShow,
+                    color = Color(0xFFFF7043), fontSize = (if (compact) 11 else 13).sp,
+                )
+            }
+            if (showVoiceRationale) {
+                AlertDialog(
+                    onDismissRequest = { showVoiceRationale = false },
+                    title = { Text(s(TvKey.VOICE_PERM_TITLE)) },
+                    text = { Text(s(TvKey.VOICE_PERM_TEXT)) },
+                    confirmButton = {
+                        Button(onClick = {
+                            showVoiceRationale = false
+                            voicePermLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }) { Text(s(TvKey.VOICE_PERM_GO)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showVoiceRationale = false }) {
+                            Text(s(TvKey.CANCEL))
+                        }
+                    },
+                )
+            }
+            if (voiceListening) {
+                // The listening overlay: Back dismisses the
+                // dialog, and dismissing IS the cancel — the
+                // recognizer stops and the overlay closes.
+                AlertDialog(
+                    onDismissRequest = { cancelVoiceListening() },
+                    title = { Text("🎤") },
+                    text = { Text(s(TvKey.VOICE_LISTENING)) },
+                    confirmButton = {
+                        TextButton(onClick = { cancelVoiceListening() }) {
+                            Text(s(TvKey.CANCEL))
+                        }
+                    },
+                )
+            }
+            Spacer(Modifier.height(8.dp))
             if (listType == ListType.SINGERS) {
                 val singers = catalog.singers(filterLang, filterGender)
+                    .filter { PinyinInitials.matchesText(it, browseQuery) }
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(bottom = 8.dp),
@@ -1079,13 +1359,20 @@ class MainActivity : ComponentActivity() {
                     Special.RECENTS -> app.prefs.recents().mapNotNull { catalog.byId(it) }
                     Special.NONE -> catalog.filtered(filterLang, filterGender)
                         .filter { filterArtist == null || it.artist.equals(filterArtist, ignoreCase = true) }
-                }
+                }.filter { PinyinInitials.matches(it, browseQuery) }
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(bottom = 8.dp),
                 ) {
-                    items(songs) { song ->
-                        ListRow("🎵 ${song.displayName}", compact) { orderFromTv(song) }
+                    itemsIndexed(songs) { index, song ->
+                        ListRow(
+                            "🎵 ${song.displayName}", compact,
+                            if (index == 0) {
+                                Modifier.focusRequester(firstResultRequester)
+                            } else {
+                                Modifier
+                            },
+                        ) { orderFromTv(song) }
                     }
                 }
             }
@@ -2438,11 +2725,81 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * The browse page's search field (v1.0.46): a wide focusable
+     * box showing the current query, or the hint while the query
+     * is empty. Tap/OK opens the editor dialog — that is how a
+     * voice result stays editable. Same focus language as the
+     * chips and rows (a gold ring when focused).
+     */
     @Composable
-    private fun ListRow(label: String, compact: Boolean, onClick: () -> Unit) {
+    private fun SearchField(compact: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
         var focused by remember { mutableStateOf(false) }
+        val hasQuery = browseQuery.isNotBlank()
+        Box(
+            modifier = modifier
+                .border(2.dp, if (focused) gold else Color.Transparent, RoundedCornerShape(16.dp))
+                .background(cardBg, RoundedCornerShape(16.dp))
+                .focusable()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { onClick() }
+                .padding(horizontal = 12.dp, vertical = if (compact) 5.dp else 7.dp),
+        ) {
+            Text(
+                if (hasQuery) "🔍 $browseQuery" else s(TvKey.SEARCH_HINT),
+                color = if (hasQuery) Color.White else soft,
+                fontSize = (if (compact) 12 else 13).sp,
+                maxLines = 1,
+            )
+        }
+    }
+
+    /**
+     * The 🎤 voice-search button (v1.0.46). Greyed when the device
+     * has no recognition service ([VoiceSearch.ButtonState]); it
+     * stays focusable and clickable in every state so the remote
+     * can always reach it and tapping it always explains itself
+     * (the no-service line also stands under the search row).
+     */
+    @Composable
+    private fun VoiceButton(
+        compact: Boolean,
+        state: VoiceSearch.ButtonState,
+        onClick: () -> Unit,
+    ) {
+        var focused by remember { mutableStateOf(false) }
+        val ready = state == VoiceSearch.ButtonState.READY
         Box(
             modifier = Modifier
+                .focusRequester(voiceButtonRequester)
+                .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(16.dp))
+                .background(if (ready) cardBg else Color(0xFF39415C), RoundedCornerShape(16.dp))
+                .focusable()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { onClick() }
+                .padding(horizontal = 12.dp, vertical = if (compact) 5.dp else 7.dp)
+                .semantics { contentDescription = s(TvKey.VOICE_BUTTON) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                s(TvKey.VOICE_BUTTON),
+                color = if (ready) Color.White else soft,
+                fontSize = (if (compact) 12 else 13).sp,
+                maxLines = 1,
+            )
+        }
+    }
+
+    @Composable
+    private fun ListRow(
+        label: String,
+        compact: Boolean,
+        modifier: Modifier = Modifier,
+        onClick: () -> Unit,
+    ) {
+        var focused by remember { mutableStateOf(false) }
+        Box(
+            modifier = modifier
                 .fillMaxWidth()
                 .border(2.dp, if (focused) gold else Color.Transparent, RoundedCornerShape(8.dp))
                 .background(if (focused) cardBg else Color.Transparent, RoundedCornerShape(8.dp))

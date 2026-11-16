@@ -1699,3 +1699,36 @@ APK：`MySing-1.0.41.apk`，30,336,531 字节，SHA-256 `62df376be7ff56a8d1dc010
 - 单测 **366**（361 基线 + 5：pitch/跨度钉值、16:9 与宽屏手机的目标值生效、4:3 宽度上限、不超预算不变量），0 失败。
 - APK：`MySing-1.0.45.apk`，31,169,135 B，SHA-256 `ce4e854f507c0253e0ff2e3d0e9fe3f22374065f31c817ddf5ea9ffb42b27e64`，versionCode 46，签名证书 SHA-256 `1336ee0a…`（共享 keystore）。
 - 设备侧待用户验：唱完一首看仪式——卡片应在上方不再被人群挤、六人明显变大且站得拢；无下一首时的掌声排同尺寸同站位；keeper 独邀的位置与大小应与从前一致（交接无跳）。
+
+## v1.0.46 — 电视端语音搜索（2026-11-16）
+
+用户原话：「电视点歌里面可不可以加个语音搜索」→ 确认「好，加语音搜索」。范围只做这一件：浏览页搜索 + 语音输入；播放舞台、歌词安全带、仪式、队列规则一律不动。
+
+### 一、先说清的事实：浏览页原本没有文本搜索框
+
+电视浏览页此前只有筛选芯片（歌曲/歌手、语言、性别、歌手），文本+拼音搜索只存在于手机点歌页（`Catalog.search` / `PinyinInitials.matches`）。语音结果要有地方落、还要能改错字，所以本版先在浏览页补上搜索框本体，再把语音接到它上面——不是另起一套搜索：过滤走的仍是既有 `PinyinInitials.matches`（歌曲）与新增同规则的 `matchesText`（歌手名，子串/拼音首字母两条规则与歌曲侧逐字一致）。
+
+### 二、搜索行（浏览页内，chips 行之下）
+
+- 搜索框（占行内弹性宽）：显示当前查询词，空时显示提示「🔍 搜索歌名或歌手」；点/OK 打开原生 EditText 对话框编辑（与改名编辑器同款，Shield 出 Leanback 键盘），预填当前词、全选，存空即清空。行尾查询非空时多一颗「✕ 清除」芯片。
+- 查询作用于当前列表之上：歌曲列表在 special（收藏/最近/全部+语言/性别/歌手芯片）的结果上再过一遍匹配；歌手列表按 `matchesText` 过名。
+- 语音结果（或对话框保存）生效时：切到歌曲列表、清掉收藏/最近 special（语言/性别/歌手芯片保留），焦点自动落到结果第一行，遥控器直接接手选歌。
+
+### 三、语音输入（系统 SpeechRecognizer）
+
+- 入口：搜索框旁 🎤 语音按钮，遥控器可聚焦、OK 启动；紧凑布局同尺寸口径（12sp/小内距），行在浏览页既有的右侧二维码预留区之内，不挤既有元素。
+- 识别：`SpeechRecognizer` + `ACTION_RECOGNIZE_SPEECH`（FREE_FORM），语言跟随 App 当前 UI 语言（中文→zh-CN，英文→en-US，纯函数 `VoiceSearch.languageTag` 钉值）；取第一候选填入搜索框状态（`VoiceSearch.firstCandidate` / `queryAfterResult`），走既有过滤；识别文字保持可编辑。
+- 监听浮层：双语「正在听…说出歌名或歌手」对话框，Back 即取消（dismiss = cancel 识别）；出错/没听清给一句双语短提示，焦点还给 🎤 按钮。
+- 权限：`RECORD_AUDIO` 运行时权限，首次点按钮先弹双语说明（只听搜索、不录唱歌），点「继续」才走系统申请；被拒后按钮只显示「没有麦克风权限，用打字搜索吧」，不再反复弹系统框。Manifest 本版只新增 `RECORD_AUDIO` 一个权限，外加 Android 11+ 包可见性 `<queries>`（RecognitionService，否则 `isRecognitionAvailable` 在有服务的设备上也会误报 false）。
+- 可用性守卫：`isRecognitionAvailable` 为 false 时按钮置灰，行下常驻双语「本设备没有语音服务」，点击再提示一次，绝不崩溃（启动路径内重复检查一次）。判定逻辑在纯对象 `VoiceSearch`（buttonState/buttonEnabled），与 Android API 分离。
+- 口径不变：本 App 的麦克风与唱歌话筒系统完全无关——话筒走独立功放，App 从不处理唱歌音频、不打分；此麦克风只听搜索命令。识别走设备自带语音服务，需要 WiFi 在线。
+
+### 四、权限核对（如实记录）
+
+本版 merged manifest 权限：INTERNET、ACCESS_NETWORK_STATE、ACCESS_WIFI_STATE、RECORD_AUDIO（+ androidx 自动生成的 DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION）。其中 **RECORD_AUDIO 是本版唯一新增**；INTERNET 是自 v1.0.0 起就有的存量权限——手机点歌的局域网 HTTP 服务靠它监听端口，没有它手机扫码点歌就断了，本版未动它。语音识别本身不经 App 的网络：走系统识别服务，App 侧没有为语音加任何网络权限。
+
+### 五、交付与待验
+
+- 单测 **372**（366 基线 + 6：VoiceSearch 5 个——语言映射、第一候选取舍、结果填入语义、可用性状态；PinyinInitials.matchesText 1 个），0 失败。SpeechRecognizer 本体是设备侧能力，未伪造测试。
+- APK：`MySing-1.0.46.apk`，31,169,229 B，SHA-256 `ea24bf792d3b8186ec7c8b056ada126891ce7a28bdeb9178656e9dc279831249`，versionCode 47，签名证书 SHA-256 `1336ee0a…`（共享 keystore）。
+- 设备侧待用户验：① 浏览页点 🎤，首次允许麦克风权限，说「刘德华 忘情水」类歌名/歌手——识别词应落进搜索框、列表立刻过滤、焦点在第一行；认错字时点搜索框改字应能改；② 英文界面下说英文歌名走 en-US；③ 拒绝权限后按钮只给提示不再弹框；④ 无语音服务的设备上按钮置灰有提示（他的 Note10+ 有三星语音服务，预计走可用路径）。

@@ -26,4 +26,17 @@ class PinyinInitialsTest {
         assertTrue(PinyinInitials.matches(song, "ylzs"))
         assertTrue(PinyinInitials.matches(song, "月亮"))
     }
+
+    @Test
+    fun `matchesText applies the same rules to a bare singer name`() {
+        // v1.0.46: the TV browse page's search field filters the
+        // singers list with the same text/pinyin rules as songs.
+        assertTrue(PinyinInitials.matchesText("凤凰传奇", "凤凰"))
+        assertTrue(PinyinInitials.matchesText("凤凰传奇", "fhcq"))
+        assertTrue(PinyinInitials.matchesText("Ed Sheeran", "sheeran"))
+        assertTrue(PinyinInitials.matchesText("Ed Sheeran", "eds"))
+        assertTrue(PinyinInitials.matchesText("凤凰传奇", ""))
+        assertTrue(!PinyinInitials.matchesText("凤凰传奇", "周杰伦"))
+        assertTrue(!PinyinInitials.matchesText("凤凰传奇", "zjl"))
+    }
 }

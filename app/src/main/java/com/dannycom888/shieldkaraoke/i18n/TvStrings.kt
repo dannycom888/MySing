@@ -52,6 +52,9 @@ enum class TvKey {
     // The browse-list badge on songs with a paired accompaniment
     // file (v1.0.47).
     ACCOMP_BADGE,
+    // The TV order flow's dancer picker (v1.0.51): ordering from
+    // the TV now picks a dancer too, in one step.
+    DANCER_PICK_TITLE, DANCER_PICK_HINT,
 }
 
 /**
@@ -157,6 +160,8 @@ object TvStrings {
         TvKey.VOICE_NOT_HEARD to "没听清，再试一次",
         TvKey.VOICE_ERROR to "语音识别出错，再试一次",
         TvKey.ACCOMP_BADGE to "伴奏",
+        TvKey.DANCER_PICK_TITLE to "选择伴舞",
+        TvKey.DANCER_PICK_HINT to "选好按 OK 就点这首歌，按返回取消",
     )
 
     private val EN: Map<TvKey, String> = mapOf(
@@ -249,6 +254,8 @@ object TvStrings {
         TvKey.VOICE_NOT_HEARD to "Didn't catch that — try again",
         TvKey.VOICE_ERROR to "Voice recognition failed — try again",
         TvKey.ACCOMP_BADGE to "Acc.",
+        TvKey.DANCER_PICK_TITLE to "Choose a dancer",
+        TvKey.DANCER_PICK_HINT to "OK orders the song with this dancer; Back cancels",
     )
 
     /** Key set of each language's table, for the parity test. */

@@ -5,14 +5,21 @@ import com.dannycom888.shieldkaraoke.library.Song
 import com.dannycom888.shieldkaraoke.queue.QueueEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * v1.0.19: the player queue panel's row model — current song first
- * with ▶ and no number, waiting songs numbered from 1 with their
- * waiting-list index attached for the remote actions.
+ * The player queue panel's row model.
+ *
+ * v1.0.51: the panel lists only the songs waiting BEHIND the
+ * next one up — neither the song being sung (it has its own
+ * line over the lyrics) nor the next song (the banner / card
+ * already announces it) gets a row. Rows are renumbered from
+ * 1 inside the panel but keep their real waiting-list index
+ * for the remote actions. (The pre-v1.0.51 contract — current
+ * row with ▶ plus every waiting song — is retired; the phone
+ * page's full queue view is a different surface and is not
+ * built from this model.)
  */
 class QueuePanelModelTest {
 
@@ -21,62 +28,45 @@ class QueuePanelModelTest {
     )
 
     @Test
-    fun `current first unnumbered, waiting numbered from one`() {
-        val rows = QueuePanelModel.rows(entry("1"), listOf(entry("2"), entry("3")))
-        assertEquals(3, rows.size)
-        assertTrue(rows[0].isCurrent)
-        assertNull(rows[0].number)
-        assertEquals(-1, rows[0].waitingIndex)
-        assertEquals("1", rows[0].entry.song.id)
-        assertFalse(rows[1].isCurrent)
-        assertEquals(1, rows[1].number)
-        assertEquals(0, rows[1].waitingIndex)
-        assertEquals(2, rows[2].number)
-        assertEquals(1, rows[2].waitingIndex)
-    }
-
-    @Test
-    fun `filler current row is flagged for the random label`() {
-        // v1.0.20: an idle filler song shown as the panel's current
-        // row carries the filler flag (panel prints 随机/Random
-        // instead of an orderer); ordered rows never do.
-        val filler = QueueEntry(
-            Song("9", "歌手9", "歌9", Category.CHINESE_BOY, "uri://9", null),
-            "", com.dannycom888.shieldkaraoke.queue.EntrySource.FILLER,
+    fun `next up gets no row, the rest renumber from one`() {
+        val rows = QueuePanelModel.rows(
+            listOf(entry("1"), entry("2"), entry("3"), entry("4")),
         )
-        val rows = QueuePanelModel.rows(filler, listOf(entry("2")))
-        assertTrue(rows[0].isCurrent)
-        assertTrue(rows[0].isFiller)
-        assertFalse(rows[1].isFiller)
-        assertTrue(QueuePanelModel.isVisible(filler, emptyList()))
+        assertEquals(3, rows.size)
+        // waiting[0] (id 1, the next song) is skipped entirely.
+        assertEquals(listOf("2", "3", "4"), rows.map { it.entry.song.id })
+        // Panel numbers restart at 1…
+        assertEquals(listOf(1, 2, 3), rows.map { it.number })
+        // …while the queue indices the actions use stay real.
+        assertEquals(listOf(1, 2, 3), rows.map { it.waitingIndex })
     }
 
     @Test
-    fun `nothing at all gives no rows and hides the panel`() {
-        assertTrue(QueuePanelModel.rows(null, emptyList()).isEmpty())
-        assertFalse(QueuePanelModel.isVisible(null, emptyList()))
+    fun `a lone next up leaves the panel empty and hidden`() {
+        assertTrue(QueuePanelModel.rows(listOf(entry("1"))).isEmpty())
+        assertFalse(QueuePanelModel.isVisible(listOf(entry("1"))))
     }
 
     @Test
-    fun `current alone still shows, as a single current row`() {
-        val rows = QueuePanelModel.rows(entry("1"), emptyList())
+    fun `nothing waiting hides the panel`() {
+        assertTrue(QueuePanelModel.rows(emptyList()).isEmpty())
+        assertFalse(QueuePanelModel.isVisible(emptyList()))
+    }
+
+    @Test
+    fun `two waiting songs are the first visible panel`() {
+        val waiting = listOf(entry("1"), entry("2"))
+        assertTrue(QueuePanelModel.isVisible(waiting))
+        val rows = QueuePanelModel.rows(waiting)
         assertEquals(1, rows.size)
-        assertTrue(rows[0].isCurrent)
-        assertTrue(QueuePanelModel.isVisible(entry("1"), emptyList()))
-    }
-
-    @Test
-    fun `waiting without a current song numbers from one`() {
-        val rows = QueuePanelModel.rows(null, listOf(entry("2"), entry("3")))
-        assertEquals(listOf(1, 2), rows.map { it.number })
-        assertEquals(listOf(0, 1), rows.map { it.waitingIndex })
-        assertTrue(rows.none { it.isCurrent })
-        assertTrue(QueuePanelModel.isVisible(null, listOf(entry("2"))))
+        assertEquals("2", rows[0].entry.song.id)
+        assertEquals(1, rows[0].number)
+        assertEquals(1, rows[0].waitingIndex)
     }
 
     @Test
     fun `promote is offered only below the first waiting song`() {
-        assertFalse(QueuePanelModel.canPromote(-1)) // the current row
+        assertFalse(QueuePanelModel.canPromote(-1)) // not a waiting row at all
         assertFalse(QueuePanelModel.canPromote(0)) // already next up
         assertTrue(QueuePanelModel.canPromote(1))
         assertTrue(QueuePanelModel.canPromote(5))
@@ -87,7 +77,7 @@ class QueuePanelModelTest {
         // v1.0.27: unlike promote, 现在唱 makes sense even for the
         // song already first in line — it skips the current song's
         // remainder instead of waiting for it to end.
-        assertFalse(QueuePanelModel.canPlayNow(-1)) // the current row
+        assertFalse(QueuePanelModel.canPlayNow(-1)) // not a waiting row
         assertTrue(QueuePanelModel.canPlayNow(0))
         assertTrue(QueuePanelModel.canPlayNow(1))
         assertTrue(QueuePanelModel.canPlayNow(5))

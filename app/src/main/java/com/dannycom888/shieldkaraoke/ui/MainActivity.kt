@@ -85,6 +85,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
@@ -194,6 +196,13 @@ class MainActivity : ComponentActivity() {
     private var ceremonyKeeperKey by mutableStateOf<String?>(null)
     private var ceremonyStartMs by mutableStateOf(0L)
     private var confirmQuit by mutableStateOf(false)
+    /** A TV browse order waiting on its dancer pick (v1.0.51):
+     *  the song the host tapped on the browse page. While this
+     *  is non-null the dancer picker dialog is up; the order is
+     *  placed only when a dancer is confirmed, and Back simply
+     *  drops the song again — browsing past a song never orders
+     *  it and never opens the picker. */
+    private var pendingTvOrder by mutableStateOf<Song?>(null)
     /** Host-renamed dancer names (v1.0.21), mirrored from prefs
      *  so every label on the TV resolves through [DancerNames]
      *  against the same snapshot; refreshed after each admin edit. */
@@ -321,6 +330,26 @@ class MainActivity : ComponentActivity() {
                             dismissButton = {
                                 TextButton(onClick = { confirmQuit = false }) { Text(s(TvKey.QUIT_CANCEL)) }
                             },
+                        )
+                    }
+                    // v1.0.51: a TV browse tap now picks its dancer
+                    // first (see TvDancerPickerDialog). The pick is
+                    // stored under the TV's orderer name — the very
+                    // name the order itself carries — so the stage
+                    // dancer lookup and the next visit's
+                    // preselection read the same entry the phones
+                    // use for theirs; nobody overwrites anybody
+                    // (the store is keyed by orderer name).
+                    pendingTvOrder?.let { song ->
+                        TvDancerPickerDialog(
+                            song = song,
+                            compact = compact,
+                            onPick = { dancer ->
+                                pendingTvOrder = null
+                                app.prefs.setDancer(s(TvKey.TV_ORDERER), dancer.key)
+                                orderFromTv(song)
+                            },
+                            onCancel = { pendingTvOrder = null },
                         )
                     }
                 }
@@ -731,6 +760,124 @@ class MainActivity : ComponentActivity() {
         // interface's current language （电视 / TV).
         app.state.order(song, s(TvKey.TV_ORDERER))
         if (app.state.queue.current != null) screen = Screen.PLAYER
+    }
+
+    /**
+     * The TV order flow's dancer picker (v1.0.51): until now the
+     * dancer choice lived only on the phone page, so a TV order
+     * always danced with whatever the TV orderer had last picked
+     * there — or the default. One step, no menus: the six dancers
+     * as standing-frame cards, focus starting on the TV orderer's
+     * stored pick (its name in gold), OK on a card places the
+     * order with that dancer, Back cancels and orders nothing.
+     * Names resolve through [dancerDisplayName], so custom names
+     * and the UI language apply exactly as everywhere else on
+     * the TV. The store is the phones' own [Prefs.dancerFor] /
+     * [Prefs.setDancer], keyed by orderer name — the TV writes
+     * only its own name's entry.
+     */
+    @Composable
+    private fun TvDancerPickerDialog(
+        song: Song,
+        compact: Boolean,
+        onPick: (Dancer) -> Unit,
+        onCancel: () -> Unit,
+    ) {
+        val storedKey = app.prefs.dancerFor(s(TvKey.TV_ORDERER))
+        val preselected = Dancers.byKey(storedKey)
+        val cardRequesters = remember {
+            Dancers.ALL.associate { it.key to FocusRequester() }
+        }
+        // Focus starts on the stored pick, so a host who always
+        // wants the same dancer is one OK away from ordering.
+        LaunchedEffect(song.id) {
+            try {
+                cardRequesters[preselected.key]?.requestFocus()
+            } catch (e: Exception) {
+                // Card not composed yet; the first D-pad press
+                // resolves focus spatially instead.
+            }
+        }
+        Dialog(
+            onDismissRequest = onCancel,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(if (compact) 0.94f else 0.82f)
+                    .background(cardBg, RoundedCornerShape(16.dp))
+                    .padding(if (compact) 14.dp else 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    s(TvKey.DANCER_PICK_TITLE), color = Color.White,
+                    fontSize = (if (compact) 17 else 22).sp, fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    song.displayName, color = gold,
+                    fontSize = (if (compact) 13 else 16).sp, maxLines = 1,
+                )
+                Spacer(Modifier.height(if (compact) 8.dp else 14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)) {
+                    Dancers.ALL.forEach { dancer ->
+                        TvDancerPickCard(
+                            dancer = dancer,
+                            compact = compact,
+                            isStored = dancer.key == preselected.key,
+                            focusRequester = cardRequesters[dancer.key] ?: FocusRequester(),
+                            onClick = { onPick(dancer) },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
+                Text(
+                    s(TvKey.DANCER_PICK_HINT), color = soft,
+                    fontSize = (if (compact) 11 else 13).sp,
+                )
+            }
+        }
+    }
+
+    /** One dancer card of the TV picker: the standing frame over
+     *  the dancer's display name. The stored pick's name is gold;
+     *  the focused card carries the gold border, like every other
+     *  focusable row on the TV. */
+    @Composable
+    private fun TvDancerPickCard(
+        dancer: Dancer,
+        compact: Boolean,
+        isStored: Boolean,
+        focusRequester: FocusRequester,
+        onClick: () -> Unit,
+    ) {
+        var focused by remember { mutableStateOf(false) }
+        Column(
+            modifier = Modifier
+                .border(2.dp, if (focused) gold else Color.Transparent, RoundedCornerShape(10.dp))
+                .background(if (focused) Color(0xFF22376E) else Color.Transparent, RoundedCornerShape(10.dp))
+                .focusRequester(focusRequester)
+                .focusable()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable { onClick() }
+                .padding(if (compact) 4.dp else 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Image(
+                painter = painterResource(dancer.resId),
+                contentDescription = dancerDisplayName(dancer.key),
+                modifier = Modifier.height(if (compact) 72.dp else 104.dp)
+                    .aspectRatio(SpotlightGeom.FRAME_ASPECT),
+                contentScale = ContentScale.Fit,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                dancerDisplayName(dancer.key),
+                color = if (isStored) gold else Color.White,
+                fontSize = (if (compact) 11 else 13).sp,
+                fontWeight = if (isStored) FontWeight.Bold else FontWeight.Normal,
+                maxLines = 1,
+            )
+        }
     }
 
     // ---------- screens ----------
@@ -1385,7 +1532,7 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 Modifier
                             },
-                        ) { orderFromTv(song) }
+                        ) { pendingTvOrder = song }
                     }
                 }
             }
@@ -1482,14 +1629,13 @@ class MainActivity : ComponentActivity() {
         // a target here and one effect performs the move after the
         // recomposition that the queue change caused. ---
         val waiting = state.queue.waitingList
-        // The panel's "current" is what is actually singing: the
-        // queue's current song, or — while idle filler is playing
-        // (v1.0.20) — the filler entry, which the panel labels
-        // 随机/Random via the row model. Filler never appears as a
-        // waiting row: it is not in the queue at all.
-        val panelCurrent = state.queue.current ?: entry?.takeIf { it.isFiller }
-        val panelRows = QueuePanelModel.rows(panelCurrent, waiting)
-        val panelVisible = QueuePanelModel.isVisible(panelCurrent, waiting)
+        // v1.0.51: the panel lists only what waits BEHIND the
+        // next song — neither the song being sung (it has its
+        // own line over the lyrics) nor the next one up (the
+        // banner announces it) gets a row; see QueuePanelModel.
+        // With nothing behind the next song there is no panel.
+        val panelRows = QueuePanelModel.rows(waiting)
+        val panelVisible = QueuePanelModel.isVisible(waiting)
         // The corner card is always present since v1.0.42 (the QR,
         // or its waiting-for-network placeholder), so the two
         // qrPresent paddings below are unconditional now.
@@ -1518,6 +1664,16 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(state.version) {
             val ai = actionIndex
             if (ai != null && ai !in waiting.indices) actionIndex = null
+        }
+        // The panel itself may vanish mid-management now (the
+        // queue drained to just the next song): drop its focus
+        // bookkeeping with it, so a stale "panel focused" flag
+        // can never swallow the stage's Back key afterwards.
+        LaunchedEffect(panelVisible) {
+            if (!panelVisible) {
+                panelFocused = false
+                actionIndex = null
+            }
         }
         LaunchedEffect(focusTarget, state.version) {
             val target = focusTarget
@@ -1621,6 +1777,28 @@ class MainActivity : ComponentActivity() {
                     val ceremonyPhase = ceremony?.let { Ceremony.phaseAt(ceremonyElapsed) }
                     val showCelebration = ceremony == null && celebrating && entry != null &&
                         clapElapsed in 0..(APPLAUSE_MS + 200)
+                    // The last sung line's end (the same boundary
+                    // the dancer phases use; null without an LRC).
+                    val lastLyricEnd = remember(lyrics) { DancerActivity.lastLyricEndMs(lyrics) }
+                    // v1.0.51: the outro applause — an ORDERED
+                    // song whose singing ended 3+ s ago but whose
+                    // music still runs gets the five figures out
+                    // clapping for the tail (see OutroClap). The
+                    // timing is a pure function of the playback
+                    // position, so a pause freezes the wait (and
+                    // the hands). Filler never gets it, quit songs
+                    // never reach it (their flow replaces the
+                    // entry), and there is NO applause sound here —
+                    // that belongs to the end-of-song flow, which
+                    // takes over this very row when the song ends.
+                    val outroTriggerMs = if (entry != null && !entry.isFiller) {
+                        OutroClap.triggerMs(lastLyricEnd, durationMs)
+                    } else {
+                        null
+                    }
+                    val outroClapping = outroTriggerMs != null && ceremony == null &&
+                        !celebrating && positionMs >= outroTriggerMs &&
+                        positionMs < durationMs
                     if (ceremony != null && ceremonyPhase != null &&
                         ceremonyPhase != Ceremony.Phase.DONE
                     ) {
@@ -1647,7 +1825,9 @@ class MainActivity : ComponentActivity() {
                         // standing frame and only breathes slowly.
                         // A song without an LRC has neither
                         // boundary and dances throughout.
-                        val lastLyricEnd = remember(lyrics) { DancerActivity.lastLyricEndMs(lyrics) }
+                        // (lastLyricEnd itself is computed once,
+                        // above the stage branches — the outro
+                        // applause reads it too, v1.0.51.)
                         // v1.0.30: the intro boundary is the first
                         // SUNG line — the LRC's header block (title
                         // card + 词/曲 credit lines at 0–2 s) used to
@@ -1678,7 +1858,7 @@ class MainActivity : ComponentActivity() {
                         )
                         Row(modifier = Modifier.fillMaxSize()) {
                           Box(modifier = Modifier.fillMaxHeight().width(band.dancerWidthDp.dp)) {
-                            if (entry != null && !showCelebration && dancersOn) {
+                            if (entry != null && !showCelebration && !outroClapping && dancersOn) {
                                 // The dancer belongs to whoever ordered this song.
                                 val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
                                 // v1.0.25: the zone measures ITSELF —
@@ -1896,9 +2076,19 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    if (showCelebration) {
+                    if (showCelebration || outroClapping) {
                         // Song finished: the five figures come out
-                        // and clap together.
+                        // and clap together. v1.0.51: the same row
+                        // also comes out DURING the song, once the
+                        // singing has been over for 3 s and the
+                        // outro still runs (outroClapping) — and
+                        // because it is literally this same row at
+                        // this same place, the end-of-song flow
+                        // (this send-off, or the ceremony's clap
+                        // segment) takes over without a flicker,
+                        // a jump or a re-entry; the solo dancer
+                        // above has already retired, so nobody
+                        // appears twice.
                         // v1.0.45: same enlarged, tightened row as
                         // the ceremony — one "come out" scene, one
                         // size, one pitch. v1.0.48: same
@@ -1928,7 +2118,19 @@ class MainActivity : ComponentActivity() {
                                 dancer = figure.dancer ?: Dancers.byKey(DancerKeys.MODERN),
                                 pose = DanceMotion.NEUTRAL_POSE,
                                 heightDp = h,
-                                frameIndex = ClapCycle.frameAt(clapElapsed),
+                                frameIndex = ClapCycle.frameAt(
+                                    // The outro phase runs on the
+                                    // playback position (a pause
+                                    // freezes the hands with the
+                                    // music); the send-off keeps
+                                    // its wall clock from the
+                                    // applause start.
+                                    if (outroClapping) {
+                                        positionMs - (outroTriggerMs ?: 0L)
+                                    } else {
+                                        clapElapsed
+                                    },
+                                ),
                                 framesOverride = listOf(
                                     figure.clapOpenResId, figure.clapClosedResId,
                                 ),
@@ -1988,14 +2190,30 @@ class MainActivity : ComponentActivity() {
                             onPromote = { idx ->
                                 app.state.promoteWaitingAt(idx)
                                 actionIndex = null
-                                // The promoted song is now first in line.
-                                focusTarget = PanelFocusTarget.Row(0)
+                                // The promoted song is now first in
+                                // line — next up, so it leaves the
+                                // panel (v1.0.51); focus lands on
+                                // the panel's new first row (always
+                                // waiting index 1 while the panel
+                                // shows), or back on the control
+                                // bar when no row remains behind
+                                // the new next song.
+                                focusTarget = if (app.state.queue.waitingList.size >= 2) {
+                                    PanelFocusTarget.Row(1)
+                                } else {
+                                    PanelFocusTarget.ControlBar
+                                }
                             },
                             onDelete = { idx ->
                                 app.state.removeWaitingAt(idx)
                                 actionIndex = null
                                 val remaining = app.state.queue.waitingList
-                                focusTarget = if (remaining.isEmpty()) {
+                                // v1.0.51: the panel lists nothing
+                                // once fewer than two songs wait,
+                                // so focus returns to the control
+                                // bar then; otherwise it lands on
+                                // the row that slid into place.
+                                focusTarget = if (remaining.size < 2) {
                                     PanelFocusTarget.ControlBar
                                 } else {
                                     PanelFocusTarget.Row(minOf(idx, remaining.lastIndex))
@@ -2018,14 +2236,18 @@ class MainActivity : ComponentActivity() {
                 // --- control bar: permanently visible, never auto-hides ---
                 Row(
                     modifier = Modifier.fillMaxWidth()
-                        // D-pad Up from the control bar steps into the
-                        // queue panel's first waiting row (v1.0.19);
+                        // D-pad Up from the control bar steps into
+                        // the queue panel's first row (v1.0.19;
+                        // v1.0.51: the first LISTED row — its
+                        // waiting index comes from the row model,
+                        // since the next song no longer gets a row);
                         // the panel's own Back returns focus here.
                         .onKeyEvent { event ->
+                            val firstRow = panelRows.firstOrNull()
                             if (event.type == KeyEventType.KeyDown &&
-                                event.key == Key.DirectionUp && waiting.isNotEmpty()
+                                event.key == Key.DirectionUp && firstRow != null
                             ) {
-                                focusTarget = PanelFocusTarget.Row(0)
+                                focusTarget = PanelFocusTarget.Row(firstRow.waitingIndex)
                                 true
                             } else {
                                 false
@@ -2219,12 +2441,15 @@ class MainActivity : ComponentActivity() {
     /**
      * The queue panel (v1.0.19): right side of the player screen,
      * below the top-right QR card ([topPad] clears it). Lists the
-     * shared queue exactly as [QueuePanelModel] builds it — current
-     * song with ▶ and no number, waiting songs numbered — and gives
-     * the remote holder the queue actions （现在唱 since v1.0.27,
-     * plus 下一首唱 / 删除）. It renders only the model; every
-     * mutation goes through KaraokeState, so the phone pages see
-     * the same queue change from the same state bump.
+     * queue exactly as [QueuePanelModel] builds it — since
+     * v1.0.51 only the songs waiting behind the next one up,
+     * renumbered from 1 — and gives the remote holder the queue
+     * actions （现在唱 since v1.0.27, plus 下一首唱 / 删除）. It
+     * renders only the model; every mutation goes through
+     * KaraokeState, so the phone pages see the same queue change
+     * from the same state bump. The caller renders it only when
+     * the model says it is visible, so it never shows an empty
+     * shell.
      */
     @Composable
     private fun QueuePanel(
@@ -2258,47 +2483,22 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                items(rows, key = { row -> if (row.isCurrent) "current" else "w${row.waitingIndex}" }) { row ->
-                    if (row.isCurrent) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = 4.dp),
-                        ) {
-                            Text(
-                                "▶ ${row.entry.song.displayName}", color = gold,
-                                fontSize = (if (compact) 12 else 14).sp, maxLines = 2,
-                            )
-                            Text(
-                                // Filler current row: labelled as a
-                                // random pick, never a person's name.
-                                if (row.isFiller) s(TvKey.QUEUE_PANEL_RANDOM) else row.entry.orderedBy,
-                                color = soft,
-                                fontSize = (if (compact) 10 else 11).sp, maxLines = 1,
-                            )
-                        }
-                    } else {
-                        QueuePanelRowItem(
-                            row = row,
-                            compact = compact,
-                            expanded = actionIndex == row.waitingIndex,
-                            focusRequester = rowRequesters.getOrPut(row.waitingIndex) { FocusRequester() },
-                            playNowRequester = playNowRequester,
-                            promoteRequester = promoteRequester,
-                            deleteRequester = deleteRequester,
-                            onClick = { onRowClick(row.waitingIndex) },
-                            onPlayNow = { onPlayNow(row.waitingIndex) },
-                            onPromote = { onPromote(row.waitingIndex) },
-                            onDelete = { onDelete(row.waitingIndex) },
-                            onPanelFocus = onPanelFocus,
-                        )
-                    }
+                items(rows, key = { row -> "w${row.waitingIndex}" }) { row ->
+                    QueuePanelRowItem(
+                        row = row,
+                        compact = compact,
+                        expanded = actionIndex == row.waitingIndex,
+                        focusRequester = rowRequesters.getOrPut(row.waitingIndex) { FocusRequester() },
+                        playNowRequester = playNowRequester,
+                        promoteRequester = promoteRequester,
+                        deleteRequester = deleteRequester,
+                        onClick = { onRowClick(row.waitingIndex) },
+                        onPlayNow = { onPlayNow(row.waitingIndex) },
+                        onPromote = { onPromote(row.waitingIndex) },
+                        onDelete = { onDelete(row.waitingIndex) },
+                        onPanelFocus = onPanelFocus,
+                    )
                 }
-            }
-            if (rows.none { !it.isCurrent }) {
-                Text(
-                    s(TvKey.QUEUE_PANEL_NO_WAITING), color = soft,
-                    fontSize = (if (compact) 11 else 12).sp,
-                )
             }
         }
     }

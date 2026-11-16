@@ -241,25 +241,30 @@ class DanceMotionTest {
     @Test
     fun normalSpeedSongsDanceExactlyAsBeforeTheTaper() {
         // Regression pins at 96 BPM (tempo factor exactly 1.0,
-        // slow factor 1.0): the values below are the pre-taper
-        // formulas evaluated by hand — if the taper ever leaks
-        // into the flat zone, these break.
+        // slow factor 1.0): the values below are the formulas
+        // evaluated by hand — if the taper ever leaks into the
+        // flat zone, these break. The bounce / scale / sink pins
+        // are unchanged since v1.0.22; the ROTATION pins were
+        // re-based in v1.0.41, when all human sway amplitudes
+        // were scaled by ~0.45 (modern 2.0° → 0.9°, ancient
+        // 3.5° → 1.6°, sumo 4.5° → 2.0°) against the left-right
+        // "flash" — same beat, same formulas, new sway values.
         // MODERN at beat 1.6 (1000 ms at 96 BPM).
         val modern = DanceMotion.pose(DanceMotion.Profile.MODERN, 1_000L, 96.0)
         assertEquals(0.523086f, modern.bounceFraction, 0.001f)
-        assertEquals(-1.175571f, modern.rotationDeg, 0.001f)
+        assertEquals(-0.529007f, modern.rotationDeg, 0.001f)
         assertEquals(1.001494f, modern.scale, 0.001f)
         assertEquals(0.001799f, modern.sinkFraction, 0.001f)
         // ANCIENT at the same beat.
         val ancient = DanceMotion.pose(DanceMotion.Profile.ANCIENT, 1_000L, 96.0)
         assertEquals(0.266298f, ancient.bounceFraction, 0.001f)
-        assertEquals(-2.057248f, ancient.rotationDeg, 0.001f)
+        assertEquals(-0.940456f, ancient.rotationDeg, 0.001f)
         assertEquals(1.000996f, ancient.scale, 0.001f)
         assertEquals(0.000900f, ancient.sinkFraction, 0.001f)
         // SUMO at the same beat.
         val sumo = DanceMotion.pose(DanceMotion.Profile.SUMO, 1_000L, 96.0)
         assertEquals(0.291104f, sumo.bounceFraction, 0.001f)
-        assertEquals(-4.279793f, sumo.rotationDeg, 0.001f)
+        assertEquals(-1.902113f, sumo.rotationDeg, 0.001f)
         assertEquals(1.000747f, sumo.scale, 0.001f)
         assertEquals(0.004198f, sumo.sinkFraction, 0.001f)
         // BABY dancing at beat 1.0 (cycle 0 dances 12+ beats, so
@@ -461,14 +466,16 @@ class BabyFallTest {
         while (pos < 20_000L) {
             val p = DanceMotion.pose(DanceMotion.Profile.SUMO, pos, 120.0)
             assertTrue(p.bounceFraction in 0f..1f)
-            assertTrue(abs(p.rotationDeg) <= 4.51f)
+            // v1.0.41: the rock's amplitude is 2.0° now (was
+            // 4.5°) — bound and both-ways thresholds re-based.
+            assertTrue(abs(p.rotationDeg) <= 2.01f)
             assertTrue(p.scale in 1.0f..1.06f)
             // v1.0.22: knee sink (0.10) + half-frequency accent
             // (0.08) can stack on a downbeat — bound is their sum.
             assertTrue(p.sinkFraction in 0f..0.19f)
             if (p.sinkFraction > 0.05f) sawSink = true
-            if (p.rotationDeg > 3f) sawRight = true
-            if (p.rotationDeg < -3f) sawLeft = true
+            if (p.rotationDeg > 1.5f) sawRight = true
+            if (p.rotationDeg < -1.5f) sawLeft = true
             pos += 37L
         }
         assertTrue(sawSink)

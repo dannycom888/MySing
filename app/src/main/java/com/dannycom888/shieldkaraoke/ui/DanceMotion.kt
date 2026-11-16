@@ -160,7 +160,10 @@ object DanceMotion {
         // bounce, knee sink and accent all calm down as the song
         // speeds up, exactly like the other humans'.
         val tempo = tempoFactor(bpm).toFloat()
-        val rotation = sin(PI * beats) * 4.5 * slow * tempo
+        // v1.0.41: sway amplitude 4.5° → 2.0° (see the sway note
+        // at humanPose) — the rock is still his dance, it just no
+        // longer throws his mass side to side.
+        val rotation = sin(PI * beats) * 2.0 * slow * tempo
         val bounce = Math.pow(abs(sin(PI * beats)), 0.6) * 0.30 * slow * tempo
         val frac = beats - floor(beats)
         // Knee-bend sink on every beat, plus the v1.0.22 accent at
@@ -189,7 +192,23 @@ object DanceMotion {
         // songs dance bit-for-bit as before.
         val tempo = tempoFactor(bpm).toFloat()
         val bounceAmp = (if (bounceHeavy) 0.55f else 0.28f) * slow * tempo
-        val swayAmp = (if (bounceHeavy) 2.0f else 3.5f) * tempo
+        // v1.0.41 sway reduction: the user (2026-11-16) — the
+        // dancers "flash" left-right and hurt the eyes. The frame
+        // art half of that is fixed by the pelvis-anchor alignment
+        // of the frames themselves (see
+        // dancers/align_frames_v1041.py); this is the runtime
+        // half: the whole-body sway stacked ±2.0°/±3.5° of
+        // rotation on top of every frame change. All human sway
+        // amplitudes are scaled by ~0.45 — modern 2.0° → 0.9°,
+        // ancient 3.5° → 1.6°, the sumo's rock 4.5° → 2.0° (in
+        // sumoPose), the baby's dancing wobble likewise (in
+        // BabyFall). Bounce and the beat accent are NOT sway and
+        // keep their amplitudes. The reduction multiplies with
+        // the v1.0.36 tempo taper exactly as before (the taper
+        // still applies on top, unchanged); the robot is exempt —
+        // his stepped ±5° is his character — and the baby's fall
+        // phases are exempt, as they were from the taper.
+        val swayAmp = (if (bounceHeavy) 0.9f else 1.6f) * tempo
         val bounce = abs(sin(PI * beats)) * bounceAmp
         val rotation = sin(2 * PI * beats) * swayAmp
         val frac = beats - floor(beats)
@@ -312,7 +331,12 @@ object BabyFall {
                 val tempo = DanceMotion.tempoFactor(bpm)
                 val wobble = beats * 1.5
                 val bounce = abs(sin(PI * wobble)) * 0.35f * tempo
-                val rotation = (sin(2 * PI * wobble) * 5.0 + sin(PI * beats) * 1.8) * tempo
+                // v1.0.41: dancing-phase sway scaled by ~0.45
+                // like the other humans (5.0 → 2.25, 1.8 → 0.8);
+                // the FALLING / DOWN / RISING phases below are
+                // NOT scaled — the fall is a timed gag, exempt
+                // here exactly as it is from the tempo taper.
+                val rotation = (sin(2 * PI * wobble) * 2.25 + sin(PI * beats) * 0.8) * tempo
                 // v1.0.22: a small beat accent on the song's beat
                 // grid (not the 1.5x wobble), dancing phase only —
                 // the fall phases own the sink while he is down.

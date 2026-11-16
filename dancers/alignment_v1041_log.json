@@ -1,0 +1,399 @@
+{
+ "compensation": 0.65,
+ "anchor": "pelvis-band centroid x relative to canvas centre, px",
+ "dancers": {
+  "modern": {
+   "median_anchor_px": 0.8077800670692596,
+   "frames": 100,
+   "shifted": 100,
+   "clamped": [
+    {
+     "frame": 8,
+     "wanted": 42,
+     "applied": 11
+    },
+    {
+     "frame": 61,
+     "wanted": -24,
+     "applied": -12
+    },
+    {
+     "frame": 64,
+     "wanted": 16,
+     "applied": 12
+    },
+    {
+     "frame": 65,
+     "wanted": -16,
+     "applied": -12
+    },
+    {
+     "frame": 66,
+     "wanted": 19,
+     "applied": 12
+    },
+    {
+     "frame": 67,
+     "wanted": -35,
+     "applied": -12
+    },
+    {
+     "frame": 70,
+     "wanted": 23,
+     "applied": 12
+    },
+    {
+     "frame": 71,
+     "wanted": 28,
+     "applied": 12
+    },
+    {
+     "frame": 72,
+     "wanted": 19,
+     "applied": 12
+    },
+    {
+     "frame": 76,
+     "wanted": 30,
+     "applied": 12
+    },
+    {
+     "frame": 77,
+     "wanted": 23,
+     "applied": 12
+    },
+    {
+     "frame": 78,
+     "wanted": -28,
+     "applied": -12
+    },
+    {
+     "frame": 81,
+     "wanted": 16,
+     "applied": 12
+    },
+    {
+     "frame": 82,
+     "wanted": -16,
+     "applied": -12
+    },
+    {
+     "frame": 85,
+     "wanted": -18,
+     "applied": -12
+    },
+    {
+     "frame": 86,
+     "wanted": -24,
+     "applied": -12
+    },
+    {
+     "frame": 87,
+     "wanted": -27,
+     "applied": -12
+    },
+    {
+     "frame": 88,
+     "wanted": -30,
+     "applied": -12
+    },
+    {
+     "frame": 89,
+     "wanted": -20,
+     "applied": -12
+    },
+    {
+     "frame": 91,
+     "wanted": 15,
+     "applied": 12
+    },
+    {
+     "frame": 92,
+     "wanted": 42,
+     "applied": 12
+    },
+    {
+     "frame": 93,
+     "wanted": 38,
+     "applied": 12
+    },
+    {
+     "frame": 94,
+     "wanted": -23,
+     "applied": -12
+    },
+    {
+     "frame": 96,
+     "wanted": 15,
+     "applied": 12
+    },
+    {
+     "frame": 100,
+     "wanted": -14,
+     "applied": -12
+    }
+   ],
+   "source_skips": [],
+   "sources_shifted": 100
+  },
+  "ancient": {
+   "median_anchor_px": -3.901507226024748,
+   "frames": 100,
+   "shifted": 96,
+   "clamped": [
+    {
+     "frame": 2,
+     "wanted": -13,
+     "applied": -10
+    },
+    {
+     "frame": 7,
+     "wanted": 16,
+     "applied": 8
+    },
+    {
+     "frame": 63,
+     "wanted": 17,
+     "applied": 12
+    },
+    {
+     "frame": 64,
+     "wanted": -24,
+     "applied": -12
+    },
+    {
+     "frame": 68,
+     "wanted": -14,
+     "applied": -12
+    },
+    {
+     "frame": 69,
+     "wanted": -14,
+     "applied": -12
+    },
+    {
+     "frame": 71,
+     "wanted": -16,
+     "applied": -12
+    },
+    {
+     "frame": 75,
+     "wanted": 17,
+     "applied": 12
+    },
+    {
+     "frame": 76,
+     "wanted": 27,
+     "applied": 12
+    },
+    {
+     "frame": 79,
+     "wanted": 13,
+     "applied": 12
+    },
+    {
+     "frame": 80,
+     "wanted": 16,
+     "applied": 0
+    },
+    {
+     "frame": 82,
+     "wanted": 26,
+     "applied": 12
+    },
+    {
+     "frame": 90,
+     "wanted": 19,
+     "applied": 12
+    },
+    {
+     "frame": 91,
+     "wanted": 16,
+     "applied": 12
+    },
+    {
+     "frame": 93,
+     "wanted": 14,
+     "applied": 12
+    },
+    {
+     "frame": 95,
+     "wanted": 22,
+     "applied": 12
+    },
+    {
+     "frame": 96,
+     "wanted": 23,
+     "applied": 12
+    },
+    {
+     "frame": 97,
+     "wanted": 22,
+     "applied": 12
+    },
+    {
+     "frame": 98,
+     "wanted": 24,
+     "applied": 12
+    }
+   ],
+   "source_skips": [],
+   "sources_shifted": 96
+  },
+  "sumo": {
+   "median_anchor_px": -1.4707436524206372,
+   "frames": 100,
+   "shifted": 89,
+   "clamped": [
+    {
+     "frame": 61,
+     "wanted": 30,
+     "applied": 12
+    },
+    {
+     "frame": 66,
+     "wanted": 30,
+     "applied": 12
+    },
+    {
+     "frame": 67,
+     "wanted": 30,
+     "applied": 12
+    },
+    {
+     "frame": 68,
+     "wanted": 33,
+     "applied": 12
+    },
+    {
+     "frame": 69,
+     "wanted": 28,
+     "applied": 12
+    },
+    {
+     "frame": 70,
+     "wanted": -26,
+     "applied": -12
+    },
+    {
+     "frame": 71,
+     "wanted": 27,
+     "applied": 12
+    },
+    {
+     "frame": 72,
+     "wanted": 21,
+     "applied": 12
+    },
+    {
+     "frame": 73,
+     "wanted": 20,
+     "applied": 12
+    },
+    {
+     "frame": 81,
+     "wanted": -25,
+     "applied": -12
+    },
+    {
+     "frame": 82,
+     "wanted": -26,
+     "applied": -12
+    },
+    {
+     "frame": 83,
+     "wanted": -18,
+     "applied": -12
+    },
+    {
+     "frame": 84,
+     "wanted": -23,
+     "applied": -12
+    },
+    {
+     "frame": 85,
+     "wanted": -38,
+     "applied": -12
+    },
+    {
+     "frame": 86,
+     "wanted": -35,
+     "applied": -12
+    },
+    {
+     "frame": 95,
+     "wanted": -21,
+     "applied": -12
+    }
+   ],
+   "source_skips": [],
+   "sources_shifted": 89
+  },
+  "ancient_girl": {
+   "median_anchor_px": -2.0490145773829695,
+   "frames": 100,
+   "shifted": 95,
+   "clamped": [
+    {
+     "frame": 91,
+     "wanted": 13,
+     "applied": 12
+    },
+    {
+     "frame": 92,
+     "wanted": -19,
+     "applied": -12
+    },
+    {
+     "frame": 93,
+     "wanted": 20,
+     "applied": 12
+    },
+    {
+     "frame": 94,
+     "wanted": 13,
+     "applied": 12
+    },
+    {
+     "frame": 95,
+     "wanted": 14,
+     "applied": 12
+    }
+   ],
+   "source_skips": [],
+   "sources_shifted": 95
+  },
+  "baby": {
+   "median_anchor_px": -2.8156680246497388,
+   "frames": 100,
+   "shifted": 88,
+   "clamped": [
+    {
+     "frame": 25,
+     "wanted": -16,
+     "applied": -6
+    },
+    {
+     "frame": 78,
+     "wanted": -16,
+     "applied": -12
+    },
+    {
+     "frame": 83,
+     "wanted": 13,
+     "applied": 12
+    }
+   ],
+   "source_skips": [],
+   "sources_shifted": 88
+  },
+  "robot": {
+   "median_anchor_px": -0.31430385216728496,
+   "frames": 60,
+   "shifted": 56,
+   "clamped": [],
+   "source_skips": [],
+   "sources_shifted": 56
+  }
+ }
+}

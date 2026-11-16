@@ -18,6 +18,8 @@ enum class TvKey {
     PITCH_DOWN, PITCH_LABEL, PITCH_UP, DANCERS_ON, DANCERS_OFF,
     QUIT, GO_ORDER, QUIT_TITLE, QUIT_TEXT, QUIT_CONFIRM, QUIT_CANCEL,
     PLAY_ERROR, CORNER_QR_CAPTION, CORNER_QR_DESC,
+    // The corner card's no-network placeholder (v1.0.42).
+    CORNER_QR_WAITING,
     // Queue panel on the player screen (v1.0.19)
     QUEUE_PANEL_TITLE, QUEUE_PANEL_NEXT, QUEUE_PANEL_DELETE,
     QUEUE_PANEL_NO_WAITING,
@@ -103,6 +105,7 @@ object TvStrings {
         TvKey.PLAY_ERROR to "⚠ 播放错误：%s",
         TvKey.CORNER_QR_CAPTION to "扫码点歌",
         TvKey.CORNER_QR_DESC to "扫码点歌二维码",
+        TvKey.CORNER_QR_WAITING to "等待网络…",
         TvKey.QUEUE_PANEL_TITLE to "已点歌单",
         TvKey.QUEUE_PANEL_NEXT to "下一首唱",
         TvKey.QUEUE_PANEL_PLAY_NOW to "现在唱",
@@ -181,6 +184,7 @@ object TvStrings {
         TvKey.PLAY_ERROR to "⚠ Playback error: %s",
         TvKey.CORNER_QR_CAPTION to "Scan to order",
         TvKey.CORNER_QR_DESC to "Scan-to-order QR code",
+        TvKey.CORNER_QR_WAITING to "Waiting for network…",
         TvKey.QUEUE_PANEL_TITLE to "Queue",
         TvKey.QUEUE_PANEL_NEXT to "Play next",
         TvKey.QUEUE_PANEL_PLAY_NOW to "Play now",

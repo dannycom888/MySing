@@ -74,6 +74,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -270,17 +271,32 @@ class MainActivity : ComponentActivity() {
                     // all times so a phone can join in mid-song
                     // (v1.0.19 — it lived bottom-right before; every
                     // screen uses this one card in this one corner).
-                    val cornerIp = remember(app.state.version) { Qr.lanIpAddress() }
+                    // v1.0.42: the address comes from a slow poll
+                    // (rememberLanIpAddress), not from the queue
+                    // state's version — during long random playback
+                    // the version never bumped, so a card lost to a
+                    // late/dropped WiFi never came back. With no
+                    // address the corner shows a same-size waiting
+                    // placeholder instead of silently vanishing,
+                    // and the real QR returns on its own once the
+                    // network does.
+                    val cornerIp = rememberLanIpAddress()
+                    val cornerModifier = Modifier.align(Alignment.TopEnd)
+                        .padding(
+                            end = if (compact) 12.dp else 24.dp,
+                            top = if (compact) 12.dp else 24.dp,
+                        )
                     if (cornerIp != null) {
                         CornerQrCard(
                             ip = cornerIp,
                             port = app.localServerPort(),
                             compact = compact,
-                            modifier = Modifier.align(Alignment.TopEnd)
-                                .padding(
-                                    end = if (compact) 12.dp else 24.dp,
-                                    top = if (compact) 12.dp else 24.dp,
-                                ),
+                            modifier = cornerModifier,
+                        )
+                    } else {
+                        CornerQrPlaceholderCard(
+                            compact = compact,
+                            modifier = cornerModifier,
                         )
                     }
                     if (confirmQuit) {
@@ -731,14 +747,14 @@ class MainActivity : ComponentActivity() {
                 delay(250)
             }
         }
-        // The corner QR overlay is pinned top-right here too;
+        // The corner card overlay is pinned top-right here too;
         // reserve its width so no row slides under it (same
-        // pattern as BrowseScreen).
-        val qrEndReserve = if (remember(state.version) { Qr.lanIpAddress() } != null) {
-            if (compact) 88.dp else 112.dp
-        } else {
-            0.dp
-        }
+        // pattern as BrowseScreen). Since v1.0.42 the corner is
+        // always occupied — the QR, or its waiting-for-network
+        // placeholder when there is no address — so the reserve
+        // is unconditional (it also keeps rows from jumping
+        // sideways when the network comes and goes).
+        val qrEndReserve = if (compact) 88.dp else 112.dp
         // The library folder picker lives here now (v1.0.26);
         // the picked tree goes through the same handling the
         // home button always used.
@@ -964,15 +980,13 @@ class MainActivity : ComponentActivity() {
         BackHandler { screen = Screen.PLAYER }
         @Suppress("UNUSED_VARIABLE") val versionTick = app.state.version
         val catalog = app.state.catalog
-        // The corner QR is pinned top-right (v1.0.19): browse content
+        // The corner card is pinned top-right (v1.0.19): browse content
         // reserves the card's width on the right so neither the
-        // filter chips nor the list rows slide under it. No reserve
-        // without a LAN address (no card is drawn then).
-        val qrEndReserve = if (remember(app.state.version) { Qr.lanIpAddress() } != null) {
-            if (compact) 88.dp else 112.dp
-        } else {
-            0.dp
-        }
+        // filter chips nor the list rows slide under it. Since
+        // v1.0.42 the corner is always occupied — the QR, or its
+        // waiting-for-network placeholder — so the reserve is
+        // unconditional.
+        val qrEndReserve = if (compact) 88.dp else 112.dp
         Column(
             modifier = Modifier.fillMaxSize().padding(
                 start = if (compact) 12.dp else 24.dp,
@@ -1106,7 +1120,9 @@ class MainActivity : ComponentActivity() {
         val panelCurrent = state.queue.current ?: entry?.takeIf { it.isFiller }
         val panelRows = QueuePanelModel.rows(panelCurrent, waiting)
         val panelVisible = QueuePanelModel.isVisible(panelCurrent, waiting)
-        val qrPresent = remember(state.version) { Qr.lanIpAddress() } != null
+        // The corner card is always present since v1.0.42 (the QR,
+        // or its waiting-for-network placeholder), so the two
+        // qrPresent paddings below are unconditional now.
         var actionIndex by remember { mutableStateOf<Int?>(null) }
         var panelFocused by remember { mutableStateOf(false) }
         var focusTarget by remember { mutableStateOf<PanelFocusTarget>(PanelFocusTarget.None) }
@@ -1231,7 +1247,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.weight(1f)
                             // The banner runs along the top: keep its
                             // right end clear of the top-right QR card.
-                            .padding(end = if (qrPresent) (if (compact) 90.dp else 114.dp) else 0.dp),
+                            .padding(end = if (compact) 90.dp else 114.dp),
                     ) {
                         // During the v1.0.23 ceremony the banner yields
                         // to the big centred next-song card on the stage
@@ -1534,7 +1550,7 @@ class MainActivity : ComponentActivity() {
                             rows = panelRows,
                             compact = compact,
                             width = screenW * 0.19f,
-                            topPad = if (qrPresent) (if (compact) 70.dp else 88.dp) else 0.dp,
+                            topPad = if (compact) 70.dp else 88.dp,
                             actionIndex = actionIndex,
                             rowRequesters = rowRequesters,
                             playNowRequester = playNowRequester,
@@ -1745,6 +1761,44 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.width(qrDp).height(qrDp),
             )
             Text(s(TvKey.CORNER_QR_CAPTION), color = Color(0xFF26325E), fontSize = (if (compact) 8 else 10).sp)
+        }
+    }
+
+    /**
+     * The corner card's no-network form (v1.0.42): the exact same
+     * card geometry as [CornerQrCard] — same white card, border,
+     * code-sized square and caption line — but dimmed, with the
+     * waiting-for-network line where the code would be. Before
+     * this, a missing LAN address made the corner silently empty
+     * (and, the address being re-read only on queue-state bumps,
+     * it could stay empty for a whole session); now the corner
+     * always explains itself, and the poll in
+     * [rememberLanIpAddress] swaps the real QR back in by itself
+     * when the network returns. Pure display: no click, no focus.
+     */
+    @Composable
+    private fun CornerQrPlaceholderCard(compact: Boolean, modifier: Modifier = Modifier) {
+        val qrDp = if (compact) 44.dp else 56.dp
+        val ink = Color(0xFF26325E).copy(alpha = 0.72f)
+        Column(
+            modifier = modifier
+                .border(1.dp, Color.Black.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                .background(Color.White.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
+                .padding(2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier.width(qrDp).height(qrDp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    s(TvKey.CORNER_QR_WAITING),
+                    color = ink,
+                    fontSize = (if (compact) 8 else 9).sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            Text(s(TvKey.CORNER_QR_CAPTION), color = ink, fontSize = (if (compact) 8 else 10).sp)
         }
     }
 
@@ -2092,7 +2146,34 @@ class MainActivity : ComponentActivity() {
         // melts instead of cutting. Once the fade completes (or no
         // blend was supplied: robot, invite/still, applause row)
         // this is exactly the old single-image draw.
-        Box(modifier = if (spotlight) modifier.spotlightPool(alphaScale = alpha) else modifier) {
+        //
+        // v1.0.42: the frame box is a FIXED rect — width =
+        // heightDp × SpotlightGeom.FRAME_ASPECT via
+        // [SpotlightGeom.dancerWidthDp] (the nominal frame aspect
+        // the rest of the stage geometry, the spotlight pool and
+        // the v1.0.32 step-overflow guard already assume; the
+        // widest real frame is exactly 0.78, so nothing
+        // overflows) — and both cross-fade layers are
+        // BottomCenter-aligned inside it. Before this the box
+        // sized itself to its widest child and TopStart-aligned
+        // the layers: frame canvas aspects run 0.195–0.78, so
+        // through every beat's cross-fade (35–50% of each beat)
+        // the narrower frame sat (wide − narrow)/2 off its solo
+        // position and snapped back to centre when the fade
+        // ended — the whole figure jumped sideways and back once
+        // per beat ("整个身体左右闪", the user on v1.0.41). That
+        // lived in the layout, not the art: v1.0.41's in-image
+        // pelvis alignment is complementary and stays, but this
+        // fixed rect is what stops the whole-body flash. The
+        // spotlight pool rides this same box (its drawBehind
+        // sits outside the size modifiers, so it sees the fixed
+        // rect), making the pool constant-size too.
+        Box(
+            modifier = (if (spotlight) modifier.spotlightPool(alphaScale = alpha) else modifier)
+                .width(SpotlightGeom.dancerWidthDp(heightDp.value).dp)
+                .height(heightDp),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
             if (blend != null && !invite &&
                 blend.currentAlpha < 1f &&
                 blend.previousIndex != blend.currentIndex &&

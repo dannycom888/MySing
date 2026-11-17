@@ -22,6 +22,18 @@ import java.io.File
  * cross-fade layers and the single draw in that same rect.
  * DancerImage is Compose UI, so the invariant is pinned on the
  * source, the same file-reading style as SweepLineStructureTest.
+ *
+ * v1.0.57 amendment: the figure stack is now defined once (a
+ * `figureLayers` lambda holding the same three DancerFrame
+ * calls) and drawn twice — upright in the v1.0.42 frame box,
+ * and once more as the stage floor reflection (flipped via
+ * [StageFloor.reflectionScaleY], faded via a DstIn gradient).
+ * The old "exactly one Box" pin is superseded by the new shape
+ * (wrapper / frame box / reflection node = three), but the
+ * invariant it protected is unchanged and still pinned here:
+ * one fixed rect, both cross-fade layers inside it, and the
+ * reflection is the SAME stack — never a second, separately
+ * resolved frame draw that could drift from the figure.
  */
 class DancerImageStructureTest {
 
@@ -52,27 +64,54 @@ class DancerImageStructureTest {
             body.contains(".height(heightDp)"),
         )
         assertTrue(
-            "the fixed size must be set on the container before any DancerFrame is drawn",
-            body.indexOf(".width(SpotlightGeom.dancerWidthDp") < body.indexOf("DancerFrame("),
+            "the fixed size must be set on the frame box before the figure stack is drawn into it",
+            body.indexOf(".width(SpotlightGeom.dancerWidthDp") < body.indexOf("figureLayers()"),
         )
     }
 
     @Test
     fun bothCrossFadeLayersShareTheOneBottomCenterRect() {
         val body = dancerImageBody()
-        assertTrue(
-            "the frame box must BottomCenter-align its layers (feet on the floor, canvas centres coincident)",
-            body.contains("contentAlignment = Alignment.BottomCenter"),
+        assertEquals(
+            "the figure stack must be defined once: previous + current blend layers plus the single draw (3 DancerFrame calls)",
+            3,
+            Regex("""DancerFrame\(""").findAll(body).count(),
         )
         assertEquals(
-            "DancerImage must contain exactly one frame Box, so the two cross-fade layers share the same fixed rect",
-            1,
+            "the one figure stack is drawn twice: upright, and once more as the floor reflection",
+            2,
+            Regex("""figureLayers\(\)""").findAll(body).count(),
+        )
+        assertEquals(
+            "wrapper + frame box + reflection node: three Boxes, no more (a fourth would be a second frame rect)",
+            3,
             Regex("""Box\(""").findAll(body).count(),
         )
         assertEquals(
-            "the blend branch must still draw previous + current layers plus the single draw (3 DancerFrame calls)",
-            3,
-            Regex("""DancerFrame\(""").findAll(body).count(),
+            "the frame box and the reflection node both BottomCenter-align the stack (feet on the floor line, canvas centres coincident)",
+            2,
+            Regex("""contentAlignment = Alignment\.BottomCenter""").findAll(body).count(),
+        )
+    }
+
+    @Test
+    fun reflectionIsTheSameStackFlippedAndFaded() {
+        val body = dancerImageBody()
+        assertTrue(
+            "the reflection must flip via StageFloor's pinned scale (a true mirror onto the reflection band)",
+            body.contains("StageFloor.reflectionScaleY"),
+        )
+        assertTrue(
+            "the reflection must pivot on StageFloor's pinned origin fraction (feet stay on the baseline)",
+            body.contains("StageFloor.reflectionOriginFraction"),
+        )
+        assertTrue(
+            "the reflection must fade downward through an offscreen DstIn mask, not a flat alpha",
+            body.contains("CompositingStrategy.Offscreen") && body.contains("BlendMode.DstIn"),
+        )
+        assertTrue(
+            "the reflection is drawn after the upright figure (it lives under the feet, never over the body)",
+            body.indexOf("StageFloor.reflectionScaleY(") > body.indexOf(".height(heightDp)"),
         )
     }
 }

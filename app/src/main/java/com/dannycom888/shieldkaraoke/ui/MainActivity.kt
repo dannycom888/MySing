@@ -65,8 +65,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -276,11 +280,21 @@ class MainActivity : ComponentActivity() {
                         },
                 ) {
                     val compact = maxHeight < 500.dp
+                    // Stage light beams (v1.0.57): the player
+                    // stage's bottom layer — composed under even
+                    // the bubbles, and only while the stage is up.
+                    if (screen == Screen.PLAYER) {
+                        StageBeamBackdrop(Modifier.fillMaxSize())
+                    }
                     // Ambient bubbles behind every screen (v1.0.25):
                     // the first child of the root, so all content —
                     // screens, corner QR, dialogs — draws over the
                     // drifting field on the shared navy base.
                     BubbleBackground(compact, Modifier.fillMaxSize())
+                    // Star field (v1.0.57): the bubbles' ambient
+                    // layer-mate — the same sky on every screen,
+                    // each star slowly glowing on its own sine.
+                    StarBackground(compact, Modifier.fillMaxSize())
                     when (screen) {
                         Screen.BROWSE -> BrowseScreen(compact)
                         Screen.PLAYER -> PlayerScreen(compact)
@@ -1770,7 +1784,11 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                  // v1.0.57: the stage measures itself so the
+                  // floor band below can sit exactly under the
+                  // feet of whoever is standing on it.
+                  val stageHeightDp = maxHeight
                   Box(modifier = Modifier.fillMaxSize()) {
                     val clapElapsed = tickMs - applauseStartMs
                     // The v1.0.23 handover ceremony owns the stage
@@ -1806,6 +1824,36 @@ class MainActivity : ComponentActivity() {
                     val outroClapping = outroTriggerMs != null && ceremony == null &&
                         !celebrating && positionMs >= outroTriggerMs &&
                         positionMs < durationMs
+                    // --- stage floor (v1.0.57): one band, one
+                    //     floor line, drawn under everything the
+                    //     stage is about to show. Its depth is the
+                    //     reflection depth of whoever stands on
+                    //     it: the five-figure row (celebration,
+                    //     outro applause, and the whole ceremony —
+                    //     the keeper's reflection is cut to the
+                    //     same depth, so the ceremony never swaps
+                    //     floors mid-handover) or the solo dancer
+                    //     at rest (her step forward grows upward
+                    //     from this same line). ---
+                    val soloFloorDepth = StageFloor.reflectionDepthDp(
+                        StageFloor.restingHeightDp(
+                            stageHeightDp.value, if (compact) 0.72f else 0.80f,
+                        ),
+                    )
+                    val rowFloorDepth = StageFloor.reflectionDepthDp(
+                        SpotlightGeom.rowHeightDp(
+                            screenW.value, screenH.value,
+                            LyricsBand.reserveWidthDp(screenW.value),
+                        ),
+                    )
+                    StageFloorBand(
+                        depthDp = when {
+                            ceremony != null -> rowFloorDepth
+                            showCelebration || outroClapping -> rowFloorDepth
+                            else -> soloFloorDepth
+                        }.dp,
+                        modifier = Modifier.align(Alignment.BottomStart),
+                    )
                     if (ceremony != null && ceremonyPhase != null &&
                         ceremonyPhase != Ceremony.Phase.DONE
                     ) {
@@ -1904,8 +1952,35 @@ class MainActivity : ComponentActivity() {
                                     val stepP = DancerActivity.stepProgress(
                                         positionMs, firstLyricStart, dancer.profile,
                                     )
-                                    val baseDancerH = maxHeight * if (compact) 0.72f else 0.80f
-                                    val bigDancerH = maxHeight * if (compact) 0.88f else 0.95f
+                                    // v1.0.57: the fractions now
+                                    // measure the space ABOVE the
+                                    // stage floor — figure +
+                                    // reflection together honour
+                                    // them (see StageFloor), so
+                                    // she shrinks by exactly the
+                                    // room her reflection needs
+                                    // and the growth ratio of the
+                                    // step is unchanged. The floor
+                                    // depth is fixed off the
+                                    // RESTING height: while she
+                                    // steps forward she grows
+                                    // upward from the same floor
+                                    // line, and the reflection
+                                    // band under her feet (and
+                                    // the stage's floor band,
+                                    // computed from this same
+                                    // depth) never moves.
+                                    val restFrac = if (compact) 0.72f else 0.80f
+                                    val stepFrac = if (compact) 0.88f else 0.95f
+                                    val soloFloorDepthDp = StageFloor.reflectionDepthDp(
+                                        StageFloor.restingHeightDp(maxHeight.value, restFrac),
+                                    )
+                                    val baseDancerH = StageFloor.heightAtFractionDp(
+                                        maxHeight.value, restFrac, soloFloorDepthDp,
+                                    ).dp
+                                    val bigDancerH = StageFloor.heightAtFractionDp(
+                                        maxHeight.value, stepFrac, soloFloorDepthDp,
+                                    ).dp
                                     val dancerH = baseDancerH + (bigDancerH - baseDancerH) * stepP
                                     // Lyrics-band guard (v1.0.28's
                                     // invariant, kept): her width
@@ -2186,6 +2261,10 @@ class MainActivity : ComponentActivity() {
                                         // whenever no step is running).
                                         heightDp = dancerH,
                                         spotlight = true,
+                                        // v1.0.57: her reflection
+                                        // fills exactly the floor
+                                        // band the stage drew.
+                                        reflectionDepthDp = soloFloorDepthDp.dp,
                                     )
                                 }
                             }
@@ -2753,6 +2832,17 @@ class MainActivity : ComponentActivity() {
         screenH: Dp,
         screenW: Dp,
     ) {
+        // v1.0.57: the ceremony's one floor depth — the row's
+        // reflection depth. The keeper's reflection is cut to
+        // the same depth (passed as her override below), so the
+        // floor line the stage band drew for the ceremony holds
+        // through every phase, the solo invite included.
+        val rowFloorDepth = StageFloor.reflectionDepthDp(
+            SpotlightGeom.rowHeightDp(
+                screenW.value, screenH.value,
+                LyricsBand.reserveWidthDp(screenW.value),
+            ),
+        )
         Box(modifier = Modifier.fillMaxSize()) {
             // --- big next-song card, upper-centre on the stage
             //     (v1.0.45 — the user: "将歌曲文件名提高"): it was
@@ -2901,7 +2991,18 @@ class MainActivity : ComponentActivity() {
                     DancerImage(
                         dancer = keeper,
                         pose = DanceMotion.NEUTRAL_POSE,
-                        heightDp = maxHeight * if (compact) 0.72f else 0.80f,
+                        // v1.0.57: the same floor-aware resting
+                        // height as the playback dancer (the
+                        // fractions measure the space above the
+                        // floor now — see StageFloor), so the
+                        // handover into the song still lands on
+                        // exactly the same figure at exactly the
+                        // same floor line; her reflection fills
+                        // the ceremony's floor depth.
+                        heightDp = StageFloor.restingHeightDp(
+                            maxHeight.value, if (compact) 0.72f else 0.80f,
+                        ).dp,
+                        reflectionDepthDp = rowFloorDepth.dp,
                         frameIndex = if (phase == Ceremony.Phase.SOLO_INVITE) {
                             InviteCycle.frameIndex(keeperClock)
                         } else {
@@ -2972,16 +3073,30 @@ class MainActivity : ComponentActivity() {
         val pitch = heightDp * SpotlightGeom.ROW_PITCH_FRACTION
         val span = heightDp * SpotlightGeom.ROW_SPAN_PER_HEIGHT
         val robotShift = SpotlightGeom.rowRobotShiftDp(heightDp.value).dp
-        Box(modifier = modifier.width(span).height(heightDp)) {
-            Dancers.ROW_FIGURES.forEachIndexed { index, figure ->
-                Box(
-                    modifier = Modifier.align(Alignment.BottomStart)
-                        .offset(
-                            x = pitch * index -
-                                if (figure.key == DancerKeys.ROBOT) robotShift else 0.dp,
-                        ),
-                ) {
-                    content(figure, heightDp)
+        // v1.0.57: the row stands on the stage floor — the
+        // container grows one reflection depth downward and the
+        // figures' box rides on top of it, so every figure's
+        // feet lift off the stage's bottom edge by exactly the
+        // depth its reflection (drawn inside DancerImage) fills.
+        // Pitch, span, figure height and slot offsets are
+        // untouched: the row's geometry is the same, it just
+        // stands on a floor now.
+        val floorDepth = StageFloor.reflectionDepthDp(heightDp.value).dp
+        Box(modifier = modifier.width(span).height(heightDp + floorDepth)) {
+            Box(
+                modifier = Modifier.width(span).height(heightDp)
+                    .align(Alignment.TopStart),
+            ) {
+                Dancers.ROW_FIGURES.forEachIndexed { index, figure ->
+                    Box(
+                        modifier = Modifier.align(Alignment.BottomStart)
+                            .offset(
+                                x = pitch * index -
+                                    if (figure.key == DancerKeys.ROBOT) robotShift else 0.dp,
+                            ),
+                    ) {
+                        content(figure, heightDp)
+                    }
                 }
             }
         }
@@ -3035,6 +3150,18 @@ class MainActivity : ComponentActivity() {
         /** Content-description override for figures that are not
          *  a plain [dancer] (the row's combo figure). */
         labelOverride: String? = null,
+        /** v1.0.57: the stage floor reflection under the figure
+         *  (see StageFloor) — the same frame stack drawn once
+         *  more, flipped and faded, below the feet. Every stage
+         *  figure carries one, the robot included. */
+        reflection: Boolean = true,
+        /** v1.0.57: reflection depth override. The default is
+         *  the figure's own 35% (the celebration row). The solo
+         *  stage and the ceremony keeper pass the depth of the
+         *  floor band the stage drew, so figure, reflection and
+         *  band always agree on one floor line even while the
+         *  figure's height moves (the intro step). */
+        reflectionDepthDp: Dp? = null,
     ) {
         val frames = framesOverride ?: dancer.frames
         val label = labelOverride ?: dancerDisplayName(dancer.key)
@@ -3067,12 +3194,27 @@ class MainActivity : ComponentActivity() {
         // spotlight pool rides this same box (its drawBehind
         // sits outside the size modifiers, so it sees the fixed
         // rect), making the pool constant-size too.
-        Box(
-            modifier = (if (spotlight) modifier.spotlightPool(alphaScale = alpha) else modifier)
-                .width(SpotlightGeom.dancerWidthDp(heightDp.value).dp)
-                .height(heightDp),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
+        //
+        // v1.0.57: the figure stack below is defined ONCE and
+        // drawn TWICE — upright in the frame box, and once more
+        // as the floor reflection: the same stack in a
+        // same-height node laid out just under the figure, under
+        // a Y-flip that maps it onto the reflection band (see
+        // StageFloor.reflectionScaleY) and a DstIn fade that
+        // melts it downward. Same painter, same pose, same
+        // blend — the reflection follows the current frame
+        // through dance, invite, clap and the baby's fall chain
+        // for free, at the cost of one extra draw of an already
+        // decoded bitmap (no new decode, no new geometry: the
+        // fixed rect above is untouched, and the wrapper only
+        // grows downward into the floor the callers budget for).
+        val frameWidthDp = SpotlightGeom.dancerWidthDp(heightDp.value).dp
+        val depthDp = if (reflection) {
+            reflectionDepthDp ?: StageFloor.reflectionDepthDp(heightDp.value).dp
+        } else {
+            0.dp
+        }
+        val figureLayers: @Composable () -> Unit = {
             if (blend != null &&
                 blend.currentAlpha < 1f &&
                 blend.previousIndex != blend.currentIndex &&
@@ -3105,6 +3247,70 @@ class MainActivity : ComponentActivity() {
                     heightDp = heightDp,
                     alpha = alpha,
                 )
+            }
+        }
+        Box(
+            modifier = modifier.width(frameWidthDp).height(heightDp + depthDp),
+        ) {
+            Box(
+                modifier = (if (spotlight) Modifier.spotlightPool(alphaScale = alpha) else Modifier)
+                    .width(SpotlightGeom.dancerWidthDp(heightDp.value).dp)
+                    .height(heightDp)
+                    .align(Alignment.TopCenter),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                figureLayers()
+            }
+            if (reflection) {
+                // The flipped stack: laid out just below the
+                // figure (its layout overflows the wrapper's
+                // bottom — nothing clips, and the flip lands
+                // its pixels exactly in the reflection band).
+                // The offscreen layer + DstIn rect fade it from
+                // REFLECTION_TOP_ALPHA at the foot baseline to
+                // nothing at the band's bottom edge (the fade
+                // gradient is drawn in this node's own space,
+                // where the flipped figure occupies only the
+                // top depthDp — see StageFloor.reflectionFadeStop).
+                Box(
+                    modifier = Modifier.width(frameWidthDp).height(heightDp)
+                        .align(Alignment.TopCenter)
+                        .offset(y = heightDp)
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        }
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0f to Color.Black.copy(
+                                            alpha = StageFloor.REFLECTION_TOP_ALPHA,
+                                        ),
+                                        StageFloor.reflectionFadeStop(
+                                            heightDp.value, depthDp.value,
+                                        ) to Color.Transparent,
+                                        1f to Color.Transparent,
+                                    ),
+                                ),
+                                blendMode = BlendMode.DstIn,
+                            )
+                        }
+                        .graphicsLayer {
+                            scaleY = StageFloor.reflectionScaleY(
+                                heightDp.value, depthDp.value,
+                            )
+                            transformOrigin = TransformOrigin(
+                                0.5f,
+                                StageFloor.reflectionOriginFraction(
+                                    heightDp.value, depthDp.value,
+                                ),
+                            )
+                        },
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    figureLayers()
+                }
             }
         }
     }

@@ -232,6 +232,10 @@ object DancerActivity {
             rotationDeg = frozen.rotationDeg * keep,
             scale = 1f + (frozen.scale - 1f) * keep,
             sinkFraction = frozen.sinkFraction * keep,
+            // v1.0.54: a pose frozen mid-crouch (the baby caught
+            // by the lyric end while getting up) un-squashes on
+            // the same melt as everything else.
+            scaleY = 1f + (frozen.scaleY - 1f) * keep,
         )
     }
 

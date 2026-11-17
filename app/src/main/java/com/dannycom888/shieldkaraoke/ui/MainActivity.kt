@@ -2988,7 +2988,11 @@ class MainActivity : ComponentActivity() {
                         heightPx * 0.30f * pose.sinkFraction
                     rotationZ = pose.rotationDeg
                     scaleX = pose.scale
-                    scaleY = pose.scale
+                    // v1.0.54: the pose's Y-only squash (the
+                    // baby's get-up crouch) rides on top of the
+                    // uniform scale; the 0.95 origin keeps the
+                    // feet planted while he folds down.
+                    scaleY = pose.scale * pose.scaleY
                     this.alpha = alpha
                     transformOrigin = TransformOrigin(0.5f, 0.95f)
                 },

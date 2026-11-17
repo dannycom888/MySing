@@ -24,6 +24,13 @@ object DanceMotion {
         val scale: Float,
         /** Downward sink (baby falls), 0..1. */
         val sinkFraction: Float = 0f,
+        /** Extra vertical squash multiplier, 1.0 = none. Applied
+         *  on top of [scale] for the Y axis only, around the same
+         *  bottom-centre anchor, so a squash lowers the head and
+         *  shoulders while the feet stay planted. v1.0.54: only
+         *  the baby's get-up crouch uses it; every other pose
+         *  leaves it at 1. */
+        val scaleY: Float = 1f,
     )
 
     /** The neutral pose: no bounce, no sway, no pulse, no sink.
@@ -275,10 +282,12 @@ object DanceMotion {
  * sideways in ~0.3 s, lies on the floor for one beat, then gets back
  * up. The get-up used to be a single ~0.4 s pop with an overshoot
  * swing and a scale bounce; the user (2026-11-16) found the snap
- * back upright too abrupt, so since v1.0.53 it runs in three stages
- * (see [RiseStage]): he pushes himself up on his hands to a
- * half-risen lean, stands the rest of the way up, then steadies
- * himself with one small sway. The fall interval is a
+ * back upright too abrupt, so v1.0.53 split it into stages (see
+ * [RiseStage]) and v1.0.54 added one more in the middle at his
+ * word — "哪吒半撑，蹲下，再起身比较自然": he pushes himself up
+ * on his hands to a half-risen lean, folds down into a crouch,
+ * stands up out of the crouch, then steadies himself with one
+ * small sway. The fall interval is a
  * deterministic pseudo-random 12–20 beats derived from the cycle
  * index, so it never ticks like a metronome. Pure function of the
  * beat count, fully unit tested.
@@ -295,45 +304,69 @@ object BabyFall {
         return 12 + ((h ushr 8) % 9).toInt() // 12..20 beats
     }
 
-    // ---- v1.0.53: the three-stage get-up -------------------------
+    // ---- v1.0.53: the staged get-up; v1.0.54: a crouch joins it --
     //
     // The rise (Phase.RISING) is timed in SECONDS like the fall
     // (0.3 s), not in beats — it is a gag with a fixed duration at
-    // any tempo. Its three stages run back to back:
+    // any tempo. Its four stages run back to back:
     //
-    //   PUSH   [RISE_PUSH_SECONDS]   — flat → half-risen: he pushes
-    //          himself up on his hands, the lean easing from
-    //          [DOWN_ROTATION_DEG] to [RISE_HALF_DEG];
-    //   STAND  [RISE_STAND_SECONDS]  — half-risen → upright, the
-    //          lean easing to 0 with no overshoot;
-    //   SETTLE [RISE_SETTLE_SECONDS] — upright, one small sway of
-    //          at most ±[SETTLE_SWAY_DEG] that damps out inside the
-    //          stage: he steadies himself, then dances on.
+    //   PUSH    [RISE_PUSH_SECONDS]   — flat → half-risen: he
+    //           pushes himself up on his hands, the lean easing
+    //           from [DOWN_ROTATION_DEG] to [RISE_HALF_DEG];
+    //   CROUCH  [RISE_CROUCH_SECONDS] — half-risen → crouched
+    //           (v1.0.54): the lean eases the rest of the way to
+    //           0 while the body squashes down to
+    //           [CROUCH_SCALE_Y] around the bottom anchor — he
+    //           folds his legs under him and gathers himself,
+    //           feet planted, instead of unfolding straight to
+    //           standing the way v1.0.53 had it;
+    //   STAND   [RISE_STAND_SECONDS]  — crouched → upright: the
+    //           squash releases back to full height and the held
+    //           sink lets go with it, the lean staying at 0;
+    //   SETTLE  [RISE_SETTLE_SECONDS] — upright, one small sway
+    //           of at most ±[SETTLE_SWAY_DEG] that damps out
+    //           inside the stage: he steadies himself, then
+    //           dances on.
     //
-    // Total [RISE_TOTAL_SECONDS] = 0.90 s, replacing the old single
-    // 0.4 s pop (quadratic settle + counter-swing + scale bounce —
-    // all retired; the scale now stays 1.0 through the whole rise).
-    // While he is part-way up the sink tracks the lean
-    // proportionally, so he lifts off the floor as he rises.
+    // Total [RISE_TOTAL_SECONDS] = 1.20 s (v1.0.53's three stages
+    // summed to 0.90 s; the original single pop was 0.4 s). The
+    // uniform scale stays 1.0 through the whole rise — the only
+    // squash is the crouch's Y-only [DanceMotion.Pose.scaleY].
+    // The sink tracks the lean proportionally through the push,
+    // holds at the half-risen value through the crouch (his feet
+    // stay where they were planted) and releases across the
+    // stand, so he lifts off the floor as he rises.
 
-    /** The get-up's stages, in order (v1.0.53). */
-    enum class RiseStage { PUSH, STAND, SETTLE }
+    /** The get-up's stages, in order (v1.0.53; CROUCH added
+     *  in v1.0.54). */
+    enum class RiseStage { PUSH, CROUCH, STAND, SETTLE }
 
     /** Stage 1 of the get-up: pushing up to half-risen, seconds. */
     const val RISE_PUSH_SECONDS = 0.25
 
-    /** Stage 2 of the get-up: half-risen to upright, seconds. */
+    /** Stage 2 of the get-up: folding into the crouch, seconds
+     *  (v1.0.54). */
+    const val RISE_CROUCH_SECONDS = 0.30
+
+    /** Stage 3 of the get-up: standing up out of the crouch,
+     *  seconds. */
     const val RISE_STAND_SECONDS = 0.35
 
-    /** Stage 3 of the get-up: the steadying sway, seconds. */
+    /** Stage 4 of the get-up: the steadying sway, seconds. */
     const val RISE_SETTLE_SECONDS = 0.30
 
-    /** The whole get-up, seconds: push + stand + settle = 0.90. */
-    const val RISE_TOTAL_SECONDS = 0.90
+    /** The whole get-up, seconds: push + crouch + stand +
+     *  settle = 1.20. */
+    const val RISE_TOTAL_SECONDS = 1.20
 
     /** Lean at the top of the push stage: half-risen, degrees —
      *  the midpoint of the user's 35–40° ask. */
     const val RISE_HALF_DEG = 37.5
+
+    /** Deepest vertical squash at the bottom of the crouch
+     *  (v1.0.54): his height at ~0.84 of standing, feet planted
+     *  by the bottom-centre anchor. */
+    const val CROUCH_SCALE_Y = 0.84
 
     /** Peak of the settle sway once he is up, degrees. */
     const val SETTLE_SWAY_DEG = 2.0
@@ -352,7 +385,9 @@ object BabyFall {
         val elapsed = progress.coerceIn(0f, 1f).toDouble() * RISE_TOTAL_SECONDS
         return when {
             elapsed < RISE_PUSH_SECONDS -> RiseStage.PUSH
-            elapsed < RISE_PUSH_SECONDS + RISE_STAND_SECONDS -> RiseStage.STAND
+            elapsed < RISE_PUSH_SECONDS + RISE_CROUCH_SECONDS -> RiseStage.CROUCH
+            elapsed < RISE_PUSH_SECONDS + RISE_CROUCH_SECONDS +
+                RISE_STAND_SECONDS -> RiseStage.STAND
             else -> RiseStage.SETTLE
         }
     }
@@ -365,7 +400,7 @@ object BabyFall {
     }
 
     private fun fallBeats(bpm: Double) = 0.3 * bpm / 60.0 // ~0.3 s
-    private fun riseBeats(bpm: Double) = RISE_TOTAL_SECONDS * bpm / 60.0 // ~0.9 s (v1.0.53; was 0.4 s)
+    private fun riseBeats(bpm: Double) = RISE_TOTAL_SECONDS * bpm / 60.0 // ~1.2 s (v1.0.54; 0.9 s in v1.0.53, 0.4 s before)
     private const val DOWN_BEATS = 1.0
 
     fun cycleLengthBeats(cycle: Int, bpm: Double): Double =
@@ -407,7 +442,7 @@ object BabyFall {
                 // wobble and accent like the other humans' — only
                 // the FALLING / DOWN / RISING phases are exempt,
                 // because the fall is a timed gag (0.3 s down,
-                // one beat down, 0.9 s up in three stages), not a
+                // one beat down, 1.2 s up in four stages), not a
                 // beat amplitude.
                 val tempo = DanceMotion.tempoFactor(bpm)
                 val wobble = beats * 1.5
@@ -444,12 +479,20 @@ object BabyFall {
                 sinkFraction = DOWN_SINK.toFloat(),
             )
             Phase.RISING -> {
-                // v1.0.53: the three-stage get-up (see RiseStage).
-                // Both motion stages ease with a smoothstep, so
-                // the lean arrives at half-risen and at upright
-                // with zero speed — nothing snaps — and the scale
-                // stays 1.0 (the old pop's bounce is gone).
+                // v1.0.53: the staged get-up (see RiseStage);
+                // v1.0.54: the crouch between the push and the
+                // stand. Every motion stage eases with a
+                // smoothstep, so the lean and the squash arrive
+                // at each stage boundary with zero speed —
+                // nothing snaps — and the uniform scale stays
+                // 1.0 (the old pop's bounce is gone); the only
+                // squash is the crouch's Y-only scaleY.
                 val elapsed = state.progress.toDouble() * RISE_TOTAL_SECONDS
+                // The sink at the half-risen lean: reached at the
+                // end of the push, held through the crouch while
+                // his feet stay planted, released across the
+                // stand.
+                val crouchSink = sinkForRotation(RISE_HALF_DEG)
                 when (riseStage(state.progress)) {
                     RiseStage.PUSH -> {
                         val u = smooth01(elapsed / RISE_PUSH_SECONDS)
@@ -461,19 +504,35 @@ object BabyFall {
                             sinkFraction = sinkForRotation(rot),
                         )
                     }
-                    RiseStage.STAND -> {
-                        val u = smooth01((elapsed - RISE_PUSH_SECONDS) / RISE_STAND_SECONDS)
-                        val rot = RISE_HALF_DEG * (1.0 - u)
+                    RiseStage.CROUCH -> {
+                        val u = smooth01(
+                            (elapsed - RISE_PUSH_SECONDS) / RISE_CROUCH_SECONDS,
+                        )
                         DanceMotion.Pose(
                             bounceFraction = 0f,
-                            rotationDeg = rot.toFloat(),
+                            rotationDeg = (RISE_HALF_DEG * (1.0 - u)).toFloat(),
                             scale = 1.0f,
-                            sinkFraction = sinkForRotation(rot),
+                            sinkFraction = crouchSink,
+                            scaleY = (1.0 + (CROUCH_SCALE_Y - 1.0) * u).toFloat(),
+                        )
+                    }
+                    RiseStage.STAND -> {
+                        val u = smooth01(
+                            (elapsed - RISE_PUSH_SECONDS - RISE_CROUCH_SECONDS) /
+                                RISE_STAND_SECONDS,
+                        )
+                        DanceMotion.Pose(
+                            bounceFraction = 0f,
+                            rotationDeg = 0f,
+                            scale = 1.0f,
+                            sinkFraction = (crouchSink * (1.0 - u).toFloat()),
+                            scaleY = (CROUCH_SCALE_Y + (1.0 - CROUCH_SCALE_Y) * u)
+                                .toFloat(),
                         )
                     }
                     RiseStage.SETTLE -> {
-                        val v = (elapsed - RISE_PUSH_SECONDS - RISE_STAND_SECONDS) /
-                            RISE_SETTLE_SECONDS
+                        val v = (elapsed - RISE_PUSH_SECONDS - RISE_CROUCH_SECONDS -
+                            RISE_STAND_SECONDS) / RISE_SETTLE_SECONDS
                         // One small sway that dies inside the
                         // stage: out to +SETTLE_SWAY_DEG, back
                         // through upright to a smaller swing the
@@ -492,18 +551,20 @@ object BabyFall {
         }
     }
 
-    /** Smoothstep 0→1: the get-up's push and stand stages ease
-     *  at both ends, so the lean leaves the floor gently and
-     *  arrives at each stage boundary with zero speed. */
+    /** Smoothstep 0→1: the get-up's motion stages ease at both
+     *  ends, so the lean and the squash leave gently and arrive
+     *  at each stage boundary with zero speed. */
     private fun smooth01(x: Double): Double {
         val t = x.coerceIn(0.0, 1.0)
         return t * t * (3.0 - 2.0 * t)
     }
 
-    /** While he is part-way up, the sink tracks the lean: flat
+    /** While he is pushing up, the sink tracks the lean: flat
      *  on the floor ([DOWN_ROTATION_DEG]) is the full
-     *  [DOWN_SINK], upright is 0 — he lifts off the floor as
-     *  he rises, continuously across both motion stages. */
+     *  [DOWN_SINK], upright is 0. The crouch holds the push's
+     *  final value and the stand releases it — together he
+     *  lifts off the floor as he rises, continuously across
+     *  the stages. */
     private fun sinkForRotation(rotationDeg: Double): Float =
         (DOWN_SINK * rotationDeg / DOWN_ROTATION_DEG).toFloat()
 }

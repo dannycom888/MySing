@@ -406,27 +406,31 @@ class BabyFallTest {
         assertTrue(found)
     }
 
-    // ---- v1.0.53: the get-up is three stages — push up to
-    // half-risen (0.25 s), stand to upright (0.35 s), then one
-    // small steadying sway (0.30 s); total 0.90 s. The old
-    // single 0.4 s pop (overshoot swing to −14° + scale bounce
-    // to 1.09) is retired — these tests pin its replacement.
+    // ---- v1.0.53: the get-up became staged — push up to
+    // half-risen, then stand, then one small steadying sway —
+    // retiring the old single 0.4 s pop (overshoot swing to
+    // −14° + scale bounce to 1.09). v1.0.54: a crouch folds in
+    // between the push and the stand (the user: half-push,
+    // crouch down, then rise reads natural), so the rise is
+    // four stages — push (0.25 s), crouch (0.30 s), stand
+    // (0.35 s), settle (0.30 s); total 1.20 s. These tests pin
+    // the four-stage replacement.
 
     @Test
     fun riseStagesAddUpToTheTotalRise() {
         assertEquals(
             BabyFall.RISE_TOTAL_SECONDS,
-            BabyFall.RISE_PUSH_SECONDS + BabyFall.RISE_STAND_SECONDS +
-                BabyFall.RISE_SETTLE_SECONDS,
+            BabyFall.RISE_PUSH_SECONDS + BabyFall.RISE_CROUCH_SECONDS +
+                BabyFall.RISE_STAND_SECONDS + BabyFall.RISE_SETTLE_SECONDS,
             0.0001,
         )
-        assertEquals(0.90, BabyFall.RISE_TOTAL_SECONDS, 0.0001)
+        assertEquals(1.20, BabyFall.RISE_TOTAL_SECONDS, 0.0001)
         // The cycle length carries the longer rise: at 120 BPM
         // the fall is 0.6 beats, the lie is 1 beat, the rise is
-        // 0.9 s = 1.8 beats.
+        // 1.2 s = 2.4 beats.
         val cycle = 3
         assertEquals(
-            BabyFall.intervalForCycle(cycle) + 0.6 + 1.0 + 1.8,
+            BabyFall.intervalForCycle(cycle) + 0.6 + 1.0 + 2.4,
             BabyFall.cycleLengthBeats(cycle, 120.0),
             0.0001,
         )
@@ -435,11 +439,15 @@ class BabyFallTest {
     @Test
     fun riseStageBoundariesFollowTheStageDurations() {
         val pushEnd = (BabyFall.RISE_PUSH_SECONDS / BabyFall.RISE_TOTAL_SECONDS).toFloat()
-        val standEnd = ((BabyFall.RISE_PUSH_SECONDS + BabyFall.RISE_STAND_SECONDS) /
+        val crouchEnd = ((BabyFall.RISE_PUSH_SECONDS + BabyFall.RISE_CROUCH_SECONDS) /
             BabyFall.RISE_TOTAL_SECONDS).toFloat()
+        val standEnd = ((BabyFall.RISE_PUSH_SECONDS + BabyFall.RISE_CROUCH_SECONDS +
+            BabyFall.RISE_STAND_SECONDS) / BabyFall.RISE_TOTAL_SECONDS).toFloat()
         assertEquals(BabyFall.RiseStage.PUSH, BabyFall.riseStage(0f))
         assertEquals(BabyFall.RiseStage.PUSH, BabyFall.riseStage(pushEnd - 0.001f))
-        assertEquals(BabyFall.RiseStage.STAND, BabyFall.riseStage(pushEnd + 0.001f))
+        assertEquals(BabyFall.RiseStage.CROUCH, BabyFall.riseStage(pushEnd + 0.001f))
+        assertEquals(BabyFall.RiseStage.CROUCH, BabyFall.riseStage(crouchEnd - 0.001f))
+        assertEquals(BabyFall.RiseStage.STAND, BabyFall.riseStage(crouchEnd + 0.001f))
         assertEquals(BabyFall.RiseStage.STAND, BabyFall.riseStage(standEnd - 0.001f))
         assertEquals(BabyFall.RiseStage.SETTLE, BabyFall.riseStage(standEnd + 0.001f))
         assertEquals(BabyFall.RiseStage.SETTLE, BabyFall.riseStage(1f))
@@ -469,6 +477,7 @@ class BabyFallTest {
         assertEquals(
             listOf(
                 BabyFall.RiseStage.PUSH,
+                BabyFall.RiseStage.CROUCH,
                 BabyFall.RiseStage.STAND,
                 BabyFall.RiseStage.SETTLE,
             ),
@@ -478,7 +487,7 @@ class BabyFallTest {
     }
 
     @Test
-    fun halfRisenAtThePushStandJoint() {
+    fun halfRisenAtThePushCrouchJoint() {
         // Beat arithmetic for cycle 0 at 120 BPM: dancing for
         // the interval, 0.6 beats falling, 1 beat down, then the
         // rise starts; the push stage is 0.25 s = 0.5 beats.
@@ -497,6 +506,58 @@ class BabyFallTest {
                 .toFloat(),
             atJoint.sinkFraction, 0.02f,
         )
+    }
+
+    @Test
+    fun crouchBottomsOutFoldedAndTheStandRestoresFullHeight() {
+        // v1.0.54: between the push and the stand he folds into
+        // a crouch. Beat arithmetic for cycle 0 at 120 BPM: the
+        // rise starts after interval + 0.6 falling + 1.0 down;
+        // the crouch ends at +0.55 s (1.1 beats), the stand at
+        // +0.90 s (1.8 beats).
+        val bpm = 120.0
+        val riseStart = BabyFall.intervalForCycle(0) + 0.6 + 1.0
+        val crouchJoint = riseStart + 1.1 // crouch → stand
+        val standJoint = riseStart + 1.8 // stand → settle
+        // At the bottom of the crouch the lean is fully spent,
+        // the squash is at its deepest and the sink still holds
+        // the half-risen value — he is folded, not standing —
+        // and the stand side of the joint starts from exactly
+        // the same folded pose (no snap across the boundary).
+        val atCrouch = BabyFall.pose(crouchJoint - 0.01, bpm)
+        val justStanding = BabyFall.pose(crouchJoint + 0.01, bpm)
+        assertEquals(0f, atCrouch.rotationDeg, 1.0f)
+        assertEquals(0f, justStanding.rotationDeg, 1.0f)
+        assertEquals(
+            BabyFall.CROUCH_SCALE_Y.toFloat(), atCrouch.scaleY, 0.01f,
+        )
+        assertEquals(
+            BabyFall.CROUCH_SCALE_Y.toFloat(), justStanding.scaleY, 0.01f,
+        )
+        assertEquals(
+            (BabyFall.DOWN_SINK * BabyFall.RISE_HALF_DEG / BabyFall.DOWN_ROTATION_DEG)
+                .toFloat(),
+            atCrouch.sinkFraction, 0.02f,
+        )
+        // By the end of the stand he is back at full height
+        // with the sink fully released.
+        val atStandEnd = BabyFall.pose(standJoint - 0.01, bpm)
+        assertEquals(1.0f, atStandEnd.scaleY, 0.01f)
+        assertEquals(0f, atStandEnd.sinkFraction, 0.02f)
+        // The crouch bottom is the deepest squash of the whole
+        // rise — nothing anywhere else squashes further, and
+        // nothing ever stretches past full height either.
+        var minScaleY = 1f
+        var maxScaleY = 0f
+        var beats = riseStart
+        while (beats < standJoint + 0.6) {
+            val p = BabyFall.pose(beats, bpm)
+            minScaleY = minOf(minScaleY, p.scaleY)
+            maxScaleY = maxOf(maxScaleY, p.scaleY)
+            beats += 0.005
+        }
+        assertEquals(BabyFall.CROUCH_SCALE_Y.toFloat(), minScaleY, 0.005f)
+        assertEquals(1.0f, maxScaleY, 0.0001f)
     }
 
     @Test
@@ -534,8 +595,10 @@ class BabyFallTest {
     fun settleSwayIsOneSmallDampedSwing() {
         val bpm = 120.0
         val riseStart = BabyFall.intervalForCycle(0) + 0.6 + 1.0
-        // The settle starts after push + stand = 0.6 s = 1.2 beats.
-        val settleStart = riseStart + 1.2
+        // The settle starts after push + crouch + stand
+        // = 0.90 s = 1.8 beats (v1.0.54; was 1.2 beats when the
+        // rise had no crouch).
+        val settleStart = riseStart + 1.8
         var max = 0f
         var min = 0f
         var beats = settleStart

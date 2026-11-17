@@ -24,13 +24,6 @@ object DanceMotion {
         val scale: Float,
         /** Downward sink (baby falls), 0..1. */
         val sinkFraction: Float = 0f,
-        /** Extra vertical squash multiplier, 1.0 = none. Applied
-         *  on top of [scale] for the Y axis only, around the same
-         *  bottom-centre anchor, so a squash lowers the head and
-         *  shoulders while the feet stay planted. v1.0.54: only
-         *  the baby's get-up crouch uses it; every other pose
-         *  leaves it at 1. */
-        val scaleY: Float = 1f,
     )
 
     /** The neutral pose: no bounce, no sway, no pulse, no sink.
@@ -282,12 +275,27 @@ object DanceMotion {
  * sideways in ~0.3 s, lies on the floor for one beat, then gets back
  * up. The get-up used to be a single ~0.4 s pop with an overshoot
  * swing and a scale bounce; the user (2026-11-16) found the snap
- * back upright too abrupt, so v1.0.53 split it into stages (see
- * [RiseStage]) and v1.0.54 added one more in the middle at his
+ * back upright too abrupt, so v1.0.53 split it into stages and
+ * v1.0.54 added one more in the middle at his
  * word — "哪吒半撑，蹲下，再起身比较自然": he pushes himself up
  * on his hands to a half-risen lean, folds down into a crouch,
  * stands up out of the crouch, then steadies himself with one
- * small sway. The fall interval is a
+ * small sway.
+ *
+ * v1.0.55: the whole gag is a drawn frame SEQUENCE now (see
+ * the sequence section below): standing → lean → flip → lying
+ * (one beat) → prepush → prepush-alt → half-push → push-mid →
+ * crouch → rise-mid → standing, each frame ~0.13 s with a
+ * short fade.
+ * The road here: v1.0.53/54 staged the get-up as whole-body
+ * transforms (a lean, then a Y-only squash for the crouch),
+ * and the first v1.0.55 draft keyframed a few drawn frames
+ * with transforms and long morphs — the user's verdict on
+ * that whole family was that it flashed from still to still
+ * ("一闪一闪不自然") and the rotated frame did not read as
+ * lying ("倒地图不像"). So the drawings carry everything;
+ * the only transform left is the settle sway garnish on the
+ * standing frame at the very end. The fall interval is a
  * deterministic pseudo-random 12–20 beats derived from the cycle
  * index, so it never ticks like a metronome. Pure function of the
  * beat count, fully unit tested.
@@ -304,103 +312,274 @@ object BabyFall {
         return 12 + ((h ushr 8) % 9).toInt() // 12..20 beats
     }
 
-    // ---- v1.0.53: the staged get-up; v1.0.54: a crouch joins it --
+    // ---- v1.0.55: the sequence timing -------------------------
     //
-    // The rise (Phase.RISING) is timed in SECONDS like the fall
-    // (0.3 s), not in beats — it is a gag with a fixed duration at
-    // any tempo. Its four stages run back to back:
-    //
-    //   PUSH    [RISE_PUSH_SECONDS]   — flat → half-risen: he
-    //           pushes himself up on his hands, the lean easing
-    //           from [DOWN_ROTATION_DEG] to [RISE_HALF_DEG];
-    //   CROUCH  [RISE_CROUCH_SECONDS] — half-risen → crouched
-    //           (v1.0.54): the lean eases the rest of the way to
-    //           0 while the body squashes down to
-    //           [CROUCH_SCALE_Y] around the bottom anchor — he
-    //           folds his legs under him and gathers himself,
-    //           feet planted, instead of unfolding straight to
-    //           standing the way v1.0.53 had it;
-    //   STAND   [RISE_STAND_SECONDS]  — crouched → upright: the
-    //           squash releases back to full height and the held
-    //           sink lets go with it, the lean staying at 0;
-    //   SETTLE  [RISE_SETTLE_SECONDS] — upright, one small sway
-    //           of at most ±[SETTLE_SWAY_DEG] that damps out
-    //           inside the stage: he steadies himself, then
-    //           dances on.
-    //
-    // Total [RISE_TOTAL_SECONDS] = 1.20 s (v1.0.53's three stages
-    // summed to 0.90 s; the original single pop was 0.4 s). The
-    // uniform scale stays 1.0 through the whole rise — the only
-    // squash is the crouch's Y-only [DanceMotion.Pose.scaleY].
-    // The sink tracks the lean proportionally through the push,
-    // holds at the half-risen value through the crouch (his feet
-    // stay where they were planted) and releases across the
-    // stand, so he lifts off the floor as he rises.
+    // The fall and the get-up are timed in SECONDS (a gag with a
+    // fixed duration at any tempo); only the lie between them
+    // is timed in beats ([DOWN_BEATS]), as it always was. Every
+    // drawn frame of the sequence gets [STEP_SECONDS]; each new
+    // frame fades in over the first [STEP_FADE_FRACTION] of its
+    // step — a ~40 ms melt in the PoseCycle.Blend shape, short
+    // enough that the steps read as animation rather than as
+    // pictures dissolving into each other — and the pose stays
+    // NEUTRAL while the frames play (see [pose]): the drawings
+    // carry the motion, feet-on-the-floor included (the drawn
+    // lean frame plants his feet itself, so the fall needs no
+    // rotation and no anchor compensation any more).
 
-    /** The get-up's stages, in order (v1.0.53; CROUCH added
-     *  in v1.0.54). */
-    enum class RiseStage { PUSH, CROUCH, STAND, SETTLE }
+    /** One frame of the sequence, seconds — the middle of the
+     *  110–150 ms band the staging calls for. */
+    const val STEP_SECONDS = 0.13
 
-    /** Stage 1 of the get-up: pushing up to half-risen, seconds. */
-    const val RISE_PUSH_SECONDS = 0.25
+    /** Portion of each step the incoming frame spends fading in
+     *  over the outgoing one; the rest of the step the frame
+     *  stands alone. */
+    const val STEP_FADE_FRACTION = 0.30
 
-    /** Stage 2 of the get-up: folding into the crouch, seconds
-     *  (v1.0.54). */
-    const val RISE_CROUCH_SECONDS = 0.30
+    /** Steps in the fall: standing, lean, flip (the lying frame
+     *  is entered as the lie's own step — see [chainBlend]). */
+    const val FALL_STEPS = 3
 
-    /** Stage 3 of the get-up: standing up out of the crouch,
-     *  seconds. */
-    const val RISE_STAND_SECONDS = 0.35
+    /** The whole fall, seconds: [FALL_STEPS] × [STEP_SECONDS]. */
+    const val FALL_SECONDS = FALL_STEPS * STEP_SECONDS
 
-    /** Stage 4 of the get-up: the steadying sway, seconds. */
-    const val RISE_SETTLE_SECONDS = 0.30
+    /** Steps in the get-up before the standing frame:
+     *  prepush, prepush-alt, half-push, push-mid, crouch,
+     *  rise-mid. */
+    const val RISE_STEPS = 6
 
-    /** The whole get-up, seconds: push + crouch + stand +
-     *  settle = 1.20. */
-    const val RISE_TOTAL_SECONDS = 1.20
+    /** The get-up's stepped part, seconds:
+     *  [RISE_STEPS] × [STEP_SECONDS]. */
+    const val RISE_STEPS_SECONDS = RISE_STEPS * STEP_SECONDS
 
-    /** Lean at the top of the push stage: half-risen, degrees —
-     *  the midpoint of the user's 35–40° ask. */
-    const val RISE_HALF_DEG = 37.5
+    /** The standing frame's own step at the end of the get-up,
+     *  seconds: the settle sway's window. */
+    const val SETTLE_SECONDS = 0.30
 
-    /** Deepest vertical squash at the bottom of the crouch
-     *  (v1.0.54): his height at ~0.84 of standing, feet planted
-     *  by the bottom-centre anchor. */
-    const val CROUCH_SCALE_Y = 0.84
+    /** The whole get-up, seconds: steps + settle = 1.08. */
+    const val RISE_TOTAL_SECONDS = RISE_STEPS_SECONDS + SETTLE_SECONDS
 
-    /** Peak of the settle sway once he is up, degrees. */
+    /** Peak of the settle sway once he is up, degrees — the
+     *  one transform the sequence keeps, a garnish on the
+     *  standing frame (v1.0.53's shape: one damped swing). */
     const val SETTLE_SWAY_DEG = 2.0
 
-    /** Rotation while lying flat, degrees (the DOWN pose). */
-    const val DOWN_ROTATION_DEG = 84.0
+    // ---- v1.0.55: the frame chain (the sequence player) -------
+    //
+    // From the moment a fall starts until the get-up's settle
+    // ends, the stage draws from an eleven-slot frame list
+    // instead of the dance cycle (the caller builds the list;
+    // the indices below are its contract):
+    //
+    //   [CHAIN_FROM]        the dance frame frozen at the
+    //                       fall's start — the sequence's
+    //                       standing frame;
+    //   [CHAIN_LEAN]        the drawn lean frame (tipping,
+    //                       feet planted in the drawing);
+    //   [CHAIN_FLIP]        the drawn flip frame (curled,
+    //                       rolling over onto his back);
+    //   [CHAIN_LYING]       the drawn lying frame (the lie);
+    //   [CHAIN_PREPUSH]     the drawn pre-push frame (on his
+    //                       side, legs kicked up, about to
+    //                       roll to his front);
+    //   [CHAIN_PREPUSH_ALT] the drawn pre-push-alt frame
+    //                       (prone, up on both elbows — it
+    //                       bridges the chain's biggest jump,
+    //                       side-lying to the front crouch);
+    //   [CHAIN_HALF_PUSH]   the drawn half-push frame (hands
+    //                       on the ground, hips low);
+    //   [CHAIN_PUSHMID]     the drawn push-mid frame (halfway
+    //                       up out of the half-push);
+    //   [CHAIN_CROUCH]      the drawn crouch frame (hands on
+    //                       knees, gathered);
+    //   [CHAIN_RISEMID]     the drawn rise-mid frame (halfway
+    //                       up out of the crouch);
+    //   [CHAIN_STAND]       the standing frame (the settle's).
+    //
+    // [chainBlend] picks the pair + fade for every moment of
+    // the three phases, in the same Blend shape the dance cycle
+    // uses, so the renderer's two-layer cross-fade draws it
+    // unchanged: [stepBlend] walks each phase's frames one step
+    // at a time, and the lying frame is entered as the DOWN
+    // phase's own step (its fade-in runs on the lie's first
+    // ~40 ms, timed in seconds like every other step's).
 
-    /** Sink while lying flat (the DOWN pose). */
-    const val DOWN_SINK = 0.38
+    /** Chain slot: the dance frame frozen at the fall's start. */
+    const val CHAIN_FROM = 0
+
+    /** Chain slot: the drawn lean frame. */
+    const val CHAIN_LEAN = 1
+
+    /** Chain slot: the drawn flip frame. */
+    const val CHAIN_FLIP = 2
+
+    /** Chain slot: the drawn lying frame. */
+    const val CHAIN_LYING = 3
+
+    /** Chain slot: the drawn pre-push frame. */
+    const val CHAIN_PREPUSH = 4
+
+    /** Chain slot: the drawn pre-push-alt frame. */
+    const val CHAIN_PREPUSH_ALT = 5
+
+    /** Chain slot: the drawn half-push frame. */
+    const val CHAIN_HALF_PUSH = 6
+
+    /** Chain slot: the drawn push-mid frame. */
+    const val CHAIN_PUSHMID = 7
+
+    /** Chain slot: the drawn crouch frame. */
+    const val CHAIN_CROUCH = 8
+
+    /** Chain slot: the drawn rise-mid frame. */
+    const val CHAIN_RISEMID = 9
+
+    /** Chain slot: the standing frame. */
+    const val CHAIN_STAND = 10
+
+    /** Slots in the fall / get-up frame chain. */
+    const val CHAIN_SIZE = 11
+
+    /** The fall's frames, in step order (the lying frame is
+     *  the DOWN phase's step, not the fall's). */
+    private val FALL_FRAMES = intArrayOf(CHAIN_FROM, CHAIN_LEAN, CHAIN_FLIP)
+
+    /** The get-up's frames, in step order; the last is the
+     *  standing frame, whose step is the settle window. */
+    private val RISE_FRAMES = intArrayOf(
+        CHAIN_PREPUSH, CHAIN_PREPUSH_ALT, CHAIN_HALF_PUSH,
+        CHAIN_PUSHMID, CHAIN_CROUCH, CHAIN_RISEMID, CHAIN_STAND,
+    )
 
     /**
-     * Which stage of the get-up a RISING [progress] (0..1 across
-     * the whole rise) falls in, by elapsed rise seconds.
+     * The blend [elapsed] seconds into a stepped span: [frames]
+     * play in order, one per [STEP_SECONDS] — except the span's
+     * LAST frame, whose step runs to [spanSeconds] (the get-up's
+     * standing frame gets the longer settle window that way).
+     * The current step's frame fades in over the previous step's
+     * frame (or [beforeFirst], for the first step) across the
+     * step's first [STEP_FADE_FRACTION]; past the fade it stands
+     * alone. Pure function of the elapsed time — pausing freezes
+     * the sequence mid-step like everything else on the stage.
      */
-    fun riseStage(progress: Float): RiseStage {
-        val elapsed = progress.coerceIn(0f, 1f).toDouble() * RISE_TOTAL_SECONDS
-        return when {
-            elapsed < RISE_PUSH_SECONDS -> RiseStage.PUSH
-            elapsed < RISE_PUSH_SECONDS + RISE_CROUCH_SECONDS -> RiseStage.CROUCH
-            elapsed < RISE_PUSH_SECONDS + RISE_CROUCH_SECONDS +
-                RISE_STAND_SECONDS -> RiseStage.STAND
-            else -> RiseStage.SETTLE
+    private fun stepBlend(
+        frames: IntArray,
+        beforeFirst: Int,
+        elapsed: Double,
+        spanSeconds: Double,
+    ): PoseCycle.Blend {
+        val e = elapsed.coerceIn(0.0, spanSeconds)
+        val step = minOf((e / STEP_SECONDS).toInt(), frames.size - 1)
+        val stepStart = step * STEP_SECONDS
+        val stepLength = if (step == frames.size - 1) {
+            spanSeconds - stepStart
+        } else {
+            STEP_SECONDS
         }
+        val u = if (stepLength > 0.0) (e - stepStart) / stepLength else 1.0
+        val alpha = (u / STEP_FADE_FRACTION).coerceIn(0.0, 1.0).toFloat()
+        val previous = if (step == 0) beforeFirst else frames[step - 1]
+        return PoseCycle.Blend(previous, frames[step], alpha)
     }
 
-    /** The get-up stage at absolute beat count [beats], or null
-     *  when he is not getting up at that moment. */
-    fun riseStageAt(beats: Double, bpm: Double): RiseStage? {
-        val s = stateAt(beats, bpm)
-        return if (s.phase == Phase.RISING) riseStage(s.progress) else null
+    /**
+     * The chain blend for a FALLING [progress]: the frozen
+     * dance frame, then the lean frame, then the flip frame,
+     * one [STEP_SECONDS] step each.
+     */
+    fun fallChainBlend(progress: Float): PoseCycle.Blend = stepBlend(
+        FALL_FRAMES, CHAIN_FROM,
+        progress.coerceIn(0f, 1f).toDouble() * FALL_SECONDS,
+        FALL_SECONDS,
+    )
+
+    /**
+     * The chain blend for a RISING [progress]: prepush →
+     * prepush-alt → half-push → push-mid → crouch → rise-mid,
+     * one [STEP_SECONDS] step each, then the standing frame
+     * for the settle window (fading in over its first
+     * [STEP_FADE_FRACTION] like every step).
+     */
+    fun riseChainBlend(progress: Float): PoseCycle.Blend = stepBlend(
+        RISE_FRAMES, CHAIN_LYING,
+        progress.coerceIn(0f, 1f).toDouble() * RISE_TOTAL_SECONDS,
+        RISE_TOTAL_SECONDS,
+    )
+
+    /** The chain blend for any fall-cycle [phase] at
+     *  [progress]; null while DANCING (no chain — the dance
+     *  cycle owns the stage). [bpm] times the DOWN phase's
+     *  fade: the lie is beat-long, but the lying frame's
+     *  fade-in over the flip frame runs in seconds like every
+     *  other step's. */
+    fun chainBlend(phase: Phase, progress: Float, bpm: Double): PoseCycle.Blend? =
+        when (phase) {
+            Phase.DANCING -> null
+            Phase.FALLING -> fallChainBlend(progress)
+            Phase.DOWN -> {
+                val elapsedSec = progress.coerceIn(0f, 1f).toDouble() *
+                    (60.0 / bpm.coerceIn(40.0, 220.0))
+                val fadeSec = STEP_SECONDS * STEP_FADE_FRACTION
+                PoseCycle.Blend(
+                    CHAIN_FLIP, CHAIN_LYING,
+                    (elapsedSec / fadeSec).coerceIn(0.0, 1.0).toFloat(),
+                )
+            }
+            Phase.RISING -> riseChainBlend(progress)
+        }
+
+    /** Beat count for a playback position, computed exactly as
+     *  [DanceMotion.pose] computes it (same BPM clamp, same
+     *  phase offset), so the chain stays locked to the pose. */
+    private fun beatsAt(positionMs: Long, bpm: Double, phaseOffsetBeats: Double): Double {
+        val safeBpm = bpm.coerceIn(40.0, 220.0)
+        return positionMs / (60_000.0 / safeBpm) + phaseOffsetBeats
     }
 
-    private fun fallBeats(bpm: Double) = 0.3 * bpm / 60.0 // ~0.3 s
-    private fun riseBeats(bpm: Double) = RISE_TOTAL_SECONDS * bpm / 60.0 // ~1.2 s (v1.0.54; 0.9 s in v1.0.53, 0.4 s before)
+    /**
+     * The chain blend at a playback position, or null when he
+     * is dancing (no fall in progress). Pure function of the
+     * position — pausing freezes the chain mid-fade, like
+     * everything else on the stage.
+     */
+    fun chainBlendAt(
+        positionMs: Long,
+        bpm: Double,
+        phaseOffsetBeats: Double = 0.0,
+    ): PoseCycle.Blend? {
+        val safeBpm = bpm.coerceIn(40.0, 220.0)
+        val s = stateAt(beatsAt(positionMs, safeBpm, phaseOffsetBeats), safeBpm)
+        return chainBlend(s.phase, s.progress, safeBpm)
+    }
+
+    /**
+     * The playback position at which the fall currently in
+     * progress began, or null when he is dancing. The caller
+     * freezes the chain's [CHAIN_FROM] dance frame at this
+     * position (and, for the outro hold, evaluates the frozen
+     * chain at the lyric end against the same start).
+     */
+    fun chainStartPositionMs(
+        positionMs: Long,
+        bpm: Double,
+        phaseOffsetBeats: Double = 0.0,
+    ): Long? {
+        val safeBpm = bpm.coerceIn(40.0, 220.0)
+        val beats = beatsAt(positionMs, safeBpm, phaseOffsetBeats)
+        val s = stateAt(beats, safeBpm)
+        if (s.phase == Phase.DANCING) return null
+        val before = when (s.phase) {
+            Phase.FALLING -> s.progress.toDouble() * fallBeats(safeBpm)
+            Phase.DOWN -> fallBeats(safeBpm) + s.progress * DOWN_BEATS
+            Phase.RISING -> fallBeats(safeBpm) + DOWN_BEATS +
+                s.progress * riseBeats(safeBpm)
+            Phase.DANCING -> 0.0 // unreachable — returned above
+        }
+        return ((beats - before - phaseOffsetBeats) * (60_000.0 / safeBpm)).toLong()
+    }
+
+    private fun fallBeats(bpm: Double) = FALL_SECONDS * bpm / 60.0 // 0.39 s of steps (was a flat 0.3 s before v1.0.55)
+    private fun riseBeats(bpm: Double) = RISE_TOTAL_SECONDS * bpm / 60.0 // ~1.08 s (v1.0.55; 1.35 s in the .55 draft's stages, 1.2 s in v1.0.54, 0.9 s in v1.0.53)
     private const val DOWN_BEATS = 1.0
 
     fun cycleLengthBeats(cycle: Int, bpm: Double): Double =
@@ -441,9 +620,9 @@ object BabyFall {
                 // DanceMotion.tempoFactor) scales his dancing-phase
                 // wobble and accent like the other humans' — only
                 // the FALLING / DOWN / RISING phases are exempt,
-                // because the fall is a timed gag (0.3 s down,
-                // one beat down, 1.2 s up in four stages), not a
-                // beat amplitude.
+                // because the fall is a timed gag (0.39 s of
+                // drawn steps down, one beat down, 1.08 s up),
+                // not a beat amplitude.
                 val tempo = DanceMotion.tempoFactor(bpm)
                 val wobble = beats * 1.5
                 val bounce = abs(sin(PI * wobble)) * 0.35f * tempo
@@ -463,108 +642,60 @@ object BabyFall {
                     sinkFraction = accent.toFloat(),
                 )
             }
-            Phase.FALLING -> {
-                val t = state.progress.toDouble()
+            Phase.FALLING ->
+                // v1.0.55: neutral — the drawn sequence carries
+                // the fall (the lean frame plants his feet in
+                // the drawing itself), so no rotation and no
+                // sink: any transform here would slide or tilt
+                // the drawings. (The fall used to BE this pose:
+                // the standing frame rotated flat and sunk onto
+                // the floor.)
                 DanceMotion.Pose(
                     bounceFraction = 0f,
-                    rotationDeg = (82.0 * t * t).toFloat(), // accelerating tip-over
+                    rotationDeg = 0f,
                     scale = 1.0f,
-                    sinkFraction = (0.38 * t).toFloat(),
+                    sinkFraction = 0f,
                 )
-            }
-            Phase.DOWN -> DanceMotion.Pose(
-                bounceFraction = 0f,
-                rotationDeg = DOWN_ROTATION_DEG.toFloat(),
-                scale = 1.0f,
-                sinkFraction = DOWN_SINK.toFloat(),
-            )
+            Phase.DOWN ->
+                // v1.0.55: neutral, like the fall — the drawn
+                // lying frame is flat on the floor in its own
+                // art (its body's lower edge sits on the frame
+                // baseline); a transform would only bury it.
+                DanceMotion.Pose(
+                    bounceFraction = 0f,
+                    rotationDeg = 0f,
+                    scale = 1.0f,
+                    sinkFraction = 0f,
+                )
             Phase.RISING -> {
-                // v1.0.53: the staged get-up (see RiseStage);
-                // v1.0.54: the crouch between the push and the
-                // stand. Every motion stage eases with a
-                // smoothstep, so the lean and the squash arrive
-                // at each stage boundary with zero speed —
-                // nothing snaps — and the uniform scale stays
-                // 1.0 (the old pop's bounce is gone); the only
-                // squash is the crouch's Y-only scaleY.
+                // v1.0.55: the drawn frames carry the get-up
+                // (see [riseChainBlend]) — the pose is neutral
+                // through the six steps, and the only transform
+                // left is the settle sway across the standing
+                // frame's own step, exactly as v1.0.53 shaped
+                // it: one small swing that dies inside the
+                // window, home to exactly 0 where the dancing
+                // resumes.
                 val elapsed = state.progress.toDouble() * RISE_TOTAL_SECONDS
-                // The sink at the half-risen lean: reached at the
-                // end of the push, held through the crouch while
-                // his feet stay planted, released across the
-                // stand.
-                val crouchSink = sinkForRotation(RISE_HALF_DEG)
-                when (riseStage(state.progress)) {
-                    RiseStage.PUSH -> {
-                        val u = smooth01(elapsed / RISE_PUSH_SECONDS)
-                        val rot = DOWN_ROTATION_DEG + (RISE_HALF_DEG - DOWN_ROTATION_DEG) * u
-                        DanceMotion.Pose(
-                            bounceFraction = 0f,
-                            rotationDeg = rot.toFloat(),
-                            scale = 1.0f,
-                            sinkFraction = sinkForRotation(rot),
-                        )
-                    }
-                    RiseStage.CROUCH -> {
-                        val u = smooth01(
-                            (elapsed - RISE_PUSH_SECONDS) / RISE_CROUCH_SECONDS,
-                        )
-                        DanceMotion.Pose(
-                            bounceFraction = 0f,
-                            rotationDeg = (RISE_HALF_DEG * (1.0 - u)).toFloat(),
-                            scale = 1.0f,
-                            sinkFraction = crouchSink,
-                            scaleY = (1.0 + (CROUCH_SCALE_Y - 1.0) * u).toFloat(),
-                        )
-                    }
-                    RiseStage.STAND -> {
-                        val u = smooth01(
-                            (elapsed - RISE_PUSH_SECONDS - RISE_CROUCH_SECONDS) /
-                                RISE_STAND_SECONDS,
-                        )
-                        DanceMotion.Pose(
-                            bounceFraction = 0f,
-                            rotationDeg = 0f,
-                            scale = 1.0f,
-                            sinkFraction = (crouchSink * (1.0 - u).toFloat()),
-                            scaleY = (CROUCH_SCALE_Y + (1.0 - CROUCH_SCALE_Y) * u)
-                                .toFloat(),
-                        )
-                    }
-                    RiseStage.SETTLE -> {
-                        val v = (elapsed - RISE_PUSH_SECONDS - RISE_CROUCH_SECONDS -
-                            RISE_STAND_SECONDS) / RISE_SETTLE_SECONDS
-                        // One small sway that dies inside the
-                        // stage: out to +SETTLE_SWAY_DEG, back
-                        // through upright to a smaller swing the
-                        // other way (the (1 − 0.5v) damping), home
-                        // to exactly 0 where the dancing resumes.
-                        val sway = SETTLE_SWAY_DEG * sin(2 * PI * v) * (1.0 - 0.5 * v)
-                        DanceMotion.Pose(
-                            bounceFraction = 0f,
-                            rotationDeg = sway.toFloat(),
-                            scale = 1.0f,
-                            sinkFraction = 0f,
-                        )
-                    }
+                if (elapsed < RISE_STEPS_SECONDS) {
+                    DanceMotion.Pose(
+                        bounceFraction = 0f,
+                        rotationDeg = 0f,
+                        scale = 1.0f,
+                        sinkFraction = 0f,
+                    )
+                } else {
+                    val v = (elapsed - RISE_STEPS_SECONDS) / SETTLE_SECONDS
+                    val sway = SETTLE_SWAY_DEG * sin(2 * PI * v) * (1.0 - 0.5 * v)
+                    DanceMotion.Pose(
+                        bounceFraction = 0f,
+                        rotationDeg = sway.toFloat(),
+                        scale = 1.0f,
+                        sinkFraction = 0f,
+                    )
                 }
             }
         }
     }
 
-    /** Smoothstep 0→1: the get-up's motion stages ease at both
-     *  ends, so the lean and the squash leave gently and arrive
-     *  at each stage boundary with zero speed. */
-    private fun smooth01(x: Double): Double {
-        val t = x.coerceIn(0.0, 1.0)
-        return t * t * (3.0 - 2.0 * t)
-    }
-
-    /** While he is pushing up, the sink tracks the lean: flat
-     *  on the floor ([DOWN_ROTATION_DEG]) is the full
-     *  [DOWN_SINK], upright is 0. The crouch holds the push's
-     *  final value and the stand releases it — together he
-     *  lifts off the floor as he rises, continuously across
-     *  the stages. */
-    private fun sinkForRotation(rotationDeg: Double): Float =
-        (DOWN_SINK * rotationDeg / DOWN_ROTATION_DEG).toFloat()
 }

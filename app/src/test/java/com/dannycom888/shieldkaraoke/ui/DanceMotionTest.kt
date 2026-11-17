@@ -320,16 +320,25 @@ class DanceMotionTest {
 
     @Test
     fun babyFallPhasesAreExemptFromTheTempoTaper() {
-        // The fall is a timed gag, not a beat amplitude: even at
-        // 150 BPM a DOWN baby lies at the full 84 degrees / 0.38
-        // sink the state machine has always used.
+        // The fall is a timed gag, not a beat amplitude: its
+        // phases are timed in seconds, so at 150 BPM the cycle
+        // still spends the full 0.39 s falling (= 0.975 beats)
+        // and 1.08 s getting up (= 2.7 beats) — the taper
+        // never shrinks them — and the fall poses stay the
+        // neutral sequence poses (v1.0.55: no transform at all
+        // rides on the drawn frames, at any tempo).
+        assertEquals(
+            BabyFall.intervalForCycle(0) + 0.975 + 1.0 + 2.7,
+            BabyFall.cycleLengthBeats(0, 150.0),
+            0.001,
+        )
         var beats = 0.0
         var found = false
         while (beats < 300.0) {
-            if (BabyFall.stateAt(beats, 150.0).phase == BabyFall.Phase.DOWN) {
+            if (BabyFall.stateAt(beats, 150.0).phase == BabyFall.Phase.FALLING) {
                 val p = BabyFall.pose(beats, 150.0)
-                assertEquals(84f, p.rotationDeg)
-                assertEquals(0.38f, p.sinkFraction)
+                assertEquals(0f, p.rotationDeg)
+                assertEquals(0f, p.sinkFraction)
                 found = true
                 break
             }
@@ -387,17 +396,22 @@ class BabyFallTest {
     }
 
     @Test
-    fun downPoseIsFlatOnTheFloor() {
-        // Find a DOWN moment and check the pose: rotated ~flat, sunk.
+    fun downPoseIsNeutralForTheDrawnLyingFrame() {
+        // v1.0.55: DOWN shows the drawn lying frame, which is
+        // flat on the floor in its own art — the pose must be
+        // exactly neutral, or the drawing would tilt or sink
+        // below its baseline. (Before, the pose WAS the lying:
+        // the standing frame rotated 84° and sunk 0.38.)
         val bpm = 120.0
         var beats = 0.0
         var found = false
         while (beats < 200.0) {
             if (BabyFall.stateAt(beats, bpm).phase == BabyFall.Phase.DOWN) {
                 val p = BabyFall.pose(beats, bpm)
-                assertTrue("down rotation ${p.rotationDeg}", p.rotationDeg >= 70f)
-                assertTrue("down sink ${p.sinkFraction}", p.sinkFraction >= 0.3f)
+                assertEquals(0f, p.rotationDeg)
+                assertEquals(0f, p.sinkFraction)
                 assertEquals(0f, p.bounceFraction)
+                assertEquals(1f, p.scale)
                 found = true
                 break
             }
@@ -406,167 +420,251 @@ class BabyFallTest {
         assertTrue(found)
     }
 
-    // ---- v1.0.53: the get-up became staged — push up to
-    // half-risen, then stand, then one small steadying sway —
-    // retiring the old single 0.4 s pop (overshoot swing to
-    // −14° + scale bounce to 1.09). v1.0.54: a crouch folds in
-    // between the push and the stand (the user: half-push,
-    // crouch down, then rise reads natural), so the rise is
-    // four stages — push (0.25 s), crouch (0.30 s), stand
-    // (0.35 s), settle (0.30 s); total 1.20 s. These tests pin
-    // the four-stage replacement.
+    // ---- v1.0.53: the get-up became staged (transforms);
+    // v1.0.54: a crouch stage joined it (a scaleY squash).
+    // v1.0.55: the whole gag is a drawn frame sequence — the
+    // user's chain 站立 → 倾倒 → 翻 → 躺 → 撑前 → 备撑 → 半撑
+    // → 撑中 → 蹲 → 起中 → 站立, each frame one 0.13 s step
+    // with a short fade, poses neutral throughout (the
+    // transform stages, the fall rotation and the squash are
+    // all retired; only the settle sway survives). The
+    // v1.0.53/54 stage tests and the .55 draft's morph tests
+    // are replaced by the sequence tests below.
 
     @Test
-    fun riseStagesAddUpToTheTotalRise() {
+    fun sequenceTimingAddsUp() {
+        // Every drawn frame sits in the 110–150 ms band.
+        assertTrue(
+            "step ${BabyFall.STEP_SECONDS}s outside the 110–150 ms band",
+            BabyFall.STEP_SECONDS in 0.11..0.15,
+        )
         assertEquals(
-            BabyFall.RISE_TOTAL_SECONDS,
-            BabyFall.RISE_PUSH_SECONDS + BabyFall.RISE_CROUCH_SECONDS +
-                BabyFall.RISE_STAND_SECONDS + BabyFall.RISE_SETTLE_SECONDS,
+            BabyFall.FALL_SECONDS,
+            BabyFall.FALL_STEPS * BabyFall.STEP_SECONDS,
             0.0001,
         )
-        assertEquals(1.20, BabyFall.RISE_TOTAL_SECONDS, 0.0001)
-        // The cycle length carries the longer rise: at 120 BPM
-        // the fall is 0.6 beats, the lie is 1 beat, the rise is
-        // 1.2 s = 2.4 beats.
+        assertEquals(0.39, BabyFall.FALL_SECONDS, 0.0001)
+        assertEquals(
+            BabyFall.RISE_STEPS_SECONDS,
+            BabyFall.RISE_STEPS * BabyFall.STEP_SECONDS,
+            0.0001,
+        )
+        assertEquals(
+            BabyFall.RISE_TOTAL_SECONDS,
+            BabyFall.RISE_STEPS_SECONDS + BabyFall.SETTLE_SECONDS,
+            0.0001,
+        )
+        assertEquals(1.08, BabyFall.RISE_TOTAL_SECONDS, 0.0001)
+        // The cycle length carries the sequence: at 120 BPM
+        // the fall is 0.39 s = 0.78 beats, the lie is 1 beat,
+        // the get-up is 1.08 s = 2.16 beats.
         val cycle = 3
         assertEquals(
-            BabyFall.intervalForCycle(cycle) + 0.6 + 1.0 + 2.4,
+            BabyFall.intervalForCycle(cycle) + 0.78 + 1.0 + 2.16,
             BabyFall.cycleLengthBeats(cycle, 120.0),
             0.0001,
         )
     }
 
     @Test
-    fun riseStageBoundariesFollowTheStageDurations() {
-        val pushEnd = (BabyFall.RISE_PUSH_SECONDS / BabyFall.RISE_TOTAL_SECONDS).toFloat()
-        val crouchEnd = ((BabyFall.RISE_PUSH_SECONDS + BabyFall.RISE_CROUCH_SECONDS) /
-            BabyFall.RISE_TOTAL_SECONDS).toFloat()
-        val standEnd = ((BabyFall.RISE_PUSH_SECONDS + BabyFall.RISE_CROUCH_SECONDS +
-            BabyFall.RISE_STAND_SECONDS) / BabyFall.RISE_TOTAL_SECONDS).toFloat()
-        assertEquals(BabyFall.RiseStage.PUSH, BabyFall.riseStage(0f))
-        assertEquals(BabyFall.RiseStage.PUSH, BabyFall.riseStage(pushEnd - 0.001f))
-        assertEquals(BabyFall.RiseStage.CROUCH, BabyFall.riseStage(pushEnd + 0.001f))
-        assertEquals(BabyFall.RiseStage.CROUCH, BabyFall.riseStage(crouchEnd - 0.001f))
-        assertEquals(BabyFall.RiseStage.STAND, BabyFall.riseStage(crouchEnd + 0.001f))
-        assertEquals(BabyFall.RiseStage.STAND, BabyFall.riseStage(standEnd - 0.001f))
-        assertEquals(BabyFall.RiseStage.SETTLE, BabyFall.riseStage(standEnd + 0.001f))
-        assertEquals(BabyFall.RiseStage.SETTLE, BabyFall.riseStage(1f))
-        // Not rising at all → no stage.
-        assertNull(BabyFall.riseStageAt(0.0, 120.0))
+    fun fallSequenceStepsThroughLeanAndFlip() {
+        // Dominant frame (alpha ≥ 0.5 side) scanning the fall:
+        // standing → lean → flip, in order, nothing else.
+        val dominant = mutableListOf<Int>()
+        var p = 0f
+        while (p <= 1.0f) {
+            val b = BabyFall.fallChainBlend(p)
+            val frame = if (b.currentAlpha >= 0.5f) b.currentIndex else b.previousIndex
+            if (dominant.lastOrNull() != frame) dominant += frame
+            p += 0.002f
+        }
+        assertEquals(
+            listOf(BabyFall.CHAIN_FROM, BabyFall.CHAIN_LEAN, BabyFall.CHAIN_FLIP),
+            dominant,
+        )
+        // The fall opens on the frozen frame; mid-fade into the
+        // lean (15% into its step = half the fade) the pair is
+        // standing/lean at half alpha.
+        assertEquals(
+            PoseCycle.Blend(BabyFall.CHAIN_FROM, BabyFall.CHAIN_FROM, 0f),
+            BabyFall.fallChainBlend(0f),
+        )
+        val leanFade = BabyFall.fallChainBlend(
+            ((BabyFall.STEP_SECONDS * 1.15) / BabyFall.FALL_SECONDS).toFloat(),
+        )
+        assertEquals(BabyFall.CHAIN_FROM, leanFade.previousIndex)
+        assertEquals(BabyFall.CHAIN_LEAN, leanFade.currentIndex)
+        assertEquals(0.5f, leanFade.currentAlpha, 0.01f)
+        val flipFade = BabyFall.fallChainBlend(
+            ((BabyFall.STEP_SECONDS * 2.15) / BabyFall.FALL_SECONDS).toFloat(),
+        )
+        assertEquals(BabyFall.CHAIN_LEAN, flipFade.previousIndex)
+        assertEquals(BabyFall.CHAIN_FLIP, flipFade.currentIndex)
+        assertEquals(0.5f, flipFade.currentAlpha, 0.01f)
     }
 
     @Test
-    fun riseStagesRunInOrderAndDancingResumes() {
-        val bpm = 96.0
-        val stages = mutableListOf<BabyFall.RiseStage>()
-        var sawDancingAfter = false
-        var inRise = false
-        var beats = 0.0
-        while (beats < 120.0) {
-            val stage = BabyFall.riseStageAt(beats, bpm)
-            if (stage != null) {
-                inRise = true
-                if (stages.lastOrNull() != stage) stages += stage
-            } else if (inRise) {
-                sawDancingAfter =
-                    BabyFall.stateAt(beats, bpm).phase == BabyFall.Phase.DANCING
-                break
-            }
-            beats += 0.005
+    fun lyingFrameFadesInOverTheFlipThenLiesAlone() {
+        // The DOWN phase is the lying frame's own step: at
+        // 120 BPM the beat is 0.5 s; the fade runs over the
+        // first STEP × FADE = 39 ms of it, so 19.5 ms in
+        // (progress 0.039) the pair is flip/lying at half
+        // alpha, and by mid-beat the lying frame stands alone
+        // (alpha 1 on the current slot).
+        val mid = BabyFall.chainBlend(BabyFall.Phase.DOWN, 0.039f, 120.0)!!
+        assertEquals(BabyFall.CHAIN_FLIP, mid.previousIndex)
+        assertEquals(BabyFall.CHAIN_LYING, mid.currentIndex)
+        assertEquals(0.5f, mid.currentAlpha, 0.02f)
+        val settled = BabyFall.chainBlend(BabyFall.Phase.DOWN, 0.5f, 120.0)!!
+        assertEquals(BabyFall.CHAIN_LYING, settled.currentIndex)
+        assertEquals(1f, settled.currentAlpha)
+        // Dancing has no chain at all.
+        assertNull(BabyFall.chainBlend(BabyFall.Phase.DANCING, 0.5f, 120.0))
+    }
+
+    @Test
+    fun riseSequenceStepsThroughAllSixFramesInOrder() {
+        // The get-up's frame order is the user's chain —
+        // 躺 → 撑前 → 备撑 → 半撑 → 撑中 → 蹲 → 起中 → 站立:
+        // scanning the rise, the dominant frame must visit
+        // the slots in order (the lying frame leads — it is
+        // what the first step fades out of) and end standing
+        // alone.
+        val dominant = mutableListOf<Int>()
+        var p = 0f
+        while (p <= 1.0f) {
+            val b = BabyFall.riseChainBlend(p)
+            val frame = if (b.currentAlpha >= 0.5f) b.currentIndex else b.previousIndex
+            if (dominant.lastOrNull() != frame) dominant += frame
+            p += 0.002f
         }
         assertEquals(
             listOf(
-                BabyFall.RiseStage.PUSH,
-                BabyFall.RiseStage.CROUCH,
-                BabyFall.RiseStage.STAND,
-                BabyFall.RiseStage.SETTLE,
+                BabyFall.CHAIN_LYING,
+                BabyFall.CHAIN_PREPUSH,
+                BabyFall.CHAIN_PREPUSH_ALT,
+                BabyFall.CHAIN_HALF_PUSH,
+                BabyFall.CHAIN_PUSHMID,
+                BabyFall.CHAIN_CROUCH,
+                BabyFall.CHAIN_RISEMID,
+                BabyFall.CHAIN_STAND,
             ),
-            stages,
+            dominant,
         )
-        assertTrue("dancing should resume after the settle", sawDancingAfter)
+        // The rise opens fading out of the lying frame, and
+        // mid-fade into the prepush the pair is lying/prepush
+        // at half alpha.
+        val atStart = BabyFall.riseChainBlend(0f)
+        assertEquals(BabyFall.CHAIN_LYING, atStart.previousIndex)
+        assertEquals(BabyFall.CHAIN_PREPUSH, atStart.currentIndex)
+        assertEquals(0f, atStart.currentAlpha)
+        val prepushFade = BabyFall.riseChainBlend(
+            ((BabyFall.STEP_SECONDS * 0.15) / BabyFall.RISE_TOTAL_SECONDS).toFloat(),
+        )
+        assertEquals(0.5f, prepushFade.currentAlpha, 0.01f)
+        // The end of the rise is the standing frame alone.
+        val atEnd = BabyFall.riseChainBlend(1f)
+        assertEquals(BabyFall.CHAIN_STAND, atEnd.currentIndex)
+        assertEquals(1f, atEnd.currentAlpha)
     }
 
     @Test
-    fun halfRisenAtThePushCrouchJoint() {
-        // Beat arithmetic for cycle 0 at 120 BPM: dancing for
-        // the interval, 0.6 beats falling, 1 beat down, then the
-        // rise starts; the push stage is 0.25 s = 0.5 beats.
+    fun sequencePosesAreNeutralExceptTheSettleSway() {
+        // v1.0.55: the drawings carry everything, so through
+        // the fall, the lie and the get-up's five steps the
+        // whole-body pose is exactly neutral — no rotation (the
+        // old tip-over), no sink, no squash. Only the settle
+        // window at the very end sways (next test).
         val bpm = 120.0
-        val riseStart = BabyFall.intervalForCycle(0) + 0.6 + 1.0
-        val joint = riseStart + 0.5
-        val atJoint = BabyFall.pose(joint - 0.01, bpm)
-        val justPast = BabyFall.pose(joint + 0.01, bpm)
-        // Either side of the joint he is at the half-risen lean
-        // (35–40° band; the design point is 37.5°).
-        assertEquals(BabyFall.RISE_HALF_DEG.toFloat(), atJoint.rotationDeg, 1.0f)
-        assertEquals(BabyFall.RISE_HALF_DEG.toFloat(), justPast.rotationDeg, 1.0f)
-        // And the sink tracks the lean — about half the flat sink.
-        assertEquals(
-            (BabyFall.DOWN_SINK * BabyFall.RISE_HALF_DEG / BabyFall.DOWN_ROTATION_DEG)
-                .toFloat(),
-            atJoint.sinkFraction, 0.02f,
-        )
-    }
-
-    @Test
-    fun crouchBottomsOutFoldedAndTheStandRestoresFullHeight() {
-        // v1.0.54: between the push and the stand he folds into
-        // a crouch. Beat arithmetic for cycle 0 at 120 BPM: the
-        // rise starts after interval + 0.6 falling + 1.0 down;
-        // the crouch ends at +0.55 s (1.1 beats), the stand at
-        // +0.90 s (1.8 beats).
-        val bpm = 120.0
-        val riseStart = BabyFall.intervalForCycle(0) + 0.6 + 1.0
-        val crouchJoint = riseStart + 1.1 // crouch → stand
-        val standJoint = riseStart + 1.8 // stand → settle
-        // At the bottom of the crouch the lean is fully spent,
-        // the squash is at its deepest and the sink still holds
-        // the half-risen value — he is folded, not standing —
-        // and the stand side of the joint starts from exactly
-        // the same folded pose (no snap across the boundary).
-        val atCrouch = BabyFall.pose(crouchJoint - 0.01, bpm)
-        val justStanding = BabyFall.pose(crouchJoint + 0.01, bpm)
-        assertEquals(0f, atCrouch.rotationDeg, 1.0f)
-        assertEquals(0f, justStanding.rotationDeg, 1.0f)
-        assertEquals(
-            BabyFall.CROUCH_SCALE_Y.toFloat(), atCrouch.scaleY, 0.01f,
-        )
-        assertEquals(
-            BabyFall.CROUCH_SCALE_Y.toFloat(), justStanding.scaleY, 0.01f,
-        )
-        assertEquals(
-            (BabyFall.DOWN_SINK * BabyFall.RISE_HALF_DEG / BabyFall.DOWN_ROTATION_DEG)
-                .toFloat(),
-            atCrouch.sinkFraction, 0.02f,
-        )
-        // By the end of the stand he is back at full height
-        // with the sink fully released.
-        val atStandEnd = BabyFall.pose(standJoint - 0.01, bpm)
-        assertEquals(1.0f, atStandEnd.scaleY, 0.01f)
-        assertEquals(0f, atStandEnd.sinkFraction, 0.02f)
-        // The crouch bottom is the deepest squash of the whole
-        // rise — nothing anywhere else squashes further, and
-        // nothing ever stretches past full height either.
-        var minScaleY = 1f
-        var maxScaleY = 0f
-        var beats = riseStart
-        while (beats < standJoint + 0.6) {
-            val p = BabyFall.pose(beats, bpm)
-            minScaleY = minOf(minScaleY, p.scaleY)
-            maxScaleY = maxOf(maxScaleY, p.scaleY)
+        val fallStart = BabyFall.intervalForCycle(0).toDouble()
+        // Fall 0.78 beats + lie 1 beat + rise steps 1.56 beats.
+        val settleStart = fallStart + 0.78 + 1.0 + 1.56
+        var beats = fallStart
+        var sawNeutral = false
+        while (beats < settleStart) {
+            val s = BabyFall.stateAt(beats, bpm)
+            if (s.phase != BabyFall.Phase.DANCING) {
+                val p = BabyFall.pose(beats, bpm)
+                assertEquals("rotation at $beats", 0f, p.rotationDeg)
+                assertEquals("sink at $beats", 0f, p.sinkFraction)
+                assertEquals("scale at $beats", 1f, p.scale)
+                assertEquals("bounce at $beats", 0f, p.bounceFraction)
+                sawNeutral = true
+            }
             beats += 0.005
         }
-        assertEquals(BabyFall.CROUCH_SCALE_Y.toFloat(), minScaleY, 0.005f)
-        assertEquals(1.0f, maxScaleY, 0.0001f)
+        assertTrue(sawNeutral)
+    }
+
+    @Test
+    fun chainBlendAtWalksTheWholeSequenceByPosition() {
+        // Position-domain API, 120 BPM (one beat = 500 ms),
+        // cycle 0: dancing until the interval, fall 390 ms,
+        // down 500 ms, rise 1 080 ms, then dancing again.
+        val bpm = 120.0
+        val fallStartMs = BabyFall.intervalForCycle(0) * 500L
+        assertNull(BabyFall.chainBlendAt(fallStartMs - 1_000L, bpm))
+        assertNull(BabyFall.chainStartPositionMs(fallStartMs - 1_000L, bpm))
+        // Fall, first step (65 ms in): the frozen frame alone.
+        assertEquals(
+            PoseCycle.Blend(BabyFall.CHAIN_FROM, BabyFall.CHAIN_FROM, 1f),
+            BabyFall.chainBlendAt(fallStartMs + 65L, bpm),
+        )
+        // Fall, fading into the lean (149.5 ms in = 15% into
+        // the lean's step): half alpha.
+        val lean = BabyFall.chainBlendAt(fallStartMs + 149L, bpm)!!
+        assertEquals(BabyFall.CHAIN_FROM, lean.previousIndex)
+        assertEquals(BabyFall.CHAIN_LEAN, lean.currentIndex)
+        assertEquals(0.5f, lean.currentAlpha, 0.03f)
+        // Down, fading into the lying frame (19.5 ms into the
+        // beat): flip/lying at half alpha; later in the beat
+        // the lying frame stands alone, and the chain still
+        // reports the same fall start.
+        val landing = BabyFall.chainBlendAt(fallStartMs + 409L, bpm)!!
+        assertEquals(BabyFall.CHAIN_FLIP, landing.previousIndex)
+        assertEquals(BabyFall.CHAIN_LYING, landing.currentIndex)
+        assertEquals(0.5f, landing.currentAlpha, 0.03f)
+        val lying = BabyFall.chainBlendAt(fallStartMs + 650L, bpm)!!
+        assertEquals(BabyFall.CHAIN_LYING, lying.currentIndex)
+        assertEquals(1f, lying.currentAlpha)
+        val startAt650 = BabyFall.chainStartPositionMs(fallStartMs + 650L, bpm)!!
+        assertTrue(
+            "chain start $startAt650 vs fall start $fallStartMs",
+            abs(startAt650 - fallStartMs) <= 2L,
+        )
+        // Rise (starts at +890 ms): fading into the prepush at
+        // +909 ms, into the rise-mid at +1559 ms, and onto the
+        // standing frame by +1790 ms; the fall start is still
+        // the chain's anchor throughout.
+        val prepush = BabyFall.chainBlendAt(fallStartMs + 909L, bpm)!!
+        assertEquals(BabyFall.CHAIN_LYING, prepush.previousIndex)
+        assertEquals(BabyFall.CHAIN_PREPUSH, prepush.currentIndex)
+        assertEquals(0.5f, prepush.currentAlpha, 0.03f)
+        val riseMid = BabyFall.chainBlendAt(fallStartMs + 1_559L, bpm)!!
+        assertEquals(BabyFall.CHAIN_CROUCH, riseMid.previousIndex)
+        assertEquals(BabyFall.CHAIN_RISEMID, riseMid.currentIndex)
+        assertEquals(0.5f, riseMid.currentAlpha, 0.03f)
+        val standing = BabyFall.chainBlendAt(fallStartMs + 1_790L, bpm)!!
+        assertEquals(BabyFall.CHAIN_RISEMID, standing.previousIndex)
+        assertEquals(BabyFall.CHAIN_STAND, standing.currentIndex)
+        assertEquals(1f, standing.currentAlpha)
+        val startAt1790 = BabyFall.chainStartPositionMs(fallStartMs + 1_790L, bpm)!!
+        assertTrue(
+            "chain start $startAt1790 vs fall start $fallStartMs",
+            abs(startAt1790 - fallStartMs) <= 2L,
+        )
+        // After the settle the chain lets go: dancing again.
+        assertNull(BabyFall.chainBlendAt(fallStartMs + 2_070L, bpm))
+        assertNull(BabyFall.chainStartPositionMs(fallStartMs + 2_070L, bpm))
     }
 
     @Test
     fun riseHasNoSnapAndNoScalePop() {
-        // Across the whole get-up: the lean never passes upright
-        // by more than the settle sway (the old pop swung to
-        // −14°), never exceeds the flat angle, the scale never
-        // pops (the old rise bounced it to 1.09) and there is
-        // no bounce — he is climbing, not jumping.
+        // Across the whole get-up the pose never does anything
+        // but the settle sway: rotation inside ±2°, scale
+        // never pops (the old 0.4 s pop bounced it to 1.09 and
+        // swung to −14°) and there is no bounce — the frames
+        // climb, the transform just steadies him at the end.
         val bpm = 96.0
         var beats = 0.0
         var sawRise = false
@@ -581,7 +679,7 @@ class BabyFallTest {
                 )
                 assertTrue(
                     "rotation ${p.rotationDeg} at beat $beats",
-                    p.rotationDeg <= BabyFall.DOWN_ROTATION_DEG.toFloat() + 0.01f,
+                    p.rotationDeg <= BabyFall.SETTLE_SWAY_DEG.toFloat() + 0.01f,
                 )
                 assertTrue("scale popped at beat $beats: ${p.scale}", p.scale == 1.0f)
                 assertEquals(0f, p.bounceFraction)
@@ -594,11 +692,10 @@ class BabyFallTest {
     @Test
     fun settleSwayIsOneSmallDampedSwing() {
         val bpm = 120.0
-        val riseStart = BabyFall.intervalForCycle(0) + 0.6 + 1.0
-        // The settle starts after push + crouch + stand
-        // = 0.90 s = 1.8 beats (v1.0.54; was 1.2 beats when the
-        // rise had no crouch).
-        val settleStart = riseStart + 1.8
+        val riseStart = BabyFall.intervalForCycle(0) + 0.78 + 1.0
+        // The settle starts after the get-up's six steps
+        // = 0.78 s = 1.56 beats into the rise.
+        val settleStart = riseStart + 1.56
         var max = 0f
         var min = 0f
         var beats = settleStart

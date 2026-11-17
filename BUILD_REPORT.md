@@ -1997,3 +1997,43 @@ APK：`MySing-1.0.41.apk`，30,336,531 字节，SHA-256 `62df376be7ff56a8d1dc010
 
 - APK：`MySing-1.0.54.apk`，33,309,472 B（与 v1.0.53 的 33,309,481 B 仅差 −9 B——纯代码改动、无新素材），SHA-256 `7e831a15548de3ab4fadd141d180de43d9056abf8bc23d4b1ca4502bebfc58c5`，versionCode 54，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
 - 设备侧待用户验：盯哪吒跳舞等他摔倒——半撑起来后先蹲下（个子明显矮一截、脚不离地），再伸直站起，最后小晃站稳；整段比 .53 多 0.3 秒，看是否如他所说更自然。
+
+## v1.0.55 — 哪吒摔倒→起身改完整帧序小动画：11 帧全绘制、变换退役（2026-11-16）
+
+用户看 v1.0.54 后先指出压扁蹲「还是没有半蹲这个动作」，随后把整段定性为「动作不补全、一闪一闪不自然」——几张关键帧 + 变换硬换读作闪图。本版按他的最终口径重做：整条链是一支**完整帧序列小动画**，11 帧全由绘制帧承载，每帧一步 0.13 秒、帧间只留步长前 30%（约 39 毫秒）的短 crossfade；摔倒的旋转变换、起身的 PUSH/STAND 变换段、scaleY 压扁蹲全部退役，位姿全程中性（唯一保留的变换是落稳时站立帧上的 ±2° 衰减回摆——点缀，不是姿势承载）。素材经历三轮追加才定稿：先有半撑/蹲两张真帧，再补真躺帧（用户：「倒地图不像」），再补翻身帧 + 倾倒帧，最后在撑起前插入备选帧补上全链最大的一跳；发布一直等到 11 帧全部到位才收尾。
+
+### 一、11 帧链与时序（DanceMotion.BabyFall 帧序播放器）
+
+- **最终链**（链槽位 0–10）：站立（摔倒开始瞬间冻住的那张舞姿帧）→ 倾倒 `nezha_lean` → 翻过来 `nezha_flip` → 躺 `nezha_lying`（停 1 拍）→ 翻身撑起前 `nezha_prepush` → 备撑 `nezha_prepush_alt`（俯卧双肘撑起，补「侧躺翘腿 → 正面蹲」这一跳）→ 半撑 `nezha_crouch_ground` → 撑起中 `nezha_pushmid` → 蹲 `nezha_crouch_knees` → 起身中 `nezha_risemid` → 站立 + 站稳回摆。
+- **每帧时长与总时长**：每步 `STEP_SECONDS = 0.13` 秒（用户定的 110–150 毫秒量级正中），每步的入场淡化占步长前 `STEP_FADE_FRACTION = 0.30`（约 39 毫秒，沿用 PoseCycle.Blend 的形状——帧够密时读作动画而不是闪图）；摔倒 3 步 = **0.39 秒**；躺 = **1 拍**（随歌速，躺帧的入场淡化同样按 39 毫秒以秒计时，挂在 DOWN 相位开头）；起身 6 步 = 0.78 秒 + 站立步（回摆窗）0.30 秒 = **1.08 秒**。整支小动画（不含躺的 1 拍）共 1.47 秒。
+- **播放器实现**：纯函数 `stepBlend(frames, beforeFirst, elapsed, span)` 按已播放秒数选步并给出 Blend 对（上一步帧 → 本步帧 + 淡化进度），`fallChainBlend` / `riseChainBlend` / `chainBlend`（DOWN 分支）三处共用同一口径；仍是播放位置驱动、暂停冻结，与 PoseCycle/InviteCycle 同一模式。`chainBlend` 签名加 `bpm`（只为 DOWN 的秒计时淡化）。链槽位常量 CHAIN_FROM/LEAN/FLIP/LYING/PREPUSH/PREPUSH_ALT/HALF_PUSH/PUSHMID/CROUCH/RISEMID/STAND 共 11 个，`Dancer.fallChainFrames` 挂 9 张绘制帧（槽位 1–9）。
+- **退役清单**：`Pose.scaleY` 字段及渲染层、尾奏定格融回里的全部 scaleY 逻辑；起身变换段 `RiseStage`/`riseStage`/`riseStageAt` 与 RISE_PUSH/CROUCH/STAND/SETTLE 时长常量（由 STEP 口径取代，SETTLE 只剩回摆窗 SETTLE_SECONDS）；摔倒旋转（FALLING 位姿改中性）及其 sink 曲线、DOWN 的旋转躺姿；本版草稿期一度试过的「倾倒旋转 + 形态渐变 + 脚底锚点 0.98」方案随帧序定稿一并撤销——渲染锚点回到 0.95 的全场口径，脚着地由倾倒帧的画本身保证（画里脚钉地）。
+- **尾奏定格防护（等价处理）**：融回不再需要融 scaleY，改为融**帧**——若最后一句结束正好冻住起身/摔倒途中，定格显示冻住那一刻的链帧（在同一 fallStart 下求值），STILL 喘气窗内再把这张冻链帧融回站立帧（链内的 CHAIN_STAND 槽位），与 .54 融 scaleY 同思路，不跳帧。
+- **不变**：触发节奏（每 12–20 拍伪随机）、不摔场合（鼓掌/静止/邀请/OUTRO_HOLD）、只有哪吒摔、其他伴舞零影响；尾奏三段时序、伴舞跟歌绑定、队列面板、仪式、伴奏配对、语音搜索、五人排与邀请帧链全部未动。
+
+### 二、素材实测（9 张绘制帧，全 468×600 RGBA，转 webp q92 进包、alpha 包围盒逐帧保真）
+
+| 帧 | 图形范围（列×行 px） | 像高 | 备注 |
+|---|---|---|---|
+| lean 倾倒 | 208×228（行 362–590） | — | 脚钉地在画里 |
+| flip 翻 | 243×184（行 407–591） | — | 蜷身侧翻中间态 |
+| lying 躺 | 256×144（行 446–590） | — | 身体下缘贴基线，DOWN 位姿可完全中性 |
+| prepush 撑前 | 230×162（行 428–590） | — | 侧躺翘腿 |
+| prepush_alt 备撑 | 230×162（行 428–590） | — | 与撑前同几何，俯卧双肘撑起 |
+| crouch_ground 半撑 | 125×190（行 399–589） | 站立 0.74 | 手撑地、臀沉低 |
+| pushmid 撑中 | 126×210（行 380–590） | — | 半撑与蹲之间 |
+| crouch_knees 蹲 | 93×192（行 397–589） | 站立 0.75 | 手按膝深蹲 |
+| risemid 起中 | 101×224（行 366–590） | — | 蹲与站立之间 |
+
+- 9 帧 alpha 下缘落在 589–591 行，与既有舞姿帧的基线带（584–590）一致，无需任何位移补偿。APK 内 webp 总数 645（.54）→ 654，正好 +9；PNG 数 34 不变——原始 PNG 一张未进包。
+
+### 三、测试（430 = 429 基线 + 净增 1，0 失败）
+
+- 删除 5 个钉已退役变换的旧测试：`riseStagesAddUpToTheTotalRise`、`riseStageBoundariesFollowTheStageDurations`、`riseStagesRunInOrderAndDancingResumes`、撑/蹲交界倾角测试、`crouchBottomsOutFoldedAndTheStandRestoresFullHeight`（scaleY 断言随字段退役）；`downPoseIsFlatOnTheFloor` 更名改写为 `downPoseIsNeutralForTheDrawnLyingFrame`（DOWN 位姿全中性）。
+- 新增 6 个帧序测试：`sequenceTimingAddsUp`（步长在 110–150 毫秒带内；摔 0.39 秒、起身 1.08 秒、周期长度按新时长核算）；`fallSequenceStepsThroughLeanAndFlip`（主导帧顺序 站立→倾倒→翻 + 两处半淡化点位）；`lyingFrameFadesInOverTheFlipThenLiesAlone`（DOWN 开头 39 毫秒内躺帧淡入、拍中段独立成帧、DANCING 无链）；`riseSequenceStepsThroughAllSixFramesInOrder`（躺→撑前→备撑→半撑→撑中→蹲→起中→站立全序扫描）；`sequencePosesAreNeutralExceptTheSettleSway`（摔/躺/起身六步全程位姿严格中性）；`chainBlendAtWalksTheWholeSequenceByPosition`（位置域全程走查：390 毫秒摔、500 毫秒躺、1080 毫秒起身的关键淡化点与链起点锚定、结束后回跳舞）。
+- 就地更新：`settleSwayIsOneSmallDampedSwing`（回摆起点按六步 0.78 秒 = 1.56 拍重算）、`riseHasNoSnapAndNoScalePop`（旋转红线收紧为 ±回摆角——起身不再有任何大倾角）、`babyFallPhasesAreExemptFromTheTempoTaper`（150 BPM 下摔/起身仍按 0.39/1.08 秒折算拍数，豁免口径由「峰值倾角」改为「秒计时长」）。
+
+### 四、交付与待验
+
+- APK：`MySing-1.0.55.apk`，33,440,424 B（比 v1.0.54 的 33,309,472 B 大 130,952 B——9 张新绘制帧 webp），SHA-256 `97dea7054ec9f9e2d01b956032e84cb795e75f20122dc969dc6c061ee55447b6`，versionCode 55，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
+- 设备侧待用户验：盯哪吒跳舞等他摔一次——整段应是一支连贯小动画：站着→倾倒（脚不离地）→翻身→躺平停一拍→侧身撑前→俯卧肘撑→手撑地半撑→撑起中→蹲→起身中→站直小晃站稳；不再有旋转硬倒、不再有压扁蹲、不再一闪一闪跳帧；暂停时动画应冻在当前帧。

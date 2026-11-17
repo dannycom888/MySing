@@ -1922,6 +1922,67 @@ class MainActivity : ComponentActivity() {
                                     // edge never reaches a lyric.
                                     val stepOverflowDp =
                                         (SpotlightGeom.dancerWidthDp(dancerH.value) - maxWidth.value) / 2f
+                                    // v1.0.55: the baby's fall /
+                                    // get-up frame chain (see
+                                    // BabyFall.chainBlend): while a
+                                    // fall is in progress the stage
+                                    // draws from the chain list —
+                                    // the dance frame frozen at the
+                                    // fall's start, his drawn lying
+                                    // / half-push / crouch frames,
+                                    // the standing frame — instead
+                                    // of the dance cycle. The frozen
+                                    // pair is the same chain
+                                    // evaluated at the lyric end:
+                                    // if he was caught mid-fall when
+                                    // the singing ended, the outro
+                                    // hold keeps that chain frame
+                                    // and the settle melts it into
+                                    // the standing frame, so the
+                                    // outro never snaps him back
+                                    // to a dance frame (the frame
+                                    // counterpart of v1.0.54's
+                                    // outroHoldPose melt).
+                                    val dancerOffset = Dancers.indexOf(dancer) * 0.25
+                                    val fallChain =
+                                        if (dancer.profile == DanceMotion.Profile.BABY) {
+                                            BabyFall.chainBlendAt(
+                                                positionMs, currentBpm, dancerOffset,
+                                            )
+                                        } else {
+                                            null
+                                        }
+                                    val fallFrames = if (fallChain != null) {
+                                        babyChainFrames(
+                                            dancer,
+                                            BabyFall.chainStartPositionMs(
+                                                positionMs, currentBpm, dancerOffset,
+                                            ) ?: positionMs,
+                                        )
+                                    } else {
+                                        null
+                                    }
+                                    val frozenChain =
+                                        if (dancer.profile == DanceMotion.Profile.BABY &&
+                                            lastLyricEnd != null
+                                        ) {
+                                            BabyFall.chainBlendAt(
+                                                lastLyricEnd, currentBpm, dancerOffset,
+                                            )
+                                        } else {
+                                            null
+                                        }
+                                    val frozenFrames = if (frozenChain != null) {
+                                        babyChainFrames(
+                                            dancer,
+                                            BabyFall.chainStartPositionMs(
+                                                lastLyricEnd ?: positionMs,
+                                                currentBpm, dancerOffset,
+                                            ) ?: (lastLyricEnd ?: positionMs),
+                                        )
+                                    } else {
+                                        null
+                                    }
                                     DancerImage(
                                         dancer = dancer,
                                         modifier = if (stepOverflowDp > 0f) {
@@ -1971,6 +2032,14 @@ class MainActivity : ComponentActivity() {
                                             // pausing freezes the
                                             // gesture mid-frame.
                                             InviteCycle.frameIndex(positionMs)
+                                        } else if (dancerPhase == DancerActivity.Phase.DANCING &&
+                                            fallChain != null
+                                        ) {
+                                            // v1.0.55: mid-fall / mid-
+                                            // get-up, the chain's
+                                            // current frame (the blend
+                                            // below carries the fade).
+                                            fallChain.currentIndex
                                         } else if (dancerPhase == DancerActivity.Phase.DANCING) {
                                             // v1.0.17: visit the frames in
                                             // DancerPoseOrder's re-sequenced
@@ -1980,6 +2049,14 @@ class MainActivity : ComponentActivity() {
                                                 DancerPoseOrder.orderFor(dancer.key),
                                                 phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
                                             )
+                                        } else if (dancerPhase == DancerActivity.Phase.OUTRO_HOLD &&
+                                            frozenChain != null
+                                        ) {
+                                            // v1.0.55: caught mid-fall
+                                            // at the lyric end — hold
+                                            // the chain frame he was
+                                            // in, not a dance frame.
+                                            frozenChain.currentIndex
                                         } else if (dancerPhase == DancerActivity.Phase.OUTRO_HOLD) {
                                             // v1.0.22: freeze on the
                                             // frame that was showing
@@ -1989,6 +2066,15 @@ class MainActivity : ComponentActivity() {
                                                 DancerPoseOrder.orderFor(dancer.key),
                                                 phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
                                             )
+                                        } else if (frozenChain != null &&
+                                            DancerActivity.outroSettleAlpha(positionMs, lastLyricEnd) != null
+                                        ) {
+                                            // v1.0.55: STILL, inside
+                                            // the settle window, coming
+                                            // out of a fall — the blend
+                                            // below lands on the chain's
+                                            // standing frame.
+                                            BabyFall.CHAIN_STAND
                                         } else {
                                             DancerActivity.STILL_FRAME
                                         },
@@ -2012,6 +2098,14 @@ class MainActivity : ComponentActivity() {
                                             // frame either (v1.0.22
                                             // settle included).
                                             null
+                                        } else if (dancerPhase == DancerActivity.Phase.DANCING &&
+                                            fallChain != null
+                                        ) {
+                                            // v1.0.55: the fall chain's
+                                            // own fade (the morph into
+                                            // the lying frame, the
+                                            // get-up's frame steps).
+                                            fallChain
                                         } else if (dancerPhase == DancerActivity.Phase.DANCING) {
                                             PoseCycle.blend(
                                                 positionMs, currentBpm,
@@ -2024,16 +2118,33 @@ class MainActivity : ComponentActivity() {
                                             // frozen dance frame into
                                             // the standing frame — the
                                             // "hands coming down" relax.
+                                            // v1.0.55: if he was caught
+                                            // mid-fall, the frozen frame
+                                            // is his chain frame at the
+                                            // lyric end and the melt
+                                            // lands on the chain's
+                                            // standing frame (the same
+                                            // artwork as the plain
+                                            // standing frame, addressed
+                                            // inside the chain list).
                                             DancerActivity.outroSettleAlpha(positionMs, lastLyricEnd)?.let { a ->
-                                                PoseCycle.Blend(
-                                                    previousIndex = PoseCycle.frameIndex(
-                                                        lastLyricEnd ?: positionMs, currentBpm,
-                                                        DancerPoseOrder.orderFor(dancer.key),
-                                                        phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
-                                                    ),
-                                                    currentIndex = DancerActivity.STILL_FRAME,
-                                                    currentAlpha = a,
-                                                )
+                                                if (frozenChain != null) {
+                                                    PoseCycle.Blend(
+                                                        previousIndex = frozenChain.currentIndex,
+                                                        currentIndex = BabyFall.CHAIN_STAND,
+                                                        currentAlpha = a,
+                                                    )
+                                                } else {
+                                                    PoseCycle.Blend(
+                                                        previousIndex = PoseCycle.frameIndex(
+                                                            lastLyricEnd ?: positionMs, currentBpm,
+                                                            DancerPoseOrder.orderFor(dancer.key),
+                                                            phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                                                        ),
+                                                        currentIndex = DancerActivity.STILL_FRAME,
+                                                        currentAlpha = a,
+                                                    )
+                                                }
                                             }
                                         } else {
                                             null
@@ -2042,8 +2153,24 @@ class MainActivity : ComponentActivity() {
                                         // the frames come from the
                                         // invite chain, not the
                                         // dance frames.
+                                        // v1.0.55: while a fall is in
+                                        // progress (or frozen by the
+                                        // outro), the frames come
+                                        // from the fall chain instead.
                                         framesOverride = if (dancerPhase == DancerActivity.Phase.INVITING) {
                                             dancer.inviteChain
+                                        } else if (dancerPhase == DancerActivity.Phase.DANCING) {
+                                            fallFrames
+                                        } else if (dancerPhase == DancerActivity.Phase.OUTRO_HOLD) {
+                                            frozenFrames
+                                        } else if (frozenFrames != null &&
+                                            DancerActivity.outroSettleAlpha(positionMs, lastLyricEnd) != null
+                                        ) {
+                                            // STILL, inside the settle
+                                            // window, coming out of a
+                                            // fall: the melt above
+                                            // addresses the chain list.
+                                            frozenFrames
                                         } else {
                                             null
                                         },
@@ -2865,6 +2992,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * v1.0.55: the baby's fall / get-up frame chain as a drawable
+     * list, in [BabyFall]'s chain order: the dance frame frozen
+     * at the fall's start (the sequence's standing frame), his
+     * drawn lean / flip / lying / prepush / prepush-alt /
+     * half-push / push-mid / crouch / rise-mid frames
+     * ([Dancer.fallChainFrames]), and
+     * the standing frame the stand stage lands on.
+     */
+    private fun babyChainFrames(dancer: Dancer, fallStartPositionMs: Long): List<Int> =
+        listOf(
+            dancer.frames[
+                PoseCycle.frameIndex(
+                    fallStartPositionMs, currentBpm,
+                    DancerPoseOrder.orderFor(dancer.key),
+                    phaseOffsetBeats = Dancers.indexOf(dancer) * 0.25,
+                ),
+            ],
+        ) + dancer.fallChainFrames + dancer.frames[DancerActivity.STILL_FRAME]
+
     @Composable
     private fun DancerImage(
         dancer: Dancer,
@@ -2988,11 +3135,11 @@ class MainActivity : ComponentActivity() {
                         heightPx * 0.30f * pose.sinkFraction
                     rotationZ = pose.rotationDeg
                     scaleX = pose.scale
-                    // v1.0.54: the pose's Y-only squash (the
-                    // baby's get-up crouch) rides on top of the
-                    // uniform scale; the 0.95 origin keeps the
-                    // feet planted while he folds down.
-                    scaleY = pose.scale * pose.scaleY
+                    // v1.0.55: uniform again — the Y-only squash
+                    // the baby's transform crouch rode on
+                    // (v1.0.54's Pose.scaleY) retired with the
+                    // drawn crouch frame.
+                    scaleY = pose.scale
                     this.alpha = alpha
                     transformOrigin = TransformOrigin(0.5f, 0.95f)
                 },

@@ -35,6 +35,14 @@ data class Dancer(
      *  together (see [ClapCycle]). */
     @DrawableRes val clapOpenResId: Int,
     @DrawableRes val clapClosedResId: Int,
+    /** v1.0.55: the baby's drawn fall / get-up sequence frames
+     *  — lean, flip, lying, prepush, prepush-alt, half-push,
+     *  push-mid, crouch, rise-mid — in [BabyFall] chain order
+     *  (they sit at chain slots 1..9, between the dance frame
+     *  frozen at the fall's start and the standing frame; see
+     *  [BabyFall.chainBlend]). Only the baby falls; every other
+     *  dancer leaves this empty. */
+    @DrawableRes val fallChainFrames: List<Int> = emptyList(),
 ) {
     /** The full invite chain the stage steps through:
      *  [inviteFrames] then [bowFrames] (8 frames; [InviteCycle]
@@ -399,6 +407,25 @@ object Dancers {
                 R.drawable.dancer_baby_bow_01, R.drawable.dancer_baby_bow_02,
             ),
             R.drawable.dancer_baby_clap_open, R.drawable.dancer_baby_clap_closed,
+            // v1.0.55: the fall / get-up sequence's drawn
+            // frames — lean (tipping, feet planted), flip
+            // (curled, rolling over), lying (his back on the
+            // floor), prepush (on his side, legs kicked up),
+            // prepush-alt (prone, up on both elbows), half-push
+            // (hands on the ground), push-mid (halfway up),
+            // crouch (hands on knees), rise-mid (halfway out of
+            // the crouch).
+            listOf(
+                R.drawable.dancer_baby_lean,
+                R.drawable.dancer_baby_flip,
+                R.drawable.dancer_baby_lying,
+                R.drawable.dancer_baby_prepush,
+                R.drawable.dancer_baby_prepush_alt,
+                R.drawable.dancer_baby_half_push,
+                R.drawable.dancer_baby_pushmid,
+                R.drawable.dancer_baby_crouch,
+                R.drawable.dancer_baby_risemid,
+            ),
         ),
         Dancer(
             DancerKeys.ROBOT, "瓦力", R.drawable.dancer_robot, R.drawable.dancer_robot_invite,

@@ -241,6 +241,92 @@ class KaraokeHttpServerSocketTest {
     }
 
     @Test
+    fun dancerIsBoundToTheSongAtOrderTime() {
+        // v1.0.52, the user's rule end to end over a real socket:
+        // 选好一首歌和舞伴后，这首歌的舞伴就不要再改变. A dedicated
+        // server wired to a real (in-memory) last-used-pick store:
+        //  - an order with no `who` snapshots the stored pick;
+        //  - changing the pick afterwards leaves the queued entry
+        //    untouched (the old mid-song swap is gone);
+        //  - the next order snapshots the new pick;
+        //  - an order carrying `who` snapshots that, and refreshes
+        //    the stored last-used pick;
+        //  - an unusable `who` falls back to the stored pick.
+        val state2 = KaraokeState()
+        state2.setCatalog(Catalog(listOf(chineseSong, englishSong)))
+        val store = mutableMapOf<String, String>()
+        val p2 = freePort()
+        val srv2 = KaraokeHttpServer(
+            state2, p2,
+            dancerSelectionsProvider = { store.toMap() },
+            dancerSetter = { n, k -> store[n] = k },
+        )
+        srv2.start()
+        try {
+            awaitAccepting(p2)
+            fun post(path: String, json: String): Int {
+                val body = json.toByteArray(Charsets.UTF_8)
+                val head = (
+                    "POST $path HTTP/1.1\r\n" +
+                        "Host: ::1:$p2\r\n" +
+                        "Content-Type: application/json; charset=utf-8\r\n" +
+                        "Content-Length: ${body.size}\r\n" +
+                        "Connection: close\r\n\r\n"
+                    ).toByteArray(Charsets.US_ASCII)
+                Socket().use { sock ->
+                    sock.connect(InetSocketAddress("::1", p2), 3_000)
+                    sock.soTimeout = 5_000
+                    val out = sock.getOutputStream()
+                    out.write(head); out.write(body); out.flush()
+                    val all = ByteArrayOutputStream()
+                    val buf = ByteArray(4096)
+                    val input = sock.getInputStream()
+                    while (true) {
+                        val r = input.read(buf)
+                        if (r < 0) break
+                        all.write(buf, 0, r)
+                    }
+                    val text = String(all.toByteArray(), Charsets.UTF_8)
+                    return text.lineSequence().firstOrNull()
+                        ?.split(' ')?.getOrNull(1)?.toIntOrNull() ?: -1
+                }
+            }
+            fun entries() = listOfNotNull(state2.queue.current) + state2.queue.waitingList
+
+            // Pick the sumo, then order without `who` (an older page):
+            // the stored pick is what gets frozen into the entry.
+            assertEquals(200, post("/api/dancer", """{"name":"小明","who":"sumo"}"""))
+            assertEquals(200, post("/api/order", """{"id":"${chineseSong.id}","name":"小明"}"""))
+            assertEquals("sumo", entries().first { it.song.id == chineseSong.id }.dancerKey)
+
+            // Change the pick mid-queue: the entry must NOT follow.
+            assertEquals(200, post("/api/dancer", """{"name":"小明","who":"robot"}"""))
+            assertEquals("sumo", entries().first { it.song.id == chineseSong.id }.dancerKey)
+
+            // The next order snapshots the new pick.
+            assertEquals(200, post("/api/order", """{"id":"${englishSong.id}","name":"小明"}"""))
+            assertEquals("robot", entries().first { it.song.id == englishSong.id }.dancerKey)
+
+            // An order carrying `who` snapshots it and refreshes the
+            // stored last-used pick for that name.
+            assertEquals(200, post("/api/order", """{"id":"${chineseSong.id}","name":"阿花","who":"baby"}"""))
+            val hua = entries().filter { it.orderedBy == "阿花" }
+            assertEquals(1, hua.size)
+            assertEquals("baby", hua.first().dancerKey)
+            assertEquals("baby", store["阿花"])
+
+            // An unusable `who` falls back to the stored pick.
+            assertEquals(200, post("/api/order", """{"id":"${englishSong.id}","name":"阿花","who":"nobody"}"""))
+            assertEquals(
+                "baby",
+                entries().filter { it.orderedBy == "阿花" }.last().dancerKey,
+            )
+        } finally {
+            srv2.stop()
+        }
+    }
+
+    @Test
     fun garbageRequestDoesNotKillServer() {
         rawExchange { out ->
             out.write("GARBAGE\r\n\r\n".toByteArray(Charsets.US_ASCII)); out.flush()

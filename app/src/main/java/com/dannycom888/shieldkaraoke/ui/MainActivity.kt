@@ -333,13 +333,13 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     // v1.0.51: a TV browse tap now picks its dancer
-                    // first (see TvDancerPickerDialog). The pick is
-                    // stored under the TV's orderer name — the very
-                    // name the order itself carries — so the stage
-                    // dancer lookup and the next visit's
-                    // preselection read the same entry the phones
-                    // use for theirs; nobody overwrites anybody
-                    // (the store is keyed by orderer name).
+                    // first (see TvDancerPickerDialog). v1.0.52: the
+                    // picked dancer is snapshotted into the order's
+                    // queue entry — bound to this song for good.
+                    // setDancer still records it under the TV's
+                    // orderer name, but only as the last-used pick
+                    // the dialog preselects next time; playback
+                    // never reads that store anymore.
                     pendingTvOrder?.let { song ->
                         TvDancerPickerDialog(
                             song = song,
@@ -347,7 +347,7 @@ class MainActivity : ComponentActivity() {
                             onPick = { dancer ->
                                 pendingTvOrder = null
                                 app.prefs.setDancer(s(TvKey.TV_ORDERER), dancer.key)
-                                orderFromTv(song)
+                                orderFromTv(song, dancer.key)
                             },
                             onCancel = { pendingTvOrder = null },
                         )
@@ -532,9 +532,10 @@ class MainActivity : ComponentActivity() {
     // ---------- idle filler playback (v1.0.20) ----------
 
     /** A standalone filler entry: typed source marker, no orderer
-     *  (the dancer lookup falls back to the default dancer, exactly
-     *  like an order with no dancer choice on file). Never added
-     *  to the PlayQueue, so it leaves no trace in any queue view. */
+     *  and no dancer snapshot, so dancer resolution falls back to
+     *  the default dancer (Amy), exactly like an order that carried
+     *  no pick. Never added to the PlayQueue, so it leaves no trace
+     *  in any queue view. */
     private fun pickFillerEntry(): QueueEntry? {
         val song = fillerPicker.pick(app.state.catalog.songs) ?: return null
         return QueueEntry(song, "", EntrySource.FILLER)
@@ -633,7 +634,7 @@ class MainActivity : ComponentActivity() {
                 // interruption rule) — a superseding flow (token
                 // bump: quit, a jump-cut…) simply ends it.
                 ceremonyNext = next
-                ceremonyKeeperKey = Dancers.byKey(app.prefs.dancerFor(next.orderedBy)).key
+                ceremonyKeeperKey = Dancers.byKey(next.dancerKey).key
                 ceremonyStartMs = applauseStartMs
                 lifecycleScope.launch {
                     var lastPhase = Ceremony.Phase.CLAPPING
@@ -755,15 +756,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun orderFromTv(song: Song) {
+    private fun orderFromTv(song: Song, dancerKey: String? = null) {
         // The TV's own orders carry the TV as orderer name, in the
-        // interface's current language （电视 / TV).
-        app.state.order(song, s(TvKey.TV_ORDERER))
+        // interface's current language （电视 / TV). The dancer the
+        // host just picked rides along and is frozen into the queue
+        // entry (v1.0.52).
+        app.state.order(song, s(TvKey.TV_ORDERER), dancerKey)
         if (app.state.queue.current != null) screen = Screen.PLAYER
     }
 
     /**
-     * The TV order flow's dancer picker (v1.0.51): until now the
+     * The TV order flow's dancer picker (v1.0.51): until then the
      * dancer choice lived only on the phone page, so a TV order
      * always danced with whatever the TV orderer had last picked
      * there — or the default. One step, no menus: the six dancers
@@ -774,7 +777,10 @@ class MainActivity : ComponentActivity() {
      * and the UI language apply exactly as everywhere else on
      * the TV. The store is the phones' own [Prefs.dancerFor] /
      * [Prefs.setDancer], keyed by orderer name — the TV writes
-     * only its own name's entry.
+     * only its own name's entry. Since v1.0.52 that store only
+     * feeds this dialog's preselection: the confirmed pick is
+     * snapshotted into the queue entry by the caller and binds
+     * to the song, not to the TV orderer name.
      */
     @Composable
     private fun TvDancerPickerDialog(
@@ -1859,8 +1865,11 @@ class MainActivity : ComponentActivity() {
                         Row(modifier = Modifier.fillMaxSize()) {
                           Box(modifier = Modifier.fillMaxHeight().width(band.dancerWidthDp.dp)) {
                             if (entry != null && !showCelebration && !outroClapping && dancersOn) {
-                                // The dancer belongs to whoever ordered this song.
-                                val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
+                                // The dancer belongs to this song: the
+                                // pick frozen into the entry when it
+                                // was ordered (v1.0.52). Later pick
+                                // changes never reach the stage.
+                                val dancer = Dancers.byKey(entry.dancerKey)
                                 // v1.0.25: the zone measures ITSELF —
                                 // the dancer's height is a fraction
                                 // of the stage's real height (it used
@@ -2318,7 +2327,7 @@ class MainActivity : ComponentActivity() {
             append(" · sink=").append(controller.sinkLabel)
             append(" · bpm=").append(currentBpm.toInt())
             if (entry != null) {
-                val dancer = Dancers.byKey(app.prefs.dancerFor(entry.orderedBy))
+                val dancer = Dancers.byKey(entry.dancerKey)
                 append(" · 舞者：").append(dancerDisplayName(dancer.key)).append("（")
                     .append(if (entry.isFiller) "随机" else entry.orderedBy).append("选的）")
                 val lastEnd = DancerActivity.lastLyricEndMs(lyrics)

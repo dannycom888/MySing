@@ -23,6 +23,33 @@ class PlayQueueTest {
     }
 
     @Test
+    fun `dancer pick is snapshotted into the entry at order time`() {
+        // v1.0.52: the user's rule — 选好一首歌和舞伴后，这首歌的
+        // 舞伴就不要再改变. 小明 orders song A with the sumo, then
+        // changes his pick and orders song B with the robot: A keeps
+        // the sumo for its whole life, B gets the robot.
+        val q = PlayQueue()
+        q.add(song("1"), "小明", "sumo")
+        q.add(song("2"), "小明", "robot")
+        assertEquals("sumo", q.current?.dancerKey)
+        assertEquals("robot", q.waitingList.first().dancerKey)
+        // A finishes; B takes the stage still carrying its own pick,
+        // not whatever the orderer happens to prefer by then.
+        q.finishCurrent()
+        assertEquals("2", q.current?.song?.id)
+        assertEquals("robot", q.current?.dancerKey)
+    }
+
+    @Test
+    fun `an order without a pick carries no dancer snapshot`() {
+        // Filler entries and pick-less orders resolve to the default
+        // dancer at read time; the entry itself stores null.
+        val q = PlayQueue()
+        q.add(song("1"), "小明")
+        assertNull(q.current?.dancerKey)
+    }
+
+    @Test
     fun `ordering never interrupts the song being sung`() {
         val q = PlayQueue()
         q.add(song("1"), "小明")

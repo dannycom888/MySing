@@ -17,11 +17,23 @@ enum class EntrySource { ORDERED, FILLER }
  *  Filler entries (idle random background songs) carry
  *  [EntrySource.FILLER] and an empty orderer; they are constructed
  *  standalone and never added to the [PlayQueue], so the phones'
- *  queue view never sees them. */
+ *  queue view never sees them.
+ *
+ *  v1.0.52 (the user's call): the dancer is bound to the *song*,
+ *  not to the orderer. [dancerKey] is a snapshot of the dancer the
+ *  orderer had picked at the moment of ordering, frozen into the
+ *  entry for its whole life — waiting, singing, ceremony keeper.
+ *  Changing one's pick afterwards only affects the *next* order;
+ *  it never reaches back into an existing entry (the old mid-song
+ *  live swap is gone). A null key (filler, or an order that carried
+ *  no pick anywhere) resolves to the default dancer at read time,
+ *  the same fallback [com.dannycom888.shieldkaraoke.ui.Dancers.byKey]
+ *  has always applied. */
 data class QueueEntry(
     val song: Song,
     val orderedBy: String,
     val source: EntrySource = EntrySource.ORDERED,
+    val dancerKey: String? = null,
 ) {
     val isFiller: Boolean get() = source == EntrySource.FILLER
 }
@@ -67,11 +79,13 @@ class PlayQueue {
     val isIdle: Boolean get() = current == null && waiting.isEmpty()
 
     /** Append a song. When nothing is playing it becomes the current
-     *  song at once (the caller starts playback); otherwise it waits. */
+     *  song at once (the caller starts playback); otherwise it waits.
+     *  [dancerKey] is the orderer's pick at this moment, snapshotted
+     *  into the new entry (v1.0.52 — see [QueueEntry.dancerKey]). */
     @Synchronized
-    fun add(song: Song, orderedBy: String): AddResult {
+    fun add(song: Song, orderedBy: String, dancerKey: String? = null): AddResult {
         val duplicate = waiting.any { it.song.id == song.id } || current?.song?.id == song.id
-        val entry = QueueEntry(song, orderedBy)
+        val entry = QueueEntry(song, orderedBy, dancerKey = dancerKey)
         if (current == null) {
             current = entry
             return AddResult(position = -1, aheadCount = 0, wasDuplicate = duplicate)

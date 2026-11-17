@@ -125,9 +125,10 @@ object Ceremony {
     }
 
     /**
-     * Which of the six dancers keeps the stage: the one the next
-     * song's orderer chose. [dancerKey] is the stored per-orderer
-     * choice (see Prefs.dancerFor); an unset or unknown key falls
+     * Which of the six dancers keeps the stage: the one chosen for
+     * the next song. [dancerKey] is the snapshot frozen into the
+     * next entry when it was ordered (v1.0.52, see
+     * QueueEntry.dancerKey); an unset or unknown key falls
      * back to the default dancer (Amy, index 0), the same
      * fallback Dancers.byKey applies. Resolution is by key only —
      * custom display names (v1.0.21) never affect who dances.

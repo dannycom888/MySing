@@ -91,7 +91,7 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <button class="chip" id="recentTab" data-i="fRecent">🕘 最近唱过</button>
 </div>
 <h1 data-i="dancerTitle">💃 选伴舞</h1>
-<p class="small" data-i="dancerHint">你选的伴舞，只在你点的歌时出来；唱到你的歌时想换人，点一下电视上立刻换。</p>
+<p class="small" data-i="dancerHint">点歌时选的伴舞就配这首歌，定了就不变；想换一位，下一首歌再选。</p>
 <div id="dancers" class="dcards">
 <div class="dcard" data-who="modern"><img src="/dancer-anim/modern" onerror="this.onerror=null;this.src='/dancer-img/modern'" alt="Amy"><span data-dancer="modern">Amy</span></div>
 <div class="dcard" data-who="ancient"><img src="/dancer-anim/ancient" onerror="this.onerror=null;this.src='/dancer-img/ancient'" alt="秀颖"><span data-dancer="ancient">秀颖</span></div>
@@ -119,7 +119,7 @@ zh: {
   fAll: '全部', fZh: '中文', fEn: '英文', fAny: '男女不限', fM: '男歌手', fF: '女歌手',
   fFav: '❤ 收藏', fRecent: '🕘 最近唱过',
   dancerTitle: '💃 选伴舞',
-  dancerHint: '你选的伴舞，只在你点的歌时出来；唱到你的歌时想换人，点一下电视上立刻换。',
+  dancerHint: '点歌时选的伴舞就配这首歌，定了就不变；想换一位，下一首歌再选。',
   order: '点歌', dup: '（提醒：这首已经在队列里了）',
   accBadge: '伴奏',
   sugMore: '还有更多结果，继续输入缩小范围',
@@ -139,8 +139,8 @@ en: {
   searchPh: 'Search title/artist, or pinyin initials (e.g. fh cq)',
   fAll: 'All', fZh: 'Chinese', fEn: 'English', fAny: 'Any singer', fM: 'Male', fF: 'Female',
   fFav: '❤ Favorites', fRecent: '🕘 Recent',
-  dancerTitle: '💃 Pick your dancer',
-  dancerHint: 'Your dancer comes out only for songs you ordered. Tap anytime during your song to switch — the TV updates right away.',
+  dancerTitle: '💃 Pick a dancer',
+  dancerHint: "The dancer you pick is locked to the song when you order it — it won't change afterwards. Pick a different one for your next song.",
   order: 'Order', dup: " (Note: it's already in the queue)",
   accBadge: 'Acc.',
   sugMore: 'More matches — keep typing to narrow it down',
@@ -215,8 +215,10 @@ function loadSongs(){
   }).catch(netErr);
 }
 function order(id){
+  // v1.0.52: the order carries the pick showing right now (who) —
+  // the server freezes it into this song's queue entry.
   fetch('/api/order',{method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({id:id, name:name, lang:ui})}).then(function(r){return r.json()}).then(function(d){
+    body: JSON.stringify({id:id, name:name, who:myDancer, lang:ui})}).then(function(r){return r.json()}).then(function(d){
     var m = d.message || d.error || '';
     if(d.duplicate) m += t('dup');
     document.getElementById('msg').textContent = m; loadQueue();

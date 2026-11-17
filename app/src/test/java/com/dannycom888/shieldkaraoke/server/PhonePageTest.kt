@@ -134,7 +134,7 @@ class PhonePageTest {
             "先输入你的名字", "已点歌单（共 ", "我还没点歌", "选伴舞", "点歌",
             // English
             "Enter your name first", "Queue (", "You haven't ordered yet",
-            "Pick your dancer", "Order", "No songs queued yet",
+            "Pick a dancer", "Order", "No songs queued yet",
             "can't reach the TV", "The TV app restarted",
         )) {
             assertTrue("missing page string: $s", html.contains(s))
@@ -201,8 +201,24 @@ class PhonePageTest {
     fun requestsCarryThePageLanguage() {
         // Order and dancer posts tell the server the page language
         // so its replies (马上开唱 / You're up…) match the phone.
-        assertTrue(html.contains("JSON.stringify({id:id, name:name, lang:ui})"))
+        // v1.0.52: the order also carries the pick showing right now
+        // (who:myDancer) — the server freezes it into the song's
+        // queue entry.
+        assertTrue(html.contains("JSON.stringify({id:id, name:name, who:myDancer, lang:ui})"))
         assertTrue(html.contains("JSON.stringify({name:name, who:myDancer, lang:ui})"))
+    }
+
+    @Test
+    fun dancerHintSaysThePickIsLockedToTheSong() {
+        // v1.0.52: the old hint promised a mid-song swap ("点一下
+        // 电视上立刻换" / "the TV updates right away") — that
+        // behaviour is gone, and so is the copy. The new hint says
+        // the pick binds to the song at order time, in both
+        // languages (static HTML and the language dictionary).
+        assertTrue(html.contains("点歌时选的伴舞就配这首歌，定了就不变"))
+        assertTrue(html.contains("locked to the song when you order it"))
+        assertFalse(html.contains("立刻换"))
+        assertFalse(html.contains("updates right away"))
     }
 
     @Test

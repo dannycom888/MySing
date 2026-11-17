@@ -52,9 +52,9 @@ class Prefs(context: Context) {
         prefs.edit().putString("bpm_$songId", bpm.toString()).apply()
     }
 
-    /** Whether the little dancers show on the player screen at all
-     *  (TV control-bar switch; the *choice* of dancer is per-orderer
-     *  and made on the phone page). */
+    /** Whether the dancers show on the player screen at all
+     *  (TV control-bar switch; *which* dancer comes out is locked
+     *  to each song at order time, v1.0.52). */
     var dancersEnabled: Boolean
         get() = prefs.getBoolean("dancers_enabled", true)
         set(value) = prefs.edit().putBoolean("dancers_enabled", value).apply()
@@ -67,8 +67,15 @@ class Prefs(context: Context) {
         set(value) = prefs.edit().putString("sweep_color", value.name).apply()
 
     /**
-     * Per-orderer dancer choice: orderer name -> dancer key.
+     * Per-orderer last-used dancer pick: orderer name -> dancer key.
      * Stored as `name\u0001key` lines in one string.
+     *
+     * v1.0.52: this store is a *preselection* memory only — the
+     * pickers (phone page, TV order dialog) open on the name's last
+     * pick. The dancer that actually dances for a song is the
+     * snapshot frozen into its queue entry at order time
+     * ([com.dannycom888.shieldkaraoke.queue.QueueEntry.dancerKey]);
+     * nothing reads this store at playback time anymore.
      */
     fun dancerSelections(): Map<String, String> {
         val raw = prefs.getString("dancer_by_name", "") ?: ""
@@ -122,7 +129,8 @@ class Prefs(context: Context) {
         prefs.edit().remove("dancer_custom_names").apply()
     }
 
-    /** The dancer [name] chose, or null (caller uses the default). */
+    /** The dancer [name] picked last (picker preselection only
+     *  since v1.0.52), or null (caller uses the default). */
     fun dancerFor(name: String): String? = dancerSelections()[name]
 
     fun setDancer(name: String, key: String) {

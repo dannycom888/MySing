@@ -40,6 +40,21 @@ class KaraokeStateTest {
     }
 
     @Test
+    fun `each order keeps the dancer picked at its own moment`() {
+        // v1.0.52: changing the pick between two orders must not
+        // reach back into the first entry — not while it waits, and
+        // not when it becomes the current song.
+        val state = KaraokeState()
+        state.order(song("1"), "小明", "ancient")
+        state.order(song("2"), "小明", "baby")
+        assertEquals("ancient", state.queue.current?.dancerKey)
+        assertEquals("baby", state.queue.waitingList.first().dancerKey)
+        state.advanceAfterFinish()
+        assertEquals("2", state.queue.current?.song?.id)
+        assertEquals("baby", state.queue.current?.dancerKey)
+    }
+
+    @Test
     fun `order while an ordered song plays just queues up`() {
         val state = KaraokeState()
         var starts = 0

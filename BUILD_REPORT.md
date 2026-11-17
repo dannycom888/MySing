@@ -1900,3 +1900,41 @@ APK：`MySing-1.0.41.apk`，30,336,531 字节，SHA-256 `62df376be7ff56a8d1dc010
 
 - APK：`MySing-1.0.51.apk`，33,309,456 B（与 v1.0.50 的 33,309,460 B 仅差 4 B——纯代码改动、无新素材），SHA-256 `276bf8b242141c318d62a6410576b9afe32b15308193e6d1c1f0f9a3758a0460`，versionCode 51，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
 - 设备侧待用户验：① 点两首以上的歌，看电视面板只剩下一首之后的歌、序号从 1 编，手机页队列照旧完整；② 唱一首后奏长的歌：最后唱词完 3 秒后五人出来鼓掌（无掌声声）、歌一结束仪式/送别无缝接上，暂停时鼓掌和倒计时一起冻住；③ 在电视浏览页点歌：先弹伴舞选择、上次选的人已被预选（金名+焦点），OK 点歌、Back 不点歌，唱起来出的是刚选的伴舞。
+
+## v1.0.52 — 伴舞跟歌绑定：点歌那一刻定格，之后改选只对下一首生效（2026-11-16）
+
+用户原话：「选好一首歌和舞伴后，这首歌的舞伴就不要再改变，然后再选下一首歌和舞伴，那么这个舞伴就配这首歌就能再变了」。一条规则变更：伴舞的绑定对象从「点歌人」改成「这首歌」。无新素材、无新权限。
+
+### 一、旧机制（退役）
+
+伴舞按点歌人名字存在 Prefs（dancerFor/setDancer），舞台、仪式 keeper、诊断行都在播放时按 `entry.orderedBy` 实时回查这份存储。后果正是用户这次否掉的两点：点歌人中途改选，正在唱的歌台上伴舞跟着换（KaraokeApp 的 dancerSetter 还专门 bump 一次状态去触发这次实时换人）；同一人早先点的歌轮到唱时，出的也是他最新选的那位，而不是点那首歌时选的那位。
+
+### 二、新机制：QueueEntry.dancerKey 快照
+
+- `QueueEntry` 新增 `dancerKey: String?`（不可变 val），`PlayQueue.add` / `KaraokeState.order` 新增同名可选参数：点歌那一刻把当时选中的伴舞冻进条目，条目一生（排队、正在唱、仪式 keeper）只读自己的快照。没带选择的条目（随机填充、无线索的点歌）快照为 null，读取时按既有 `Dancers.byKey` 回退默认 Amy——填充行为与 v1.0.51 完全一致。
+- 三处读取全部改读快照：舞台 solo 伴舞、仪式 keeper（`Dancers.byKey(next.dancerKey)`）、播放器诊断行的舞者名。`MainActivity` 里不再有按点歌人查伴舞的播放路径。
+- 中途换人随之取消：`KaraokeApp` 的 dancerSetter 去掉 `state.bump()`（那次 bump 的唯一目的就是触发台上实时换人），改选只写存储。两套语义不并存——旧回查代码与注释一并改写，没有留下任何按人解析的后门。
+
+### 三、快照从哪来：点歌通道三处
+
+- **手机页**：点歌请求体带上页面当时正选中的伴舞（`who:myDancer`）。服务端 `/api/order` 定格顺序：请求带了合法 `who` → 用它，并顺手刷新该名字的「上次选择」存储；没带或不合法（旧版页面）→ 回退到存储里该名字的上次选择；再没有就是 null（默认 Amy）。
+- **电视点歌**：v1.0.51 的一步选择器选定后，`orderFromTv(song, dancer.key)` 把所选直接传进订单快照；`setDancer(电视, …)` 仍照写，但只作下次打开选择器时的预选记忆。
+- **存储的定位变更**：Prefs 的按人存储从「绑定来源」降为「上次用的那位」预选记忆——手机页卡片的初始选中、电视选择器的焦点预选、手机间经 `/api/queue` 的 `dancers` 字段同步，都仍走它；播放侧再无一处读它。手机页与电视的选择 UI 形态一概未动。
+
+### 四、文案
+
+- 手机页伴舞提示（静态 HTML 与中英词典同步改）：旧文案承诺中途可换（「唱到你的歌时想换人，点一下电视上立刻换」/ "Tap anytime during your song to switch — the TV updates right away"）已删除；新文案中文「点歌时选的伴舞就配这首歌，定了就不变；想换一位，下一首歌再选。」英文 "The dancer you pick is locked to the song when you order it — it won't change afterwards. Pick a different one for your next song."
+- 英文标题 "Pick your dancer" 改中性的 "Pick a dancer"（中文标题「选伴舞」本就中性，不动）。电视选择器的标题/提示（「选择伴舞」/「选好按 OK 就点这首歌」）本来就是跟歌措辞，不动。中英 parity 由既有测试覆盖。
+
+### 五、测试（421 = 416 基线 + 5 新增，0 失败；无删除，2 个既有测试就地更新）
+
+- 新增 PlayQueueTest（2 个）：快照冻入条目——先以相扑点 A、改选机器人再点 B，A 当前条目是相扑、B 是机器人，A 唱完 B 上台仍是机器人；无选择点歌的条目快照为 null。
+- 新增 KaraokeStateTest（1 个）：状态层同场景钉值——两次点歌各带当时的选择，第二条不回写第一条，推进后上台条目仍带自己的快照。
+- 新增 KaraokeHttpServerSocketTest（1 个）：真 socket + 真（内存）存储的全链路——先 /api/dancer 选相扑、无 `who` 点歌快照到相扑；中途改选机器人，已排条目纹丝不动；下一首点歌快照到机器人；另一人带 `who=baby` 点歌，快照为 baby 且其「上次选择」被刷新；`who` 不合法时回退存储选择。全程中文点歌人名，走真实 UTF-8 请求体。
+- 新增 PhonePageTest（1 个）：新提示文案双语在页、旧「立刻换 / updates right away」措辞已绝迹。就地更新 2 个：`requestsCarryThePageLanguage` 的点歌请求体钉值加上 `who:myDancer`；`pageCarriesBothLanguagesOfText` 的英文标题钉值改 "Pick a dancer"。
+- 旧语义没有专门的单测可删：中途换人当年活在 Activity/App 的组合代码里（按人回查 + bump），不在纯逻辑层；本次以新快照测试替代其契约，并在本节明示替换关系。
+
+### 六、交付与待验
+
+- APK：`MySing-1.0.52.apk`，33,309,458 B（与 v1.0.51 的 33,309,456 B 仅差 2 B——纯代码改动、无新素材），SHA-256 `45cf839ab701358f20223bd0f1b81996f75726f1b8675f3fdd81cdbd4d24763d`，versionCode 52，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
+- 设备侧待用户验：① 手机先选甲点一首 A，再改选乙点 B：A 唱起来出甲、B 出乙；② A 唱到一半在手机上改选丙，台上仍是甲（不再实时换人）；③ 电视点歌选一位，唱起来就是那位；下一首电视点歌时选择器仍预选上次那位；④ 没人点歌时的随机填充仍是 Amy。

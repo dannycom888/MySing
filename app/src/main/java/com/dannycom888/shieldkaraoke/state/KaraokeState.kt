@@ -40,11 +40,14 @@ class KaraokeState {
         bump()
     }
 
-    /** Order a song (TV tap or phone). Never interrupts the current song. */
+    /** Order a song (TV tap or phone). Never interrupts the current
+     *  song. [dancerKey] is the orderer's pick at this moment; it is
+     *  snapshotted into the queue entry (v1.0.52) and never changes
+     *  for that entry again. */
     @Synchronized
-    fun order(song: Song, orderedBy: String): AddResult {
+    fun order(song: Song, orderedBy: String, dancerKey: String? = null): AddResult {
         val wasIdle = queue.current == null
-        val result = queue.add(song, orderedBy)
+        val result = queue.add(song, orderedBy, dancerKey)
         if (wasIdle && queue.current != null) {
             onShouldStart?.invoke(queue.current!!)
         }

@@ -1,10 +1,12 @@
 package com.dannycom888.shieldkaraoke.state
 
 /**
- * The six little dancers, identified by stable string keys shared by
+ * The six dancers, identified by stable string keys shared by
  * the phone page, the HTTP server, [Prefs] and the TV UI (which maps
- * keys to drawables). The dancer is chosen per *orderer*: whoever
- * ordered the song picks the dancer that comes out for their song.
+ * keys to drawables). Whoever orders a song picks its dancer — and
+ * since v1.0.52 that pick is frozen into the song's queue entry at
+ * order time (bound to the *song*, no longer resolved per orderer
+ * at playback).
  *
  * v1.0.12: the modern girl was replaced by the sumo wrestler
  * （姿三四郎） and every dancer got a stage name. Keys stay stable —

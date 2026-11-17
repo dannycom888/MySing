@@ -48,8 +48,13 @@ class KaraokeApp : Application() {
             favoriteToggle = { id, fav -> prefs.setFavorite(id, fav) },
             dancerSelectionsProvider = { prefs.dancerSelections() },
             dancerSetter = { name, key ->
+                // v1.0.52: a pick change only updates the stored
+                // last-used pick (the pickers preselect it). Songs
+                // already queued or playing keep the dancer frozen
+                // into their queue entry, so there is deliberately
+                // NO state.bump() here anymore — the old live swap
+                // of the on-stage dancer is gone.
                 prefs.setDancer(name, key)
-                state.bump() // TV player screen re-reads the current song's dancer live
             },
             dancerImageProvider = { key -> dancerImage(key) },
             dancerAnimProvider = { key -> dancerAnim(key) },

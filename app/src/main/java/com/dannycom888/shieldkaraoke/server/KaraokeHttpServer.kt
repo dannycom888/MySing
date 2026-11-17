@@ -336,7 +336,22 @@ class KaraokeHttpServer(
                 val song = state.catalog.byId(id)
                     ?: return Triple(404, "application/json; charset=utf-8",
                         JSONObject().put("error", ServerStrings.get(ui, ServerKey.ORDER_NOT_FOUND)).toString())
-                val result = state.order(song, name)
+                // v1.0.52: the dancer is bound to this song at the
+                // moment of ordering. The page sends the pick it is
+                // showing right now (`who`); that wins and also
+                // refreshes the stored last-used pick. An older page
+                // (no `who`, or an unusable one) falls back to the
+                // stored per-orderer pick. Either way the resolved
+                // key is frozen into the queue entry — later pick
+                // changes never reach this song again.
+                val sentPick = json.optString("who")
+                val dancerKey = if (com.dannycom888.shieldkaraoke.state.DancerKeys.isValid(sentPick)) {
+                    dancerSetter(name, sentPick)
+                    sentPick
+                } else {
+                    dancerSelectionsProvider()[name]
+                }
+                val result = state.order(song, name, dancerKey)
                 val ahead = if (result.position < 0) 0 else state.queue.aheadCountFor(result.position)
                 val msg = if (result.position < 0) {
                     ServerStrings.get(ui, ServerKey.ORDER_START_NOW)
@@ -354,9 +369,13 @@ class KaraokeHttpServer(
                 Triple(200, "application/json; charset=utf-8", JSONObject().put("ok", true).toString())
             }
 
-            // Per-orderer dancer choice: whoever ordered the song
-            // picks the dancer that comes out for their song. Any
-            // connected phone may set its own name's dancer.
+            // Per-orderer dancer pick. Since v1.0.52 this only
+            // records the name's last-used pick — the pickers
+            // preselect it, and an order snapshots whatever pick is
+            // current when the order lands. It no longer reaches
+            // songs already queued or playing: those keep the
+            // dancer frozen into their queue entry. Any connected
+            // phone may set its own name's pick.
             method == "POST" && path == "/api/dancer" -> {
                 val json = try { JSONObject(body) } catch (e: Exception) { JSONObject() }
                 val name = json.optString("name").trim()

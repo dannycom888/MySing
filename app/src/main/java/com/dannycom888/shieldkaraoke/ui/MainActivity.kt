@@ -1787,9 +1787,12 @@ class MainActivity : ComponentActivity() {
                     // the dancer phases use; null without an LRC).
                     val lastLyricEnd = remember(lyrics) { DancerActivity.lastLyricEndMs(lyrics) }
                     // v1.0.51: the outro applause — an ORDERED
-                    // song whose singing ended 3+ s ago but whose
-                    // music still runs gets the five figures out
-                    // clapping for the tail (see OutroClap). The
+                    // song whose tail outlasts the 2 s frozen-pose
+                    // hold plus 3 s of standing breathing (the
+                    // trigger moved from +3 s to +5 s in v1.0.53,
+                    // see OutroClap) but whose music still runs
+                    // gets the five figures out clapping for the
+                    // rest of the tail. The
                     // timing is a pure function of the playback
                     // position, so a pause freezes the wait (and
                     // the hands). Filler never gets it, quit songs

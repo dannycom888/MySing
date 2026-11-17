@@ -2,6 +2,7 @@ package com.dannycom888.shieldkaraoke.ui
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
@@ -405,27 +406,156 @@ class BabyFallTest {
         assertTrue(found)
     }
 
+    // ---- v1.0.53: the get-up is three stages — push up to
+    // half-risen (0.25 s), stand to upright (0.35 s), then one
+    // small steadying sway (0.30 s); total 0.90 s. The old
+    // single 0.4 s pop (overshoot swing to −14° + scale bounce
+    // to 1.09) is retired — these tests pin its replacement.
+
     @Test
-    fun risingOvershootsAndDancingResumes() {
+    fun riseStagesAddUpToTheTotalRise() {
+        assertEquals(
+            BabyFall.RISE_TOTAL_SECONDS,
+            BabyFall.RISE_PUSH_SECONDS + BabyFall.RISE_STAND_SECONDS +
+                BabyFall.RISE_SETTLE_SECONDS,
+            0.0001,
+        )
+        assertEquals(0.90, BabyFall.RISE_TOTAL_SECONDS, 0.0001)
+        // The cycle length carries the longer rise: at 120 BPM
+        // the fall is 0.6 beats, the lie is 1 beat, the rise is
+        // 0.9 s = 1.8 beats.
+        val cycle = 3
+        assertEquals(
+            BabyFall.intervalForCycle(cycle) + 0.6 + 1.0 + 1.8,
+            BabyFall.cycleLengthBeats(cycle, 120.0),
+            0.0001,
+        )
+    }
+
+    @Test
+    fun riseStageBoundariesFollowTheStageDurations() {
+        val pushEnd = (BabyFall.RISE_PUSH_SECONDS / BabyFall.RISE_TOTAL_SECONDS).toFloat()
+        val standEnd = ((BabyFall.RISE_PUSH_SECONDS + BabyFall.RISE_STAND_SECONDS) /
+            BabyFall.RISE_TOTAL_SECONDS).toFloat()
+        assertEquals(BabyFall.RiseStage.PUSH, BabyFall.riseStage(0f))
+        assertEquals(BabyFall.RiseStage.PUSH, BabyFall.riseStage(pushEnd - 0.001f))
+        assertEquals(BabyFall.RiseStage.STAND, BabyFall.riseStage(pushEnd + 0.001f))
+        assertEquals(BabyFall.RiseStage.STAND, BabyFall.riseStage(standEnd - 0.001f))
+        assertEquals(BabyFall.RiseStage.SETTLE, BabyFall.riseStage(standEnd + 0.001f))
+        assertEquals(BabyFall.RiseStage.SETTLE, BabyFall.riseStage(1f))
+        // Not rising at all → no stage.
+        assertNull(BabyFall.riseStageAt(0.0, 120.0))
+    }
+
+    @Test
+    fun riseStagesRunInOrderAndDancingResumes() {
+        val bpm = 96.0
+        val stages = mutableListOf<BabyFall.RiseStage>()
+        var sawDancingAfter = false
+        var inRise = false
+        var beats = 0.0
+        while (beats < 120.0) {
+            val stage = BabyFall.riseStageAt(beats, bpm)
+            if (stage != null) {
+                inRise = true
+                if (stages.lastOrNull() != stage) stages += stage
+            } else if (inRise) {
+                sawDancingAfter =
+                    BabyFall.stateAt(beats, bpm).phase == BabyFall.Phase.DANCING
+                break
+            }
+            beats += 0.005
+        }
+        assertEquals(
+            listOf(
+                BabyFall.RiseStage.PUSH,
+                BabyFall.RiseStage.STAND,
+                BabyFall.RiseStage.SETTLE,
+            ),
+            stages,
+        )
+        assertTrue("dancing should resume after the settle", sawDancingAfter)
+    }
+
+    @Test
+    fun halfRisenAtThePushStandJoint() {
+        // Beat arithmetic for cycle 0 at 120 BPM: dancing for
+        // the interval, 0.6 beats falling, 1 beat down, then the
+        // rise starts; the push stage is 0.25 s = 0.5 beats.
+        val bpm = 120.0
+        val riseStart = BabyFall.intervalForCycle(0) + 0.6 + 1.0
+        val joint = riseStart + 0.5
+        val atJoint = BabyFall.pose(joint - 0.01, bpm)
+        val justPast = BabyFall.pose(joint + 0.01, bpm)
+        // Either side of the joint he is at the half-risen lean
+        // (35–40° band; the design point is 37.5°).
+        assertEquals(BabyFall.RISE_HALF_DEG.toFloat(), atJoint.rotationDeg, 1.0f)
+        assertEquals(BabyFall.RISE_HALF_DEG.toFloat(), justPast.rotationDeg, 1.0f)
+        // And the sink tracks the lean — about half the flat sink.
+        assertEquals(
+            (BabyFall.DOWN_SINK * BabyFall.RISE_HALF_DEG / BabyFall.DOWN_ROTATION_DEG)
+                .toFloat(),
+            atJoint.sinkFraction, 0.02f,
+        )
+    }
+
+    @Test
+    fun riseHasNoSnapAndNoScalePop() {
+        // Across the whole get-up: the lean never passes upright
+        // by more than the settle sway (the old pop swung to
+        // −14°), never exceeds the flat angle, the scale never
+        // pops (the old rise bounced it to 1.09) and there is
+        // no bounce — he is climbing, not jumping.
         val bpm = 96.0
         var beats = 0.0
-        var sawNegativeOvershoot = false
-        var sawDancingAfter = false
-        var phase = BabyFall.Phase.DANCING
+        var sawRise = false
         while (beats < 120.0) {
             val s = BabyFall.stateAt(beats, bpm)
             if (s.phase == BabyFall.Phase.RISING) {
-                if (BabyFall.pose(beats, bpm).rotationDeg < 0f) sawNegativeOvershoot = true
+                sawRise = true
+                val p = BabyFall.pose(beats, bpm)
+                assertTrue(
+                    "rotation ${p.rotationDeg} at beat $beats",
+                    p.rotationDeg >= -BabyFall.SETTLE_SWAY_DEG.toFloat() - 0.01f,
+                )
+                assertTrue(
+                    "rotation ${p.rotationDeg} at beat $beats",
+                    p.rotationDeg <= BabyFall.DOWN_ROTATION_DEG.toFloat() + 0.01f,
+                )
+                assertTrue("scale popped at beat $beats: ${p.scale}", p.scale == 1.0f)
+                assertEquals(0f, p.bounceFraction)
             }
-            if (phase == BabyFall.Phase.RISING && s.phase == BabyFall.Phase.DANCING) {
-                sawDancingAfter = true
-                break
-            }
-            phase = s.phase
             beats += 0.005
         }
-        assertTrue("rise should overshoot past upright", sawNegativeOvershoot)
-        assertTrue(sawDancingAfter)
+        assertTrue(sawRise)
+    }
+
+    @Test
+    fun settleSwayIsOneSmallDampedSwing() {
+        val bpm = 120.0
+        val riseStart = BabyFall.intervalForCycle(0) + 0.6 + 1.0
+        // The settle starts after push + stand = 0.6 s = 1.2 beats.
+        val settleStart = riseStart + 1.2
+        var max = 0f
+        var min = 0f
+        var beats = settleStart
+        while (beats < settleStart + 0.6) { // 0.30 s = 0.6 beats at 120 BPM
+            val p = BabyFall.pose(beats, bpm)
+            max = maxOf(max, p.rotationDeg)
+            min = minOf(min, p.rotationDeg)
+            beats += 0.005
+        }
+        // One swing each way, both inside the ±2° budget, the
+        // second smaller than the first (it is dying out)…
+        assertTrue("settle peak $max", max in 1.4f..2.0f)
+        assertTrue("settle trough $min", min in -2.0f..-0.7f)
+        assertTrue("trough should be damped below the peak", -min < max)
+        // …and it lands upright as the stage ends.
+        val atEnd = BabyFall.pose(settleStart + 0.6 - 0.001, bpm)
+        assertTrue(
+            "settle should end upright, was ${atEnd.rotationDeg}",
+            abs(atEnd.rotationDeg) < 0.1f,
+        )
     }
 
     @Test

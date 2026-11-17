@@ -272,8 +272,13 @@ object DanceMotion {
 /**
  * The baby dancer: normally an unsteady toddler wobble (bigger sway,
  * slightly faster bounce), and every so often he falls over — tips
- * sideways in ~0.3 s, lies on the floor for one beat, then pops back
- * up in ~0.4 s with an overshoot bounce. The fall interval is a
+ * sideways in ~0.3 s, lies on the floor for one beat, then gets back
+ * up. The get-up used to be a single ~0.4 s pop with an overshoot
+ * swing and a scale bounce; the user (2026-11-16) found the snap
+ * back upright too abrupt, so since v1.0.53 it runs in three stages
+ * (see [RiseStage]): he pushes himself up on his hands to a
+ * half-risen lean, stands the rest of the way up, then steadies
+ * himself with one small sway. The fall interval is a
  * deterministic pseudo-random 12–20 beats derived from the cycle
  * index, so it never ticks like a metronome. Pure function of the
  * beat count, fully unit tested.
@@ -290,8 +295,77 @@ object BabyFall {
         return 12 + ((h ushr 8) % 9).toInt() // 12..20 beats
     }
 
+    // ---- v1.0.53: the three-stage get-up -------------------------
+    //
+    // The rise (Phase.RISING) is timed in SECONDS like the fall
+    // (0.3 s), not in beats — it is a gag with a fixed duration at
+    // any tempo. Its three stages run back to back:
+    //
+    //   PUSH   [RISE_PUSH_SECONDS]   — flat → half-risen: he pushes
+    //          himself up on his hands, the lean easing from
+    //          [DOWN_ROTATION_DEG] to [RISE_HALF_DEG];
+    //   STAND  [RISE_STAND_SECONDS]  — half-risen → upright, the
+    //          lean easing to 0 with no overshoot;
+    //   SETTLE [RISE_SETTLE_SECONDS] — upright, one small sway of
+    //          at most ±[SETTLE_SWAY_DEG] that damps out inside the
+    //          stage: he steadies himself, then dances on.
+    //
+    // Total [RISE_TOTAL_SECONDS] = 0.90 s, replacing the old single
+    // 0.4 s pop (quadratic settle + counter-swing + scale bounce —
+    // all retired; the scale now stays 1.0 through the whole rise).
+    // While he is part-way up the sink tracks the lean
+    // proportionally, so he lifts off the floor as he rises.
+
+    /** The get-up's stages, in order (v1.0.53). */
+    enum class RiseStage { PUSH, STAND, SETTLE }
+
+    /** Stage 1 of the get-up: pushing up to half-risen, seconds. */
+    const val RISE_PUSH_SECONDS = 0.25
+
+    /** Stage 2 of the get-up: half-risen to upright, seconds. */
+    const val RISE_STAND_SECONDS = 0.35
+
+    /** Stage 3 of the get-up: the steadying sway, seconds. */
+    const val RISE_SETTLE_SECONDS = 0.30
+
+    /** The whole get-up, seconds: push + stand + settle = 0.90. */
+    const val RISE_TOTAL_SECONDS = 0.90
+
+    /** Lean at the top of the push stage: half-risen, degrees —
+     *  the midpoint of the user's 35–40° ask. */
+    const val RISE_HALF_DEG = 37.5
+
+    /** Peak of the settle sway once he is up, degrees. */
+    const val SETTLE_SWAY_DEG = 2.0
+
+    /** Rotation while lying flat, degrees (the DOWN pose). */
+    const val DOWN_ROTATION_DEG = 84.0
+
+    /** Sink while lying flat (the DOWN pose). */
+    const val DOWN_SINK = 0.38
+
+    /**
+     * Which stage of the get-up a RISING [progress] (0..1 across
+     * the whole rise) falls in, by elapsed rise seconds.
+     */
+    fun riseStage(progress: Float): RiseStage {
+        val elapsed = progress.coerceIn(0f, 1f).toDouble() * RISE_TOTAL_SECONDS
+        return when {
+            elapsed < RISE_PUSH_SECONDS -> RiseStage.PUSH
+            elapsed < RISE_PUSH_SECONDS + RISE_STAND_SECONDS -> RiseStage.STAND
+            else -> RiseStage.SETTLE
+        }
+    }
+
+    /** The get-up stage at absolute beat count [beats], or null
+     *  when he is not getting up at that moment. */
+    fun riseStageAt(beats: Double, bpm: Double): RiseStage? {
+        val s = stateAt(beats, bpm)
+        return if (s.phase == Phase.RISING) riseStage(s.progress) else null
+    }
+
     private fun fallBeats(bpm: Double) = 0.3 * bpm / 60.0 // ~0.3 s
-    private fun riseBeats(bpm: Double) = 0.4 * bpm / 60.0 // ~0.4 s
+    private fun riseBeats(bpm: Double) = RISE_TOTAL_SECONDS * bpm / 60.0 // ~0.9 s (v1.0.53; was 0.4 s)
     private const val DOWN_BEATS = 1.0
 
     fun cycleLengthBeats(cycle: Int, bpm: Double): Double =
@@ -333,7 +407,8 @@ object BabyFall {
                 // wobble and accent like the other humans' — only
                 // the FALLING / DOWN / RISING phases are exempt,
                 // because the fall is a timed gag (0.3 s down,
-                // one beat down, 0.4 s up), not a beat amplitude.
+                // one beat down, 0.9 s up in three stages), not a
+                // beat amplitude.
                 val tempo = DanceMotion.tempoFactor(bpm)
                 val wobble = beats * 1.5
                 val bounce = abs(sin(PI * wobble)) * 0.35f * tempo
@@ -364,21 +439,71 @@ object BabyFall {
             }
             Phase.DOWN -> DanceMotion.Pose(
                 bounceFraction = 0f,
-                rotationDeg = 84f,
+                rotationDeg = DOWN_ROTATION_DEG.toFloat(),
                 scale = 1.0f,
-                sinkFraction = 0.38f,
+                sinkFraction = DOWN_SINK.toFloat(),
             )
             Phase.RISING -> {
-                val t = state.progress.toDouble()
-                DanceMotion.Pose(
-                    bounceFraction = 0f,
-                    // Quadratic settle + a growing counter-swing: near
-                    // the end he rocks a few degrees past upright.
-                    rotationDeg = (84.0 * (1 - t) * (1 - t) - 14.0 * sin(PI * t) * t).toFloat(),
-                    scale = (1.0 + sin(PI * t) * 0.09).toFloat(), // pop back up with a bounce
-                    sinkFraction = (0.38 * (1 - t)).toFloat(),
-                )
+                // v1.0.53: the three-stage get-up (see RiseStage).
+                // Both motion stages ease with a smoothstep, so
+                // the lean arrives at half-risen and at upright
+                // with zero speed — nothing snaps — and the scale
+                // stays 1.0 (the old pop's bounce is gone).
+                val elapsed = state.progress.toDouble() * RISE_TOTAL_SECONDS
+                when (riseStage(state.progress)) {
+                    RiseStage.PUSH -> {
+                        val u = smooth01(elapsed / RISE_PUSH_SECONDS)
+                        val rot = DOWN_ROTATION_DEG + (RISE_HALF_DEG - DOWN_ROTATION_DEG) * u
+                        DanceMotion.Pose(
+                            bounceFraction = 0f,
+                            rotationDeg = rot.toFloat(),
+                            scale = 1.0f,
+                            sinkFraction = sinkForRotation(rot),
+                        )
+                    }
+                    RiseStage.STAND -> {
+                        val u = smooth01((elapsed - RISE_PUSH_SECONDS) / RISE_STAND_SECONDS)
+                        val rot = RISE_HALF_DEG * (1.0 - u)
+                        DanceMotion.Pose(
+                            bounceFraction = 0f,
+                            rotationDeg = rot.toFloat(),
+                            scale = 1.0f,
+                            sinkFraction = sinkForRotation(rot),
+                        )
+                    }
+                    RiseStage.SETTLE -> {
+                        val v = (elapsed - RISE_PUSH_SECONDS - RISE_STAND_SECONDS) /
+                            RISE_SETTLE_SECONDS
+                        // One small sway that dies inside the
+                        // stage: out to +SETTLE_SWAY_DEG, back
+                        // through upright to a smaller swing the
+                        // other way (the (1 − 0.5v) damping), home
+                        // to exactly 0 where the dancing resumes.
+                        val sway = SETTLE_SWAY_DEG * sin(2 * PI * v) * (1.0 - 0.5 * v)
+                        DanceMotion.Pose(
+                            bounceFraction = 0f,
+                            rotationDeg = sway.toFloat(),
+                            scale = 1.0f,
+                            sinkFraction = 0f,
+                        )
+                    }
+                }
             }
         }
     }
+
+    /** Smoothstep 0→1: the get-up's push and stand stages ease
+     *  at both ends, so the lean leaves the floor gently and
+     *  arrives at each stage boundary with zero speed. */
+    private fun smooth01(x: Double): Double {
+        val t = x.coerceIn(0.0, 1.0)
+        return t * t * (3.0 - 2.0 * t)
+    }
+
+    /** While he is part-way up, the sink tracks the lean: flat
+     *  on the floor ([DOWN_ROTATION_DEG]) is the full
+     *  [DOWN_SINK], upright is 0 — he lifts off the floor as
+     *  he rises, continuously across both motion stages. */
+    private fun sinkForRotation(rotationDeg: Double): Float =
+        (DOWN_SINK * rotationDeg / DOWN_ROTATION_DEG).toFloat()
 }

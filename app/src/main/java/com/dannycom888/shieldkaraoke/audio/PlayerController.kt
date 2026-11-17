@@ -23,20 +23,27 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
  * and application alike.)
  *
  * v1.0.3 self-healing: if playback errors out (the custom AudioSink /
- * vocal-processor chain is the prime suspect), the player is rebuilt
- * ONCE with the plain default renderer and the song retried — see
- * [FallbackStateMachine]. v1.0.38 briefly made the retry use the
- * same custom factory build as the first attempt; on the user's
- * device the custom-sink build has failed first-try all along
- * (every field screenshot showed sink=plain-retry), so both
- * attempts died identically and playback was completely dead.
- * v1.0.40 restores the two different builds: the bare retry is
- * the lifeboat and stays bare (accompaniment is unavailable on
- * it, and says so — see [accompanimentUnavailable]).
+ * vocal-processor chain is the prime suspect), the player steps
+ * one rung down a ladder of plainer builds and the song is
+ * retried — see [FallbackStateMachine]. v1.0.38 briefly made the
+ * retry use the same custom factory build as the first attempt;
+ * on the user's device the custom-sink build has failed first-try
+ * all along (every field screenshot showed sink=plain-retry), so
+ * both attempts died identically and playback was completely
+ * dead. v1.0.40 restored two different builds: the plain retry
+ * is the lifeboat and stays bare (accompaniment is unavailable
+ * on it, and says so — see [accompanimentUnavailable]).
+ * v1.0.58 adds the tablet hardening: the ladder gains a third
+ * rung (BARE — stock build, float output off, no processors, no
+ * LoudnessEnhancer) and the downgrade is STICKY for the run, so
+ * a device whose custom build fails at every song start stops
+ * paying that error per song and starts straight on the tier
+ * that works. The last error keeps its cause chain
+ * ([PlaybackErrorText]) — the top message alone named nothing.
  * The active sink path stays visible in
  * the diagnostics line (on the admin page since v1.0.35); the
  * error banner shows
- * while the fault is live and clears once a plain-retry recovery
+ * while the fault is live and clears once a recovery
  * is confirmed progressing (v1.0.15, see [ErrorDisplayPolicy]).
  * Music-stream audio focus is requested before playback and
  * abandoned on release.
@@ -56,9 +63,9 @@ class PlayerController(private val context: Context) {
 
     /** Media3 1.8 has no Builder.setAudioSink; a custom sink is
      *  injected by subclassing DefaultRenderersFactory. Only the
-     *  FIRST build goes through this factory; the error retry is
-     *  a stock bare build with no custom sink and no processor
-     *  (v1.0.40 — see the class doc for why it must stay bare). */
+     *  CUSTOM build goes through this factory; the error ladder's
+     *  plainer rungs are stock builds (v1.0.40 — see the class doc
+     *  for why the plain retry must stay exactly as it is). */
     private class KaraokeRenderersFactory(
         context: Context,
         private val processor: VocalCancelAudioProcessor,
@@ -70,6 +77,27 @@ class PlayerController(private val context: Context) {
         ): AudioSink = DefaultAudioSink.Builder(context)
             .setAudioProcessors(arrayOf(processor))
             .setEnableFloatOutput(enableFloatOutput)
+            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+            .build()
+    }
+
+    /** The BARE rung's factory (v1.0.58): a stock
+     *  DefaultRenderersFactory whose only deviation is the sink's
+     *  float output forced OFF — the float/AudioTrack layer is a
+     *  prime suspect on the user's tablet, and PLAIN still carries
+     *  it. No audio processors are set here, ever; the missing
+     *  LoudnessEnhancer is [applyGain]'s half of this build (it
+     *  skips the effect on the BARE path). The structure test
+     *  pins this composition. */
+    private class BareRenderersFactory(
+        context: Context,
+    ) : DefaultRenderersFactory(context) {
+        override fun buildAudioSink(
+            context: Context,
+            enableFloatOutput: Boolean,
+            enableAudioTrackPlaybackParams: Boolean,
+        ): AudioSink = DefaultAudioSink.Builder(context)
+            .setEnableFloatOutput(false)
             .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
             .build()
     }
@@ -96,15 +124,21 @@ class PlayerController(private val context: Context) {
         }
     }
 
-    var player: ExoPlayer = buildPlayer(customSink = true)
+    /** Which ladder rung the live [player] instance was built
+     *  as. [load] and the error handler rebuild only when the
+     *  build they need differs from this. */
+    private var builtPath: FallbackStateMachine.Path = FallbackStateMachine.Path.CUSTOM
+
+    var player: ExoPlayer = buildPlayer(FallbackStateMachine.Path.CUSTOM)
         private set
 
     private var loudnessEnhancer: LoudnessEnhancer? = null
 
     var onEnded: (() -> Unit)? = null
 
-    /** Last playback error (code name + first message line) this
-     *  song; null when none. Whether it is currently displayed is
+    /** Last playback error this song — code name, message and
+     *  the cause chain, rendered by [PlaybackErrorText]; null
+     *  when none. Whether it is currently displayed is
      *  [visibleError]'s call, not this field's. */
     var lastError: String? = null
         private set
@@ -112,9 +146,10 @@ class PlayerController(private val context: Context) {
     /**
      * The error text for the red banner right now, or null when the
      * banner should be hidden. The banner survives a real failure
-     * (FAILED path) but clears once a plain-retry recovery is
-     * confirmed progressing — see [ErrorDisplayPolicy]. Reads the
-     * live player, so call it from a poll loop, not composition.
+     * (FAILED path) but clears once a recovery on a plainer rung
+     * is confirmed progressing — see [ErrorDisplayPolicy]. Reads
+     * the live player, so call it from a poll loop, not
+     * composition.
      */
     fun visibleError(): String? {
         val err = lastError ?: return null
@@ -129,14 +164,16 @@ class PlayerController(private val context: Context) {
         return if (show) err else null
     }
 
-    /** Which audio path is live: "custom" / "plain-retry" / "plain-failed". */
+    /** Which audio path is live: "custom" / "plain-retry" /
+     *  "bare" / "bare-failed" (v1.0.58). */
     val sinkLabel: String get() = fallback.sinkLabel
 
     /** True when accompaniment was requested but is genuinely
      *  not in effect for the current song. Two real causes, and
      *  the diagnostics line names the one that applies:
-     *   - the live build is the bare plain retry (v1.0.40), whose
-     *     chain has no vocal processor at all; or
+     *   - the live build is a plainer ladder rung (the plain
+     *     retry, v1.0.40; or BARE, v1.0.58), whose chain has no
+     *     vocal processor at all; or
      *   - the custom sink configured the processor and it
      *     rejected this song's format (mono, or an encoding other
      *     than 16-bit/float PCM).
@@ -170,18 +207,31 @@ class PlayerController(private val context: Context) {
     private var focusRequest: AudioFocusRequest? = null
     private val focusListener = AudioManager.OnAudioFocusChangeListener { /* state only */ }
 
-    private fun buildPlayer(customSink: Boolean): ExoPlayer {
-        // Two builds (v1.0.40, restoring the pre-v1.0.38 shape):
-        // the first attempt carries the vocal processor via the
-        // custom factory; the error retry is a stock bare build —
-        // DefaultRenderersFactory with no custom sink and no
-        // processor — so a fault in the custom chain can never
-        // take the retry down with it.
-        val built = if (customSink) {
-            ExoPlayer.Builder(context, KaraokeRenderersFactory(context, vocalProcessor)).build()
-        } else {
-            ExoPlayer.Builder(context, DefaultRenderersFactory(context)).build()
+    private fun buildPlayer(path: FallbackStateMachine.Path): ExoPlayer {
+        // Three builds, one per ladder rung (v1.0.58 extends the
+        // v1.0.40 two-build shape — see the class doc):
+        //  - CUSTOM carries the vocal processor via the custom
+        //    factory;
+        //  - PLAIN_RETRY is the stock bare build —
+        //    DefaultRenderersFactory with no custom sink and no
+        //    processor — EXACTLY as v1.0.40 shipped it, so a fault
+        //    in the custom chain can never take the retry down
+        //    with it; its composition is not to be "improved";
+        //  - BARE is the stock build with float output forced off
+        //    via BareRenderersFactory, and never gets a
+        //    LoudnessEnhancer (see applyGain).
+        // FAILED is a state, not a build, and never reaches here.
+        val built = when (path) {
+            FallbackStateMachine.Path.CUSTOM ->
+                ExoPlayer.Builder(context, KaraokeRenderersFactory(context, vocalProcessor)).build()
+            FallbackStateMachine.Path.PLAIN_RETRY ->
+                ExoPlayer.Builder(context, DefaultRenderersFactory(context)).build()
+            FallbackStateMachine.Path.BARE ->
+                ExoPlayer.Builder(context, BareRenderersFactory(context)).build()
+            FallbackStateMachine.Path.FAILED ->
+                throw IllegalArgumentException("FAILED is not a buildable path")
         }
+        builtPath = path
         built.addListener(listener)
         return built
     }
@@ -192,11 +242,15 @@ class PlayerController(private val context: Context) {
         accompanimentByDefault: Boolean,
         accompanimentUri: Uri? = null,
     ) {
-        // A fresh song gets a fresh chance on the custom sink.
-        if (fallback.path != FallbackStateMachine.Path.CUSTOM) {
-            rebuildPlayer(customSink = true)
+        // A fresh song starts at the ladder's sticky floor
+        // (v1.0.58): custom until some tier fails this run, then
+        // straight onto the tier that was stepped down to — a
+        // device whose custom build dies at every song start no
+        // longer pays one error per song to find that out again.
+        val startPath = fallback.onNewLoad()
+        if (builtPath != startPath) {
+            rebuildPlayer(startPath)
         }
-        fallback.onNewLoad()
         lastError = null
         errorDisplay.reset()
         originalUri = uri
@@ -209,12 +263,13 @@ class PlayerController(private val context: Context) {
         // v1.0.47: what that intent PLAYS is PlaybackSourcePolicy's
         // call — a paired accompaniment file wins and the song
         // starts on the file itself; without a file the realtime
-        // processor is switched to match. Load always lands on
-        // the custom build first (rebuilt above when needed), so
-        // the processor can be set directly; and if an error
-        // later drops this song to the bare retry, the remembered
-        // request — and, for file songs, the file itself — keeps
-        // accompanimentUnavailable truthful.
+        // processor is switched to match. On the custom build the
+        // processor flag below drives the live chain directly;
+        // on a plainer rung (a sticky start, v1.0.58) there is no
+        // processor mounted, the flag is inert, and if an error
+        // later drops this song further down the ladder the
+        // remembered request — and, for file songs, the file
+        // itself — keeps accompanimentUnavailable truthful.
         wantAccompaniment = accompanimentByDefault
         val choice = PlaybackSourcePolicy.choose(accompanimentUri != null, accompanimentByDefault)
         usingAccompanimentFile = choice.useAccompanimentFile
@@ -227,28 +282,30 @@ class PlayerController(private val context: Context) {
         player.play()
     }
 
-    /** First error on the custom sink → rebuild bare (stock
-     *  factory, no processor), retry once, on whichever file is
-     *  current. If accompaniment was on via the realtime
+    /** An error steps one rung down the ladder (v1.0.58):
+     *  rebuild with that rung's build and retry on whichever
+     *  file is current, seeking back to where the error hit —
+     *  the same rebuild-and-resume posture at every step. Only
+     *  a BARE error leaves the player where it died, the fault
+     *  visible. If accompaniment was on via the realtime
      *  processor, [accompanimentUnavailable] turns true via the
-     *  path — the retry audibly plays the original until the
-     *  next song gets its fresh chance on the custom sink. If
-     *  accompaniment was on via the paired FILE (v1.0.47), the
-     *  retry simply keeps playing that file — the bare build
-     *  needs no processor for it. */
+     *  path — the retry audibly plays the original for the rest
+     *  of the run (the downgrade is sticky). If accompaniment
+     *  was on via the paired FILE (v1.0.47), the retry simply
+     *  keeps playing that file — the plainer builds need no
+     *  processor for it. */
     private fun handleError(error: PlaybackException) {
-        lastError = buildString {
-            append(error.errorCodeName)
-            val firstLine = error.message?.lineSequence()?.firstOrNull()?.trim().orEmpty()
-            if (firstLine.isNotEmpty()) append(": ").append(firstLine)
-        }
+        // Keep the cause chain (v1.0.58): the code name and top
+        // message alone ("Unexpected runtime error") named
+        // nothing on the tablet; the root fault sits in a cause.
+        lastError = PlaybackErrorText.describe(error.errorCodeName, error)
         // A fresh error re-arms the banner until this error's own
         // recovery (if any) is confirmed progressing.
         errorDisplay.reset()
-        if (!fallback.onError()) return // second error: stay put, error stays visible
+        if (!fallback.onError()) return // BARE errored too: stay put, error stays visible
         val uri = currentUri ?: return
         val resumeAt = try { player.currentPosition } catch (e: Exception) { 0L }
-        rebuildPlayer(customSink = false)
+        rebuildPlayer(fallback.path)
         player.setMediaItem(MediaItem.fromUri(uri))
         player.prepare()
         if (resumeAt > 0) player.seekTo(resumeAt)
@@ -256,14 +313,14 @@ class PlayerController(private val context: Context) {
         player.play()
     }
 
-    private fun rebuildPlayer(customSink: Boolean) {
+    private fun rebuildPlayer(path: FallbackStateMachine.Path) {
         val old = player
         old.removeListener(listener)
         try { old.stop() } catch (_: Exception) {}
         old.release()
         loudnessEnhancer?.release()
         loudnessEnhancer = null
-        player = buildPlayer(customSink)
+        player = buildPlayer(path)
     }
 
     private fun requestAudioFocus() {
@@ -286,6 +343,20 @@ class PlayerController(private val context: Context) {
     }
 
     private fun applyGain(gainDb: Double) {
+        // The BARE rung never gets a LoudnessEnhancer (v1.0.58):
+        // the session-level enhancer hangs off all three call
+        // sites of this function (load, error retry, async
+        // re-measure), so this one check keeps it off the whole
+        // rung. The enhancer is itself a suspect on the tablet,
+        // and BARE is the build that strips every suspect. Gain
+        // there is volume-only, and only the attenuation half:
+        // player.volume cannot boost, so a boost is simply not
+        // applied on this rung.
+        if (fallback.path == FallbackStateMachine.Path.BARE) {
+            player.volume =
+                if (gainDb < 0) AudioMath.dbToLinear(gainDb).coerceIn(0f, 1f) else 1f
+            return
+        }
         try {
             val sessionId = player.audioSessionId
             if (sessionId != 0) {

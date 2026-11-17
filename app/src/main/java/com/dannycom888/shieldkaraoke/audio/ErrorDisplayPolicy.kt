@@ -13,14 +13,16 @@ package com.dannycom888.shieldkaraoke.audio
  *
  * Policy (pure, unit-tested):
  * - no recorded error → never show.
- * - FAILED path → always show: the plain retry died too — a real
- *   fault the user must see.
- * - PLAIN_RETRY path → show until playback is confirmed
+ * - FAILED path → always show: every rung died, BARE included —
+ *   a real fault the user must see.
+ * - PLAIN_RETRY / BARE path → show until playback is confirmed
  *   progressing: READY + isPlaying + the position advanced
  *   between two observations. The clearance then latches for the
  *   rest of the song — a later user pause or a brief stall must
  *   not resurrect the banner; the diagnostics small print still
- *   shows sink=plain-retry, so the degradation stays on record.
+ *   shows the sink label, so the degradation stays on record.
+ *   (BARE joined this rule in v1.0.58: it is a recovery rung
+ *   exactly like the plain retry, one step further down.)
  * - CUSTOM path with an error → show (that state only exists
  *   transiently inside the error handler; be conservative).
  */
@@ -53,7 +55,8 @@ class ErrorDisplayPolicy {
         return when (path) {
             FallbackStateMachine.Path.FAILED -> true
             FallbackStateMachine.Path.CUSTOM -> true
-            FallbackStateMachine.Path.PLAIN_RETRY -> {
+            FallbackStateMachine.Path.PLAIN_RETRY,
+            FallbackStateMachine.Path.BARE -> {
                 if (!recovered) {
                     val prev = lastPositionMs
                     if (ready && playing && prev != null && positionMs > prev) {

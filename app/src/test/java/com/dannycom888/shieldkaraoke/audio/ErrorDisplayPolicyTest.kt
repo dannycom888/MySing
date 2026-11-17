@@ -12,6 +12,7 @@ class ErrorDisplayPolicyTest {
 
     private val custom = FallbackStateMachine.Path.CUSTOM
     private val retry = FallbackStateMachine.Path.PLAIN_RETRY
+    private val bare = FallbackStateMachine.Path.BARE
     private val failed = FallbackStateMachine.Path.FAILED
 
     @Test
@@ -56,6 +57,23 @@ class ErrorDisplayPolicyTest {
         // Playing now, but no advance since the playing baseline.
         assertTrue(p.shouldShowError(true, retry, ready = true, playing = true, positionMs = 200))
         assertFalse(p.shouldShowError(true, retry, ready = true, playing = true, positionMs = 240))
+    }
+
+    @Test
+    fun bareRecoveryClearsLikeThePlainRetry() {
+        // v1.0.58: BARE is a recovery rung exactly like the plain
+        // retry — the banner shows until progress is confirmed
+        // (an advance observed while READY + playing), then
+        // clears and latches.
+        val p = ErrorDisplayPolicy()
+        // BARE build still buffering: shows, arms the tracker.
+        assertTrue(p.shouldShowError(true, bare, ready = false, playing = false, positionMs = 2_000))
+        // Playing but the position has not moved yet: still shows.
+        assertTrue(p.shouldShowError(true, bare, ready = true, playing = true, positionMs = 2_000))
+        // Position advanced while playing: recovered, clear.
+        assertFalse(p.shouldShowError(true, bare, ready = true, playing = true, positionMs = 2_040))
+        // Latched: a later pause must not resurrect it.
+        assertFalse(p.shouldShowError(true, bare, ready = true, playing = false, positionMs = 2_040))
     }
 
     @Test

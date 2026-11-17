@@ -2098,3 +2098,35 @@ APK：`MySing-1.0.41.apk`，30,336,531 字节，SHA-256 `62df376be7ff56a8d1dc010
 
 - APK：`MySing-1.0.57.apk`，33,456,780 B（比 v1.0.56 的 33,456,793 B 小 13 B——纯代码改动、无新素材），SHA-256 `9b34c6bfb07a52cbc5f77d06999135eb2cecd5437b73a6022a9984b204cfb6d0`，versionCode 57，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
 - 设备侧待用户验：舞台顶部两道光束是否够柔和、歌词是否照样清楚；独唱伴舞脚下倒影是否跟得上跳舞/邀请/哪吒倒地帧序、深浅是否合眼；五人排每人脚下都有倒影且整排站在地板线上；仪式 keeper 独邀时地板不跳；星光闪得够不够慢；独唱伴舞比以前小一号（0.80→0.625 的舞台占比，为倒影让出的空间）是否可接受——若嫌小，杠杆是减小倒影深度比例或整体比例再议。
+
+## v1.0.58 — 平板播放器加固：降级粘住 + 第三档 BARE + 诊断保留 cause（2026-11-16）
+
+病因来自平板 v1.0.55 的诊断行：custom 档起歌抛 `ERROR_CODE_FAILED_RUNTIME_CHECK` 后自愈到 plain-retry，但 `load()` 每首新歌都先回 custom 试错——这类设备上每首歌开头必先错一次。嫌疑排序（诊断已定）：①custom 的 AudioSink float 输出/AudioTrack 层；②两档共用的会话级 LoudnessEnhancer；③处理器本体（大体已自赦）。且 handleError 只存错误码名+消息首行，cause 链被丢弃——顶层消息只有一句没内容的 "Unexpected runtime error"，真正的根因无从看起。本版按诊断施工，不动 Plan B 处理器逻辑、不动 UI 读取方式、不动 .57 舞台装扮。
+
+### 一、降级粘住（本次运行内）
+
+- `FallbackStateMachine` 新增会话级 `startPath`（粘性地板）：`onError()` 每向下走一档，地板同步下移；`onNewLoad()` 改为回到地板而不是回 CUSTOM，并返回本首的起步档。健康设备整场留在 custom；平板第一首在 custom 错一次降到 plain 后，后续每首直接从 plain 起步，开头不再先错一次。
+- FAILED 不是一种构建：BARE 也错后地板仍停在 BARE，下一首从最后一个真实构建起步，不再爬回已证明不行的两档重错一遍。
+- `PlayerController` 记住活实例的构建档（`builtPath`），`load()` 只在起步档与活构建不同才重建；诊断行照旧读 `sinkLabel`，现在能看出当前档位（custom / plain-retry / bare / bare-failed）。
+
+### 二、第三档「真全裸 BARE」
+
+- 梯子变为 CUSTOM → PLAIN → BARE → FAILED。PLAIN 的构成一字未动（仍是 v1.0.40 的 stock `DefaultRenderersFactory` 裸构建——多样性教训钉在结构测试里）。
+- BARE 的构成（结构测试钉死）：`BareRenderersFactory`——stock 渲染器工厂，唯一偏离是 sink 的 float 输出强制关（`.setEnableFloatOutput(false)`），不挂任何音频处理器；`applyGain` 在 BARE 档整体跳过 LoudnessEnhancer（load、错误重试、异步补测三个挂载点都过这一个函数，一处检查全档生效），增益只用 `player.volume` 做衰减半边（音量推子推不出增益，BARE 上增益段直接不施加）。
+- PLAIN 再错时按第一错同样的姿势处理：重建为 BARE、seek 回出错位置续播；只有 BARE 也错才进 FAILED、错误留在屏上。`ErrorDisplayPolicy` 同步扩展：BARE 与 PLAIN 同为恢复档，确认在播且位置前进后横幅自动收起并锁定。
+
+### 三、诊断保留 cause 链
+
+- 新增纯工具 `PlaybackErrorText`：错误码名 + 顶层消息首行 + 逐级 cause（类名 + 消息首行，以 ` <- caused by ` 拼接），总长硬上限 480 字符（超出截断加省略号），cause 深度上限 8 且防自引用环。`handleError` 改走它——下次平板再出错，诊断行和错误横幅里能直接读到根因，不再只有一句 "Unexpected runtime error"。
+
+### 四、测试（473 = 459 基线 + 净增 14，0 失败）
+
+- FallbackStateMachineTest 改写并扩到 6：三段迁移全程（CUSTOM→PLAIN→BARE→FAILED 与各档 sink 标签含 bare / bare-failed）；降级粘住（错一次后 onNewLoad 停在 plain、再错停在 bare）；FAILED 后下一首从 BARE 起步且再错即 FAILED；健康运行永不离开 custom。
+- PlaybackErrorTextTest +6：无 cause 时与旧格式逐字一致；多级 cause 顺序拼接；每条消息只取首行；消息缺失时退化为类名；总长硬上限；cause 成环不死循环。
+- PlayerControllerStructureTest 改写并扩到 6：三档构成各就各位（custom 带处理器工厂 / plain 逐字保持 v1.0.40 裸构建 / bare 走 BareRenderersFactory）且恰三个 `ExoPlayer.Builder(` 调用点；BARE 工厂段内钉死 float 关、无 `setAudioProcessors`、不见 vocalProcessor；applyGain 的 BARE 分支排在任何 enhancer 构造之前；粘性接线（load 读 onNewLoad 返回值、按 builtPath 决定重建、错误处理 rebuildPlayer(fallback.path)、旧的 customSink 回爬字符串绝迹）；handleError 必须经 PlaybackErrorText 渲染。
+- ErrorDisplayPolicyTest +1：BARE 恢复与 plain 同律（缓冲时显示、在播未推进仍显示、推进后收起并锁定、暂停不复活）。
+
+### 五、交付与待验
+
+- APK：`MySing-1.0.58.apk`，33,456,795 B（比 v1.0.57 的 33,456,780 B 大 15 B——纯代码改动、无新素材），SHA-256 `6adfca229439d6bd0800116f6965dd6ef04dd8970b007f4f58f6505abb9edf7f`，versionCode 58，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
+- 设备侧待用户验（平板）：连点几首歌——第一首若在 custom 出错降级，此后每首开头不再先错一次（后台诊断行 sink 档位稳定停在 plain-retry 或 bare、不再每首跳回 custom）；歌能完整唱完；若再出错，诊断行错误文本带 cause 链，拍下来即知根因。MediaPlayer 第四档按计划留作后手（BARE 也死时再议），本版未实现。

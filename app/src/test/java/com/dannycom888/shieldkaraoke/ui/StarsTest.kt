@@ -25,9 +25,50 @@ class StarsTest {
         assertEquals(Stars.COUNT_FULL, Stars.generate(Stars.COUNT_FULL).size)
         assertEquals(Stars.COUNT_COMPACT, Stars.generate(Stars.COUNT_COMPACT).size)
         assertTrue(Stars.COUNT_COMPACT < Stars.COUNT_FULL)
-        // Restrained next to the bubbles' 20: enough to read as
-        // a sky, never a snowstorm.
-        assertTrue(Stars.COUNT_FULL in 40..90)
+        // v1.0.59: the user asked for MORE stars ("星光再大些，
+        // 多些") — the field roughly doubles the .57 counts
+        // (64 / 44) and the radii grow with it.
+        assertTrue(Stars.COUNT_FULL >= 100)
+        assertTrue(Stars.COUNT_COMPACT >= 64)
+        assertTrue(Stars.MAX_RADIUS_DP >= 2.4f)
+        assertTrue(Stars.MIN_RADIUS_DP >= 0.8f)
+    }
+
+    @Test
+    fun fieldIsDealtLeftHeavyWithASparseLyricsSky() {
+        // v1.0.59: most of the sky hangs over the dancer's side
+        // of the stage; the lyrics band's sky is deliberately
+        // sparse so no star competes with a lyric character.
+        val n = Stars.COUNT_FULL
+        val stars = Stars.generate(n)
+        val byZone = stars.groupBy { Stars.zoneOf(it.xFrac) }
+        val left = byZone[0]?.size ?: 0
+        val lyrics = byZone[1]?.size ?: 0
+        val right = byZone[2]?.size ?: 0
+        assertEquals(n, left + lyrics + right)
+        assertTrue("the left takes at least half the sky: $left of $n", left >= n / 2)
+        assertTrue("the lyrics sky stays a small share: $lyrics of $n", lyrics <= n / 5)
+        assertTrue("the right still outnumbers the lyrics sky", right > lyrics)
+        // Per unit of width the contrast is the real ruling:
+        // the lyrics zone's density is under half the left's.
+        val leftDensity = left / Stars.LYRICS_ZONE_START
+        val lyricsDensity = lyrics / (Stars.LYRICS_ZONE_END - Stars.LYRICS_ZONE_START)
+        assertTrue(
+            "lyrics density $lyricsDensity vs left $leftDensity",
+            lyricsDensity < 0.5f * leftDensity,
+        )
+        // The dealing itself is exact and sums to the field.
+        assertEquals(Triple(55, 15, 30), Stars.zoneCounts(100))
+        val (l2, y2, r2) = Stars.zoneCounts(37)
+        assertEquals(37, l2 + y2 + r2)
+        assertEquals(
+            1f,
+            Stars.LEFT_SHARE + Stars.LYRICS_SHARE + Stars.RIGHT_SHARE,
+            0.0001f,
+        )
+        // The lyrics zone starts where the dancer zone ends —
+        // one geometry, owned by LyricsBand.
+        assertEquals(LyricsBand.DANCER_FRACTION, Stars.LYRICS_ZONE_START, 0.0001f)
     }
 
     @Test
@@ -115,5 +156,68 @@ class StarsTest {
         assertTrue(stars.maxOf { it.yFrac } - stars.minOf { it.yFrac } > 0.5f)
         // Independent phases: the field never pulses in unison.
         assertTrue(stars.map { it.phase }.distinct().size > stars.size / 2)
+    }
+
+    // ---- the beat breath (v1.0.59) ---------------------------
+
+    @Test
+    fun breathAmplitudeIsCappedSmall() {
+        // A breath, not a pulse: the whole field may swell by
+        // at most a quarter over its twinkle brightness, and
+        // the shipped amplitude sits well under that.
+        assertTrue(Stars.BREATH_AMPLITUDE > 0f && Stars.BREATH_AMPLITUDE <= 0.25f)
+        for (bpm in listOf(60.0, 96.0, 120.0, 180.0, 208.0)) {
+            var pos = 0L
+            while (pos < 20_000L) {
+                val m = Stars.breathMultiplier(pos, bpm)
+                assertTrue(
+                    "multiplier $m out of band at ${pos}ms / $bpm bpm",
+                    m >= 1f && m <= 1f + Stars.BREATH_AMPLITUDE + 0.0001f,
+                )
+                pos += 37L
+            }
+        }
+    }
+
+    @Test
+    fun breathPeaksExactlyOnTheBeatAndEasesBack() {
+        // 60 bpm: one beat is exactly 1000 ms. The swell is at
+        // its peak ON the beat and fully settled by the half
+        // beat — it rises with the beat and falls back gently,
+        // it never jumps up mid-beat.
+        val peak = 1f + Stars.BREATH_AMPLITUDE
+        assertEquals(peak, Stars.breathMultiplier(0L, 60.0), 0.001f)
+        assertEquals(peak, Stars.breathMultiplier(1000L, 60.0), 0.001f)
+        assertEquals(peak, Stars.breathMultiplier(5000L, 60.0), 0.001f)
+        assertEquals(1f, Stars.breathMultiplier(500L, 60.0), 0.001f)
+        assertTrue(Stars.breathMultiplier(100L, 60.0) > Stars.breathMultiplier(300L, 60.0))
+        assertTrue(Stars.breathMultiplier(300L, 60.0) > Stars.breathMultiplier(500L, 60.0))
+        // The same phase of the next beat breathes identically.
+        assertEquals(
+            Stars.breathMultiplier(250L, 60.0),
+            Stars.breathMultiplier(1250L, 60.0),
+            0.0001f,
+        )
+        // Continuous across the beat boundary — no step as one
+        // beat hands over to the next.
+        assertTrue(
+            abs(Stars.breathMultiplier(999L, 60.0) - Stars.breathMultiplier(1001L, 60.0)) < 0.01f,
+        )
+    }
+
+    @Test
+    fun breathFollowsThePlaybackClockAndStopsWithoutASong() {
+        // A pure function of the position: a frozen position
+        // (pause) yields a frozen multiplier, forever — the
+        // breath stops with the music with no state anywhere.
+        assertEquals(
+            Stars.breathMultiplier(12_345L, 96.0),
+            Stars.breathMultiplier(12_345L, 96.0),
+            0f,
+        )
+        // No tempo / no position: exactly neutral, no breath.
+        assertEquals(1f, Stars.breathMultiplier(1000L, 0.0), 0f)
+        assertEquals(1f, Stars.breathMultiplier(1000L, -80.0), 0f)
+        assertEquals(1f, Stars.breathMultiplier(-1L, 120.0), 0f)
     }
 }

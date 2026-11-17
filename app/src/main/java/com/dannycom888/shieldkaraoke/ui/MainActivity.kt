@@ -294,7 +294,23 @@ class MainActivity : ComponentActivity() {
                     // Star field (v1.0.57): the bubbles' ambient
                     // layer-mate — the same sky on every screen,
                     // each star slowly glowing on its own sine.
-                    StarBackground(compact, Modifier.fillMaxSize())
+                    // v1.0.59: while a song plays on the stage,
+                    // the whole field also breathes with the
+                    // beat — the playback position (frozen when
+                    // paused, absent when idle) and the song's
+                    // BPM ride along; every other screen, and an
+                    // empty stage, get the slow twinkle alone.
+                    StarBackground(
+                        compact, Modifier.fillMaxSize(),
+                        beatPositionMs = if (
+                            screen == Screen.PLAYER && app.state.nowPlaying != null
+                        ) {
+                            positionMs
+                        } else {
+                            null
+                        },
+                        beatBpm = currentBpm,
+                    )
                     when (screen) {
                         Screen.BROWSE -> BrowseScreen(compact)
                         Screen.PLAYER -> PlayerScreen(compact)
@@ -1784,11 +1800,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                  // v1.0.57: the stage measures itself so the
-                  // floor band below can sit exactly under the
-                  // feet of whoever is standing on it.
-                  val stageHeightDp = maxHeight
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                   Box(modifier = Modifier.fillMaxSize()) {
                     val clapElapsed = tickMs - applauseStartMs
                     // The v1.0.23 handover ceremony owns the stage
@@ -1824,36 +1836,11 @@ class MainActivity : ComponentActivity() {
                     val outroClapping = outroTriggerMs != null && ceremony == null &&
                         !celebrating && positionMs >= outroTriggerMs &&
                         positionMs < durationMs
-                    // --- stage floor (v1.0.57): one band, one
-                    //     floor line, drawn under everything the
-                    //     stage is about to show. Its depth is the
-                    //     reflection depth of whoever stands on
-                    //     it: the five-figure row (celebration,
-                    //     outro applause, and the whole ceremony —
-                    //     the keeper's reflection is cut to the
-                    //     same depth, so the ceremony never swaps
-                    //     floors mid-handover) or the solo dancer
-                    //     at rest (her step forward grows upward
-                    //     from this same line). ---
-                    val soloFloorDepth = StageFloor.reflectionDepthDp(
-                        StageFloor.restingHeightDp(
-                            stageHeightDp.value, if (compact) 0.72f else 0.80f,
-                        ),
-                    )
-                    val rowFloorDepth = StageFloor.reflectionDepthDp(
-                        SpotlightGeom.rowHeightDp(
-                            screenW.value, screenH.value,
-                            LyricsBand.reserveWidthDp(screenW.value),
-                        ),
-                    )
-                    StageFloorBand(
-                        depthDp = when {
-                            ceremony != null -> rowFloorDepth
-                            showCelebration || outroClapping -> rowFloorDepth
-                            else -> soloFloorDepth
-                        }.dp,
-                        modifier = Modifier.align(Alignment.BottomStart),
-                    )
+                    // v1.0.59: no floor shape is drawn any more
+                    // — the v1.0.57 band (its highlight line and
+                    // lighter fill) is retired at the user's word;
+                    // the figures' reflections remain, anchored
+                    // at their foot baselines inside DancerImage.
                     if (ceremony != null && ceremonyPhase != null &&
                         ceremonyPhase != Ceremony.Phase.DONE
                     ) {
@@ -1952,36 +1939,38 @@ class MainActivity : ComponentActivity() {
                                     val stepP = DancerActivity.stepProgress(
                                         positionMs, firstLyricStart, dancer.profile,
                                     )
-                                    // v1.0.57: the fractions now
-                                    // measure the space ABOVE the
-                                    // stage floor — figure +
-                                    // reflection together honour
-                                    // them (see StageFloor), so
-                                    // she shrinks by exactly the
-                                    // room her reflection needs
-                                    // and the growth ratio of the
-                                    // step is unchanged. The floor
-                                    // depth is fixed off the
-                                    // RESTING height: while she
-                                    // steps forward she grows
-                                    // upward from the same floor
-                                    // line, and the reflection
-                                    // band under her feet (and
-                                    // the stage's floor band,
-                                    // computed from this same
-                                    // depth) never moves.
+                                    // v1.0.59: the fractions measure
+                                    // the whole zone again — the
+                                    // pre-.57 law (the user: move
+                                    // her up and make her bigger).
+                                    // Her reflection takes whatever
+                                    // room the figure leaves under
+                                    // her feet (StageFloor
+                                    // .soloReflectionDepthDp, a pure
+                                    // function of her CURRENT
+                                    // height): at rest the full
+                                    // figure + a compressed mirror
+                                    // fill the zone exactly, and
+                                    // while she steps forward the
+                                    // mirror squeezes smoothly
+                                    // instead of taxing her growth —
+                                    // the step's growth ratio is
+                                    // once more exactly step/rest,
+                                    // and the wrapper's bottom
+                                    // never leaves the zone's
+                                    // bottom edge.
                                     val restFrac = if (compact) 0.72f else 0.80f
                                     val stepFrac = if (compact) 0.88f else 0.95f
-                                    val soloFloorDepthDp = StageFloor.reflectionDepthDp(
-                                        StageFloor.restingHeightDp(maxHeight.value, restFrac),
-                                    )
-                                    val baseDancerH = StageFloor.heightAtFractionDp(
-                                        maxHeight.value, restFrac, soloFloorDepthDp,
+                                    val baseDancerH = StageFloor.figureHeightDp(
+                                        maxHeight.value, restFrac,
                                     ).dp
-                                    val bigDancerH = StageFloor.heightAtFractionDp(
-                                        maxHeight.value, stepFrac, soloFloorDepthDp,
+                                    val bigDancerH = StageFloor.figureHeightDp(
+                                        maxHeight.value, stepFrac,
                                     ).dp
                                     val dancerH = baseDancerH + (bigDancerH - baseDancerH) * stepP
+                                    val soloFloorDepthDp = StageFloor.soloReflectionDepthDp(
+                                        maxHeight.value, dancerH.value,
+                                    )
                                     // Lyrics-band guard (v1.0.28's
                                     // invariant, kept): her width
                                     // grows with her height; if the
@@ -2262,8 +2251,11 @@ class MainActivity : ComponentActivity() {
                                         heightDp = dancerH,
                                         spotlight = true,
                                         // v1.0.57: her reflection
-                                        // fills exactly the floor
-                                        // band the stage drew.
+                                        // under her feet. v1.0.59:
+                                        // the depth her current
+                                        // height leaves room for —
+                                        // the mirror yields, she
+                                        // doesn't (see StageFloor).
                                         reflectionDepthDp = soloFloorDepthDp.dp,
                                     )
                                 }
@@ -2354,6 +2346,10 @@ class MainActivity : ComponentActivity() {
                                 // v1.0.25: each figure stands in
                                 // their own spotlight pool.
                                 spotlight = true,
+                                // v1.0.59: the row is back on the
+                                // stage's bottom edge; the
+                                // reflection follows it down.
+                                reflectionOverflow = true,
                             )
                         }
                     }
@@ -2832,17 +2828,6 @@ class MainActivity : ComponentActivity() {
         screenH: Dp,
         screenW: Dp,
     ) {
-        // v1.0.57: the ceremony's one floor depth — the row's
-        // reflection depth. The keeper's reflection is cut to
-        // the same depth (passed as her override below), so the
-        // floor line the stage band drew for the ceremony holds
-        // through every phase, the solo invite included.
-        val rowFloorDepth = StageFloor.reflectionDepthDp(
-            SpotlightGeom.rowHeightDp(
-                screenW.value, screenH.value,
-                LyricsBand.reserveWidthDp(screenW.value),
-            ),
-        )
         Box(modifier = Modifier.fillMaxSize()) {
             // --- big next-song card, upper-centre on the stage
             //     (v1.0.45 — the user: "将歌曲文件名提高"): it was
@@ -2922,6 +2907,11 @@ class MainActivity : ComponentActivity() {
                             // v1.0.25: a spotlight pool each;
                             // it melts with the row's alpha.
                             spotlight = true,
+                            // v1.0.59: the row stands on the
+                            // stage's bottom edge again — the
+                            // reflection follows it down and
+                            // draws below the feet.
+                            reflectionOverflow = true,
                         )
                         Ceremony.Phase.GROUP_INVITE -> DancerImage(
                             dancer = carrier,
@@ -2944,6 +2934,7 @@ class MainActivity : ComponentActivity() {
                             framesOverride = figure.inviteChain,
                             labelOverride = rowFigureLabel(figure),
                             spotlight = true,
+                            reflectionOverflow = true,
                         )
                         else -> DancerImage(
                             // EXITING: the invite gesture is
@@ -2958,6 +2949,7 @@ class MainActivity : ComponentActivity() {
                             framesOverride = figure.inviteChain,
                             labelOverride = rowFigureLabel(figure),
                             spotlight = true,
+                            reflectionOverflow = true,
                         )
                     }
                 }
@@ -2991,18 +2983,22 @@ class MainActivity : ComponentActivity() {
                     DancerImage(
                         dancer = keeper,
                         pose = DanceMotion.NEUTRAL_POSE,
-                        // v1.0.57: the same floor-aware resting
-                        // height as the playback dancer (the
-                        // fractions measure the space above the
-                        // floor now — see StageFloor), so the
-                        // handover into the song still lands on
-                        // exactly the same figure at exactly the
-                        // same floor line; her reflection fills
-                        // the ceremony's floor depth.
-                        heightDp = StageFloor.restingHeightDp(
+                        // v1.0.59: the same resting geometry as
+                        // the playback dancer — the full design
+                        // fraction of the zone, with the solo
+                        // reflection-depth function at that
+                        // height — so the handover into the song
+                        // still lands on exactly the same figure
+                        // over exactly the same reflection.
+                        heightDp = StageFloor.figureHeightDp(
                             maxHeight.value, if (compact) 0.72f else 0.80f,
                         ).dp,
-                        reflectionDepthDp = rowFloorDepth.dp,
+                        reflectionDepthDp = StageFloor.soloReflectionDepthDp(
+                            maxHeight.value,
+                            StageFloor.figureHeightDp(
+                                maxHeight.value, if (compact) 0.72f else 0.80f,
+                            ),
+                        ).dp,
                         frameIndex = if (phase == Ceremony.Phase.SOLO_INVITE) {
                             InviteCycle.frameIndex(keeperClock)
                         } else {
@@ -3073,30 +3069,27 @@ class MainActivity : ComponentActivity() {
         val pitch = heightDp * SpotlightGeom.ROW_PITCH_FRACTION
         val span = heightDp * SpotlightGeom.ROW_SPAN_PER_HEIGHT
         val robotShift = SpotlightGeom.rowRobotShiftDp(heightDp.value).dp
-        // v1.0.57: the row stands on the stage floor — the
-        // container grows one reflection depth downward and the
-        // figures' box rides on top of it, so every figure's
-        // feet lift off the stage's bottom edge by exactly the
-        // depth its reflection (drawn inside DancerImage) fills.
-        // Pitch, span, figure height and slot offsets are
-        // untouched: the row's geometry is the same, it just
-        // stands on a floor now.
-        val floorDepth = StageFloor.reflectionDepthDp(heightDp.value).dp
-        Box(modifier = modifier.width(span).height(heightDp + floorDepth)) {
-            Box(
-                modifier = Modifier.width(span).height(heightDp)
-                    .align(Alignment.TopStart),
-            ) {
-                Dancers.ROW_FIGURES.forEachIndexed { index, figure ->
-                    Box(
-                        modifier = Modifier.align(Alignment.BottomStart)
-                            .offset(
-                                x = pitch * index -
-                                    if (figure.key == DancerKeys.ROBOT) robotShift else 0.dp,
-                            ),
-                    ) {
-                        content(figure, heightDp)
-                    }
+        // v1.0.59: the row stands where it stood before v1.0.57
+        // — feet on the stage's bottom edge, this exact
+        // container (the .57 version grew the box one reflection
+        // depth downward and lifted every figure by that depth;
+        // the user sent the row back down, "和以前一样"). Pitch,
+        // span, figure height and slot offsets are the pre-.57
+        // ones, untouched. Each figure's reflection follows it
+        // down: the row's DancerImages measure figure-height
+        // only (reflectionOverflow) and draw the mirror below
+        // the feet, into the same unclipped spill the spotlight
+        // pools have always painted there.
+        Box(modifier = modifier.width(span).height(heightDp)) {
+            Dancers.ROW_FIGURES.forEachIndexed { index, figure ->
+                Box(
+                    modifier = Modifier.align(Alignment.BottomStart)
+                        .offset(
+                            x = pitch * index -
+                                if (figure.key == DancerKeys.ROBOT) robotShift else 0.dp,
+                        ),
+                ) {
+                    content(figure, heightDp)
                 }
             }
         }
@@ -3157,11 +3150,22 @@ class MainActivity : ComponentActivity() {
         reflection: Boolean = true,
         /** v1.0.57: reflection depth override. The default is
          *  the figure's own 35% (the celebration row). The solo
-         *  stage and the ceremony keeper pass the depth of the
-         *  floor band the stage drew, so figure, reflection and
-         *  band always agree on one floor line even while the
-         *  figure's height moves (the intro step). */
+         *  stage and the ceremony keeper pass the depth their
+         *  shared solo formula leaves under the figure (v1.0.59:
+         *  [StageFloor.soloReflectionDepthDp]), so the two
+         *  always agree on one figure over one reflection. */
         reflectionDepthDp: Dp? = null,
+        /** v1.0.59: measure the figure only and let the
+         *  reflection DRAW below the wrapper's bottom edge
+         *  instead of reserving layout room for it. The
+         *  celebration row stands on the stage's bottom edge
+         *  again (its pre-.57 place, at the user's word), so
+         *  there is no room below the feet to reserve — the
+         *  mirror follows the row down and spills past the
+         *  edge, unclipped, exactly like the spotlight pools
+         *  always have. The solo stage and the keeper keep the
+         *  default: room reserved inside the zone. */
+        reflectionOverflow: Boolean = false,
     ) {
         val frames = framesOverride ?: dancer.frames
         val label = labelOverride ?: dancerDisplayName(dancer.key)
@@ -3207,7 +3211,9 @@ class MainActivity : ComponentActivity() {
         // for free, at the cost of one extra draw of an already
         // decoded bitmap (no new decode, no new geometry: the
         // fixed rect above is untouched, and the wrapper only
-        // grows downward into the floor the callers budget for).
+        // grows downward into the room the callers budget for —
+        // or, for the celebration row, draws past its own
+        // bottom edge: see [reflectionOverflow]).
         val frameWidthDp = SpotlightGeom.dancerWidthDp(heightDp.value).dp
         val depthDp = if (reflection) {
             reflectionDepthDp ?: StageFloor.reflectionDepthDp(heightDp.value).dp
@@ -3250,7 +3256,18 @@ class MainActivity : ComponentActivity() {
             }
         }
         Box(
-            modifier = modifier.width(frameWidthDp).height(heightDp + depthDp),
+            // v1.0.59: with reflectionOverflow the wrapper
+            // measures the figure alone — the reflection node
+            // below still draws (nothing clips it), it just
+            // reserves no layout room.
+            modifier = modifier.width(frameWidthDp)
+                .then(
+                    if (reflectionOverflow) {
+                        Modifier
+                    } else {
+                        Modifier.height(heightDp + depthDp)
+                    },
+                ),
         ) {
             Box(
                 modifier = (if (spotlight) Modifier.spotlightPool(alphaScale = alpha) else Modifier)

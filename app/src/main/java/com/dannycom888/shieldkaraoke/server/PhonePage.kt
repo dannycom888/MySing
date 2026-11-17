@@ -25,6 +25,13 @@ object PhonePage {
      * stage names in BOTH languages — a person's name is not
      * translated. Phones only ever read names this way; there is
      * no rename endpoint on the server.
+     *
+     * v1.0.59: the main block's order is the user's — queue
+     * panel, then the dancer picker, then the search box, then
+     * the filter chips, then the song list — and the chips are
+     * ONE combined filter (language × gender × favorites/recent
+     * × search text) rendered locally from the single catalog
+     * fetch: lighting a combination lists every match at once.
      */
     fun html(bootId: String = "", customNames: Map<String, String> = emptyMap()): String {
         val customNamesJson = customNamesJson(customNames)
@@ -82,6 +89,16 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <div id="qsummary" class="small"></div>
 <div id="qlist"></div>
 </div>
+<h1 data-i="dancerTitle">💃 选伴舞</h1>
+<p class="small" data-i="dancerHint">点歌时选的伴舞就配这首歌；开唱之前，点你排队里的歌可以换一位。</p>
+<div id="dancers" class="dcards">
+<div class="dcard" data-who="modern"><img src="/dancer-anim/modern" onerror="this.onerror=null;this.src='/dancer-img/modern'" alt="Amy"><span data-dancer="modern">Amy</span></div>
+<div class="dcard" data-who="ancient"><img src="/dancer-anim/ancient" onerror="this.onerror=null;this.src='/dancer-img/ancient'" alt="秀颖"><span data-dancer="ancient">秀颖</span></div>
+<div class="dcard" data-who="sumo"><img src="/dancer-anim/sumo" onerror="this.onerror=null;this.src='/dancer-img/sumo'" alt="姿三四郎"><span data-dancer="sumo">姿三四郎</span></div>
+<div class="dcard" data-who="ancient_girl"><img src="/dancer-anim/ancient_girl" onerror="this.onerror=null;this.src='/dancer-img/ancient_girl'" alt="汉娜"><span data-dancer="ancient_girl">汉娜</span></div>
+<div class="dcard" data-who="baby"><img src="/dancer-anim/baby" onerror="this.onerror=null;this.src='/dancer-img/baby'" alt="哪吒"><span data-dancer="baby">哪吒</span></div>
+<div class="dcard" data-who="robot"><img src="/dancer-anim/robot" onerror="this.onerror=null;this.src='/dancer-img/robot'" alt="瓦力"><span data-dancer="robot">瓦力</span></div>
+</div>
 <input id="q" data-iph="searchPh" placeholder="搜歌名/歌手，或拼音首字母（如 fh cq）">
 <div id="sug" class="hidden"></div>
 <div style="margin:8px 0">
@@ -93,16 +110,6 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <button class="chip" data-g="f" data-i="fF">女歌手</button>
 <button class="chip" id="favTab" data-i="fFav">❤ 收藏</button>
 <button class="chip" id="recentTab" data-i="fRecent">🕘 最近唱过</button>
-</div>
-<h1 data-i="dancerTitle">💃 选伴舞</h1>
-<p class="small" data-i="dancerHint">点歌时选的伴舞就配这首歌；开唱之前，点你排队里的歌可以换一位。</p>
-<div id="dancers" class="dcards">
-<div class="dcard" data-who="modern"><img src="/dancer-anim/modern" onerror="this.onerror=null;this.src='/dancer-img/modern'" alt="Amy"><span data-dancer="modern">Amy</span></div>
-<div class="dcard" data-who="ancient"><img src="/dancer-anim/ancient" onerror="this.onerror=null;this.src='/dancer-img/ancient'" alt="秀颖"><span data-dancer="ancient">秀颖</span></div>
-<div class="dcard" data-who="sumo"><img src="/dancer-anim/sumo" onerror="this.onerror=null;this.src='/dancer-img/sumo'" alt="姿三四郎"><span data-dancer="sumo">姿三四郎</span></div>
-<div class="dcard" data-who="ancient_girl"><img src="/dancer-anim/ancient_girl" onerror="this.onerror=null;this.src='/dancer-img/ancient_girl'" alt="汉娜"><span data-dancer="ancient_girl">汉娜</span></div>
-<div class="dcard" data-who="baby"><img src="/dancer-anim/baby" onerror="this.onerror=null;this.src='/dancer-img/baby'" alt="哪吒"><span data-dancer="baby">哪吒</span></div>
-<div class="dcard" data-who="robot"><img src="/dancer-anim/robot" onerror="this.onerror=null;this.src='/dancer-img/robot'" alt="瓦力"><span data-dancer="robot">瓦力</span></div>
 </div>
 <div id="msg" class="small"></div>
 <div id="songs"></div>
@@ -206,34 +213,67 @@ function paintDancers(){ document.querySelectorAll('[data-who]').forEach(functio
   c.classList.toggle('on', c.getAttribute('data-who')===myDancer); }); }
 function show(){ document.getElementById('nameGate').classList.toggle('hidden', !!name);
   document.getElementById('main').classList.toggle('hidden', !name);
-  document.getElementById('who').textContent = name ? ('（'+name+'）') : ''; if(name){paintDancers(); loadSongs(); loadQueue(); loadCatalog();} }
+  document.getElementById('who').textContent = name ? ('（'+name+'）') : ''; if(name){paintDancers(); paintChips(); loadSongs(); loadQueue(); loadCatalog();} }
 document.getElementById('enterBtn').onclick = function(){
   var v = document.getElementById('nameInput').value.trim();
   if(!v){ alert(t('nameAlert')); return; }
   name = v; localStorage.setItem('sk_name', v); show(); };
+// --- Combined song filter (v1.0.59) -----------------------------
+// The chips are ONE combined filter, not layers to drill through:
+// language × singer gender × (all / favorites / recent) × the
+// search text all apply at once, and the list below the chips
+// shows EVERY match — the user's example: tap 中文 + 男歌手 and
+// all the Chinese male-singer songs are simply there (no 300-row
+// cap, no second level to tap into). The list renders from the
+// one catalog fetch (loadCatalog), so a chip tap is instant and
+// can never race a stale response. The pure predicate between
+// the FILTER markers is exercised offline by
+// tools/check_filter.js against real Chinese song fixtures.
+// FILTER-BEGIN
+function songMatchesQ(s, q){
+  var title = (s.title || '').toLowerCase();
+  var artist = (s.artist || '').toLowerCase();
+  if(title.indexOf(q) >= 0 || artist.indexOf(q) >= 0) return true;
+  var qPin = q.replace(/\s+/g, '');
+  return /^[a-z0-9]+$/.test(qPin) && !!s.pin && s.pin.indexOf(qPin) >= 0;
+}
+function filterSongs(songs, lang, gender, mode, favs, recents, q){
+  var list = [];
+  for(var i = 0; i < songs.length; i++){
+    var s = songs[i];
+    if(lang && s.lang !== lang) continue;
+    if(gender && s.gender !== gender) continue;
+    list.push(s);
+  }
+  if(mode === 'fav'){
+    list = list.filter(function(s){ return favs.indexOf(s.id) >= 0; });
+  } else if(mode === 'recent'){
+    list = recents.map(function(id){
+      return list.find(function(x){ return x.id === id; });
+    }).filter(Boolean);
+  }
+  q = (q || '').trim().toLowerCase();
+  if(q) list = list.filter(function(s){ return songMatchesQ(s, q); });
+  return list;
+}
+// FILTER-END
 function loadSongs(){
-  var url;
-  if(mode==='fav'){ url='/api/songs'; }
-  else if(mode==='recent'){ url='/api/songs'; }
-  else { url='/api/songs?lang='+lang+'&gender='+gender+'&q='+encodeURIComponent(document.getElementById('q').value); }
-  fetch(url).then(function(r){return r.json()}).then(function(d){
-    var list = d.songs;
-    if(mode==='fav') list = list.filter(function(s){return favs.indexOf(s.id)>=0});
-    if(mode==='recent') list = recents.map(function(id){return list.find(function(s){return s.id===id})}).filter(Boolean);
-    var el = document.getElementById('songs'); el.innerHTML='';
-    list.slice(0,300).forEach(function(s){
-      var row=document.createElement('div'); row.className='song';
-      var fav = favs.indexOf(s.id)>=0;
-      row.innerHTML='<span>'+s.artist+' - '+s.title+'</span>' +
-        (s.acc ? ' <span class="badge">'+t('accBadge')+'</span>' : '');
-      var b=document.createElement('button'); b.textContent=t('order');
-      b.onclick=function(){ order(s.id); };
-      var f=document.createElement('button'); f.textContent=fav?'❤':'🤍';
-      f.onclick=function(){ toggleFav(s.id, !fav); };
-      var wrap=document.createElement('span'); wrap.appendChild(f); wrap.appendChild(b);
-      row.appendChild(wrap); el.appendChild(row);
-    });
-  }).catch(netErr);
+  if(allSongs === null){ loadCatalog(); return; }
+  var list = filterSongs(allSongs, lang, gender, mode, favs, recents,
+    document.getElementById('q').value);
+  var el = document.getElementById('songs'); el.innerHTML='';
+  list.forEach(function(s){
+    var row=document.createElement('div'); row.className='song';
+    var fav = favs.indexOf(s.id)>=0;
+    row.innerHTML='<span>'+s.artist+' - '+s.title+'</span>' +
+      (s.acc ? ' <span class="badge">'+t('accBadge')+'</span>' : '');
+    var b=document.createElement('button'); b.textContent=t('order');
+    b.onclick=function(){ order(s.id); };
+    var f=document.createElement('button'); f.textContent=fav?'❤':'🤍';
+    f.onclick=function(){ toggleFav(s.id, !fav); };
+    var wrap=document.createElement('span'); wrap.appendChild(f); wrap.appendChild(b);
+    row.appendChild(wrap); el.appendChild(row);
+  });
 }
 function order(id){
   // v1.0.52: the order carries the pick showing right now (who) —
@@ -255,7 +295,7 @@ var allSongs = null;
 function loadCatalog(){
   if(allSongs !== null) return;
   fetch('/api/songs').then(function(r){return r.json()}).then(function(d){
-    allSongs = d.songs || []; updateSuggest();
+    allSongs = d.songs || []; updateSuggest(); loadSongs();
   }).catch(function(){ allSongs = []; netErr(); });
 }
 // SUGGEST-BEGIN
@@ -399,13 +439,23 @@ function loadQueue(){
     renderQueue(d);
   }).catch(netErr);
 }
-document.getElementById('q').addEventListener('input', function(){ mode='all'; if(allSongs === null) loadCatalog(); updateSuggest(); loadSongs(); });
+document.getElementById('q').addEventListener('input', function(){ if(allSongs === null) loadCatalog(); updateSuggest(); loadSongs(); });
+// v1.0.59: chip highlights tell the truth about the ONE combined
+// filter — every control repaints from the current lang / gender /
+// mode, favorites and recent included, so what is lit is exactly
+// what the list below is filtered by.
+function paintChips(){
+  document.querySelectorAll('[data-lang]').forEach(function(x){
+    x.classList.toggle('on', x.getAttribute('data-lang') === lang); });
+  document.querySelectorAll('[data-g]').forEach(function(x){
+    x.classList.toggle('on', x.getAttribute('data-g') === gender); });
+  document.getElementById('favTab').classList.toggle('on', mode === 'fav');
+  document.getElementById('recentTab').classList.toggle('on', mode === 'recent');
+}
 document.querySelectorAll('[data-lang]').forEach(function(c){ c.onclick=function(){
-  document.querySelectorAll('[data-lang]').forEach(function(x){x.classList.remove('on')});
-  c.classList.add('on'); lang=c.getAttribute('data-lang'); mode='all'; loadSongs(); updateSuggest(); }; });
+  lang=c.getAttribute('data-lang'); paintChips(); loadSongs(); updateSuggest(); }; });
 document.querySelectorAll('[data-g]').forEach(function(c){ c.onclick=function(){
-  document.querySelectorAll('[data-g]').forEach(function(x){x.classList.remove('on')});
-  c.classList.add('on'); gender=c.getAttribute('data-g'); mode='all'; loadSongs(); updateSuggest(); }; });
+  gender=c.getAttribute('data-g'); paintChips(); loadSongs(); updateSuggest(); }; });
 document.querySelectorAll('[data-who]').forEach(function(c){ c.onclick=function(){
   myDancer=c.getAttribute('data-who'); localStorage.setItem('sk_dancer', myDancer); paintDancers();
   fetch('/api/dancer',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -423,8 +473,11 @@ document.querySelectorAll('[data-pick]').forEach(function(c){ c.onclick=function
     loadQueue();
   }).catch(netErr);
 }; });
-document.getElementById('favTab').onclick=function(){ mode='fav'; hideSuggest(); loadSongs(); };
-document.getElementById('recentTab').onclick=function(){ mode='recent'; hideSuggest(); loadSongs(); };
+// Favorites / recent are one combined filter with the chips
+// above, not a separate page: tapping one lights it and narrows
+// the list; tapping it again returns to all songs.
+document.getElementById('favTab').onclick=function(){ mode = (mode === 'fav') ? 'all' : 'fav'; paintChips(); hideSuggest(); loadSongs(); };
+document.getElementById('recentTab').onclick=function(){ mode = (mode === 'recent') ? 'all' : 'recent'; paintChips(); hideSuggest(); loadSongs(); };
 setInterval(loadQueue, 5000);
 applyLang();
 show();

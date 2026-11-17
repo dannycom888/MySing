@@ -12,6 +12,14 @@ import java.io.File
  * is pure ([StageFloor] / [StageBeams]); the layer order lives
  * in Compose calls, so — like DancerImageStructureTest — it is
  * pinned on the MainActivity source.
+ *
+ * v1.0.59 amendments (the user's rulings on the .57 stage):
+ * the floor band is GONE (line and fill), the solo figure
+ * takes her full design fraction back and the reflection
+ * yields room instead, and the five-figure row stands on the
+ * stage's bottom edge again with its reflections drawn below
+ * the feet. The .57 pins that encoded the taxed figure and
+ * the lifted row are replaced by the ones below.
  */
 class StageDressingTest {
 
@@ -25,59 +33,61 @@ class StageDressingTest {
     }
 
     @Test
-    fun restingFigurePlusReflectionHonoursTheDesignFraction() {
-        // The 0.80 fraction, solved: h = 0.8 × 400 / 1.28 = 250,
-        // reflection 87.5 — the figure is the fraction OF THE
-        // SPACE ABOVE ITS OWN FLOOR: h == 0.8 × (400 − 87.5),
-        // and figure + reflection together stay inside the zone.
-        val h = StageFloor.restingHeightDp(400f, 0.80f)
-        assertEquals(250f, h, 0.01f)
-        val depth = StageFloor.reflectionDepthDp(h)
-        assertEquals(h, 0.80f * (400f - depth), 0.05f)
-        assertTrue(h + depth <= 400f)
-        // Compact fraction, same law.
-        val hc = StageFloor.restingHeightDp(400f, 0.72f)
-        assertEquals(hc, 0.72f * (400f - StageFloor.reflectionDepthDp(hc)), 0.05f)
+    fun figureHeightIsTheFullDesignFractionAgain() {
+        // v1.0.59: the fraction measures the whole zone again —
+        // 0.80 of 400 is the full 320 the pre-.57 stage drew
+        // (the .57 floor tax had solved it down to 250).
+        assertEquals(320f, StageFloor.figureHeightDp(400f, 0.80f), 0.01f)
+        assertEquals(288f, StageFloor.figureHeightDp(400f, 0.72f), 0.01f)
+        assertEquals(380f, StageFloor.figureHeightDp(400f, 0.95f), 0.01f)
     }
 
     @Test
-    fun floorLineNeverMovesWhileTheFigureGrows() {
-        // At the rest fraction, heightAtFractionDp over the
-        // resting figure's own floor depth returns the resting
-        // height itself — the step envelope and the floor agree.
-        for (zone in listOf(300f, 440f, 900f)) {
-            for (rest in listOf(0.72f, 0.80f)) {
-                val depth = StageFloor.reflectionDepthDp(
-                    StageFloor.restingHeightDp(zone, rest),
-                )
-                assertEquals(
-                    StageFloor.restingHeightDp(zone, rest),
-                    StageFloor.heightAtFractionDp(zone, rest, depth),
-                    0.05f,
-                )
+    fun soloReflectionYieldsRoomNeverTheFigure() {
+        // Rest, full size: figure 320 in a 400 zone — her full
+        // 35% mirror (112) does not fit, so the REFLECTION is
+        // compressed to exactly the room left (80) and figure +
+        // reflection fill the zone to the edge.
+        val depth = StageFloor.soloReflectionDepthDp(400f, 320f)
+        assertEquals(80f, depth, 0.01f)
+        assertEquals(400f, 320f + depth, 0.01f)
+        // Compact rest: the full 35% fits (288 × 0.35 = 100.8 ≤
+        // the 112 left), so nothing is compressed away.
+        assertEquals(
+            100.8f,
+            StageFloor.soloReflectionDepthDp(400f, 288f),
+            0.01f,
+        )
+        // Stepped fully forward the figure nearly fills the
+        // zone and the mirror is squeezed to the last 20.
+        assertEquals(20f, StageFloor.soloReflectionDepthDp(400f, 380f), 0.01f)
+        // Degenerate heights: no room, no reflection — never a
+        // negative depth pushing the figure around.
+        assertEquals(0f, StageFloor.soloReflectionDepthDp(400f, 400f), 0.001f)
+        assertEquals(0f, StageFloor.soloReflectionDepthDp(400f, 460f), 0.001f)
+        // Across the whole step envelope, figure + reflection
+        // stay inside the zone.
+        for (zone in listOf(257f, 440f, 900f)) {
+            var f = 0.60f
+            while (f <= 0.951f) {
+                val h = StageFloor.figureHeightDp(zone, f)
+                val d = StageFloor.soloReflectionDepthDp(zone, h)
+                assertTrue("figure + reflection must fit: $h + $d <= $zone", h + d <= zone + 0.05f)
+                assertTrue("depth never negative", d >= 0f)
+                f += 0.05f
             }
         }
     }
 
     @Test
-    fun stepForwardStillFitsAndKeepsItsGrowthRatio() {
+    fun stepForwardKeepsItsPreFloorGrowthRatio() {
+        // The figure's own growth across the intro step is once
+        // more exactly the design ratio — nothing is skimmed
+        // off either end of the envelope for the reflection.
         for ((rest, step) in listOf(0.80f to 0.95f, 0.72f to 0.88f)) {
-            val zone = 440f
-            val depth = StageFloor.reflectionDepthDp(
-                StageFloor.restingHeightDp(zone, rest),
-            )
-            val base = StageFloor.heightAtFractionDp(zone, rest, depth)
-            val big = StageFloor.heightAtFractionDp(zone, step, depth)
-            assertTrue(
-                "stepped figure + its floor must fit the zone: $big + $depth <= $zone",
-                big + depth <= zone + 0.05f,
-            )
-            assertEquals(
-                "the step's growth ratio is the pre-floor one",
-                step / rest,
-                big / base,
-                0.001f,
-            )
+            val base = StageFloor.figureHeightDp(440f, rest)
+            val big = StageFloor.figureHeightDp(440f, step)
+            assertEquals(step / rest, big / base, 0.001f)
         }
     }
 
@@ -188,43 +198,74 @@ class StageDressingTest {
     }
 
     @Test
-    fun floorBandIsDrawnUnderTheStageBranches() {
+    fun noFloorShapeIsDrawnAnyMore() {
+        // v1.0.59: the user ruled the floor band's highlight
+        // line AND its lighter fill out — no composable, no
+        // constants, no call site may come back.
         val src = mainActivitySource()
-        val band = src.indexOf("StageFloorBand(")
-        assertTrue("the stage draws its floor band", band >= 0)
         assertTrue(
-            "the band precedes the ceremony branch (it is the stage's first child)",
-            band < src.indexOf("CeremonyStage("),
+            "the stage must not draw a floor band",
+            !src.contains("StageFloorBand"),
         )
+        val dressing = stageDressingSource()
         assertTrue(
-            "the ceremony stands on the row's floor",
-            src.contains("ceremony != null -> rowFloorDepth"),
-        )
-        assertTrue(
-            "the celebration / outro row stands on the row's floor",
-            src.contains("showCelebration || outroClapping -> rowFloorDepth"),
+            "the band composable and its colours are retired",
+            !dressing.contains("StageFloorBand") &&
+                !dressing.contains("BAND_TOP_ARGB") &&
+                !dressing.contains("LINE_ARGB"),
         )
     }
 
     @Test
-    fun everyStageFigureStandsOnTheSharedFloor() {
+    fun figuresKeepTheirReflectionsOnTheNewGeometry() {
         val src = mainActivitySource()
         assertTrue(
-            "the solo dancer's reflection fills the stage's solo floor exactly",
+            "the solo dancer's reflection is the depth her height leaves room for",
             src.contains("reflectionDepthDp = soloFloorDepthDp.dp"),
         )
-        assertTrue(
-            "the ceremony keeper's reflection fills the ceremony's row floor",
-            src.contains("reflectionDepthDp = rowFloorDepth.dp"),
+        // The solo stage and the ceremony keeper share the one
+        // yielding-depth formula (two call sites in MainActivity:
+        // the playback dancer's, and the keeper's) — that is
+        // what makes the handover land on the identical figure
+        // over the identical reflection.
+        assertEquals(
+            2,
+            Regex("""StageFloor\.soloReflectionDepthDp\(""").findAll(src).count(),
         )
-        // The celebration row grows its own floor strip.
+        assertTrue(
+            "the keeper takes the full design fraction like the solo dancer",
+            src.contains("StageFloor.figureHeightDp("),
+        )
+        // The row's four DancerImage call sites (the celebration
+        // / outro row and the ceremony's three row branches)
+        // let their reflections overflow below the feet.
+        assertEquals(
+            4,
+            Regex("""reflectionOverflow = true""").findAll(src).count(),
+        )
+        // The row container is the pre-.57 box again: figure
+        // height only, no grown floor strip inside it.
         val rowStart = src.indexOf("private fun CelebrationRow(")
         assertTrue(rowStart >= 0)
         val rowEnd = src.indexOf("\n    }\n", rowStart)
         val rowBody = src.substring(rowStart, rowEnd)
         assertTrue(
-            rowBody.contains("StageFloor.reflectionDepthDp") &&
-                rowBody.contains("heightDp + floorDepth"),
+            "the row container is back to figure height",
+            rowBody.contains(".height(heightDp)"),
         )
+        assertTrue(
+            "no floor depth grows inside the row any more",
+            !rowBody.contains("floorDepth"),
+        )
+    }
+
+    private fun stageDressingSource(): String {
+        val candidates = listOf(
+            File("src/main/java/com/dannycom888/shieldkaraoke/ui/StageDressing.kt"),
+            File("app/src/main/java/com/dannycom888/shieldkaraoke/ui/StageDressing.kt"),
+        )
+        val file = candidates.firstOrNull { it.isFile }
+            ?: throw AssertionError("StageDressing.kt not found; tried ${candidates.map { it.absolutePath }}")
+        return file.readText()
     }
 }

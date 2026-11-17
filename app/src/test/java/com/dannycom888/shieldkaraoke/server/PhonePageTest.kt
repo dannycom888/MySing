@@ -275,4 +275,55 @@ class PhonePageTest {
         val page = PhonePage.html("bootX", mapOf("baby" to "A\"B"))
         assertTrue(page.contains("\"baby\":\"A\\\"B\""))
     }
+
+    @Test
+    fun mainBlockOrderIsQueueDancerSearchChipsSongs() {
+        // v1.0.59, the user's layout: the queue panel first,
+        // then the dancer picker, then the search box, then the
+        // filter chips, then the song list — the picker moved up
+        // from below the chips to between the queue and search.
+        val queue = html.indexOf("id=\"qpanel\"")
+        val dancer = html.indexOf("data-i=\"dancerTitle\"")
+        val search = html.indexOf("id=\"q\"")
+        val chips = html.indexOf("data-lang")
+        val songs = html.indexOf("id=\"songs\"")
+        assertTrue(queue >= 0 && dancer > queue)
+        assertTrue(search > dancer)
+        assertTrue(chips > search)
+        assertTrue(songs > chips)
+    }
+
+    @Test
+    fun chipsFormOneCombinedFilterRenderedFromTheCatalog() {
+        // v1.0.59: one pure predicate applies language × gender
+        // × mode (all / favorites / recent) × search text at
+        // once, between markers so tools/check_filter.js can run
+        // the exact shipped code against Chinese fixtures.
+        assertTrue(html.contains("// FILTER-BEGIN"))
+        assertTrue(html.contains("// FILTER-END"))
+        assertTrue(html.contains("function filterSongs(songs, lang, gender, mode, favs, recents, q)"))
+        assertTrue(html.contains("function songMatchesQ(s, q)"))
+        // The list renders from the one catalog fetch — a chip
+        // tap is local, instant, and lists EVERY match: the old
+        // per-tap server round-trip and its 300-row cap are gone.
+        assertTrue(html.contains("filterSongs(allSongs, lang, gender, mode, favs, recents,"))
+        assertFalse(html.contains("slice(0,300)"))
+        assertFalse(html.contains("/api/songs?lang="))
+    }
+
+    @Test
+    fun chipHighlightsTellTheTruthAboutTheCombinedFilter() {
+        // v1.0.59: every chip repaints from the current filter
+        // state, favorites/recent included; those two are
+        // toggles in the same filter, not separate pages; and
+        // typing in the search box no longer silently resets
+        // the mode behind the user's back.
+        assertTrue(html.contains("function paintChips()"))
+        assertTrue(html.contains("classList.toggle('on', mode === 'fav')"))
+        assertTrue(html.contains("classList.toggle('on', mode === 'recent')"))
+        assertTrue(html.contains("mode = (mode === 'fav') ? 'all' : 'fav'"))
+        assertTrue(html.contains("mode = (mode === 'recent') ? 'all' : 'recent'"))
+        assertFalse(html.contains("mode='all'; if(allSongs"))
+        assertFalse(html.contains("mode='all'; loadSongs()"))
+    }
 }

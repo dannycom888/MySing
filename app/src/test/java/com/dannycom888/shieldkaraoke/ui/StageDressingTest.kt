@@ -42,6 +42,19 @@ import java.io.File
  * solo + keeper only); and the contact shadow's layer order
  * (pool → shadow → figure) is pinned in
  * DancerImageStructureTest.
+ *
+ * v1.0.63 amendments (the user, on the .61 stage: "灯光照到
+ * 光圈范围就淡化，不照下去了，地上就一光圈"): the fade tail
+ * is retired — measured, its parallelogram's far corner
+ * swung below the pool, outside the ellipse, at near-peak
+ * alpha, so no tail length could keep beam light off the
+ * ground past the pool. The cone is the plain cone again,
+ * ending at its landing segment on the pool centre, and the
+ * gradient ends the light instead: peak where the axis
+ * crosses INTO the pool ellipse, zero AT the centre. The
+ * guarantee — outside the pool, on the ground, the beam
+ * alpha is identically zero — is pinned by a sampled proof
+ * over the same primitives the backdrop draws with.
  */
 class StageDressingTest {
 
@@ -320,62 +333,22 @@ class StageDressingTest {
     }
 
     @Test
-    fun beamLightDiesWithinOnePoolRadiusPastThePool() {
-        // v1.0.61: past the pool centre the light falls to
-        // nothing inside a fraction of the pool's radius —
-        // never a bright wedge running on to the stage's
-        // bottom edge.
-        assertEquals(0.6f, StageBeams.FADE_PER_RADIUS, 0.0001f)
-        for (r in listOf(0f, 40f, 137.5f, 300f)) {
-            assertTrue(
-                "the fade ends within one radius past the centre: r=$r",
-                StageBeams.fadeLengthPx(r) <= r + 0.001f,
-            )
-        }
-        assertEquals(120f, StageBeams.fadeLengthPx(200f), 0.01f)
-        // The faded cone: six points, and the first four ARE
-        // the plain cone's — the lamp and the landing segment
-        // do not move a hair; only a tail is appended.
-        val w = 1600f
-        val target = Offset(300f, 900f)
-        val half = 100f
-        val radius = 200f
-        val plain = StageBeams.cone(w, target, half, right = false)
-        val faded = StageBeams.coneWithFade(w, target, half, radius, right = false)
-        assertEquals(6, faded.size)
-        assertEquals(plain[0], faded[0])
-        assertEquals(plain[1], faded[1])
-        assertEquals(plain[2], faded[2])
-        assertEquals(plain[3], faded[5])
-        // The tail is the landing segment pushed along the
-        // axis: its midpoint is exactly the gradient's end
-        // point, one fade length past the centre.
-        val src = StageBeams.sourceCentre(w, right = false)
-        val tailMid = Offset(
-            (faded[3].x + faded[4].x) / 2f,
-            (faded[3].y + faded[4].y) / 2f,
-        )
-        val end = StageBeams.fadeEnd(src, target, radius)
-        assertEquals(end.x, tailMid.x, 0.01f)
-        assertEquals(end.y, tailMid.y, 0.01f)
-        assertEquals(
-            StageBeams.fadeLengthPx(radius),
-            (end - target).getDistance(),
-            0.01f,
-        )
-        // The gradient's peak stop sits strictly between lamp
-        // and fade end, at the centre: peakStop × (axis +
-        // fade) == axis.
-        val axis = (target - src).getDistance()
-        val stop = StageBeams.peakStop(src, target, radius)
-        assertTrue(stop in 0f..1f)
-        assertEquals(axis, stop * (axis + StageBeams.fadeLengthPx(radius)), 0.05f)
-        // Source pins: the backdrop draws the faded cone and
-        // its gradient really ends at zero alpha.
+    fun beamLightFadesAcrossThePoolAndIsGoneAtItsCentre() {
+        // v1.0.63: the .61 fade-tail machinery is retired —
+        // none of its names may come back into the dressing
+        // source (the tail's far corner left the pool's
+        // ellipse below the pool at near-peak alpha; see the
+        // sampled proof in the next test).
         val dressing = stageDressingSource()
+        for (retired in listOf("FADE_PER_RADIUS", "coneWithFade", "fadeEnd", "fadeLengthPx")) {
+            assertTrue("retired in v1.0.63: $retired", !dressing.contains(retired))
+        }
+        // Source pins: the backdrop draws the PLAIN cone (one
+        // call), peaks it through the one law (one call), and
+        // its gradient really ends at zero alpha (one literal).
         assertEquals(
-            2,
-            Regex("""coneWithFade\(""").findAll(dressing).count(),
+            1,
+            Regex("""StageBeams\.cone\(""").findAll(dressing).count(),
         )
         assertEquals(
             1,
@@ -385,6 +358,215 @@ class StageDressingTest {
             1,
             Regex("""alpha = 0f""").findAll(dressing).count(),
         )
+        // The boundary distance along a direction: the full
+        // radius horizontally, the squashed radius vertically,
+        // always between the two — and the boundary point it
+        // names is ON the pool ellipse, for every direction.
+        assertEquals(
+            200f,
+            StageBeams.poolBoundaryDistancePx(Offset(1f, 0f), 200f),
+            0.01f,
+        )
+        assertEquals(
+            200f * SpotlightGeom.FLATTEN,
+            StageBeams.poolBoundaryDistancePx(Offset(0f, 1f), 200f),
+            0.01f,
+        )
+        var ang = 0f
+        while (ang < 6.29f) {
+            val d = Offset(kotlin.math.cos(ang), kotlin.math.sin(ang))
+            val dist = StageBeams.poolBoundaryDistancePx(d, 200f)
+            assertTrue(
+                "boundary distance between the squashed and full radius: $dist",
+                dist >= 200f * SpotlightGeom.FLATTEN - 0.01f && dist <= 200f + 0.01f,
+            )
+            val bx = d.x * dist / 200f
+            val by = d.y * dist / (200f * SpotlightGeom.FLATTEN)
+            assertEquals("boundary point on the ellipse", 1f, bx * bx + by * by, 0.002f)
+            ang += 0.1f
+        }
+        // Per lamp, per geometry: the peak stop sits exactly
+        // where the axis crosses INTO the pool — the entry
+        // point is on the ellipse, peakStop × axis == axis −
+        // boundary distance — the model alpha there is the
+        // full peak (core pass), and at the centre it is
+        // exactly zero: the light dies inside the pool.
+        for ((w, centre, r) in beamGeometries()) {
+            for (right in listOf(false, true)) {
+                val src = StageBeams.sourceCentre(w, right)
+                val dir = StageBeams.axisDirection(src, centre)
+                val dist = StageBeams.poolBoundaryDistancePx(dir, r)
+                val entry = Offset(centre.x - dir.x * dist, centre.y - dir.y * dist)
+                val ex = (entry.x - centre.x) / r
+                val ey = (entry.y - centre.y) / (r * SpotlightGeom.FLATTEN)
+                assertEquals("entry point on the pool ellipse", 1f, ex * ex + ey * ey, 0.002f)
+                val axis = (centre - src).getDistance()
+                val stop = StageBeams.peakStop(src, centre, r)
+                assertTrue("peak stop is a fraction: $stop", stop in 0f..1f)
+                assertEquals(axis - dist, stop * axis, 0.05f)
+                assertEquals(
+                    "the beam peaks as it reaches the pool",
+                    StageBeams.PEAK_ALPHA,
+                    beamPassAlpha(entry, w, centre, r, right, StageBeams.CORE_WIDTH_RATIO, 1f),
+                    0.001f,
+                )
+                assertEquals(
+                    "and is gone at the pool's centre",
+                    0f,
+                    beamPassAlpha(centre, w, centre, r, right, StageBeams.CORE_WIDTH_RATIO, 1f),
+                    0.0001f,
+                )
+                // Mid-flight the beam is lit, between source
+                // and peak: it still reads as a follow-spot.
+                val mid = Offset(
+                    src.x + (centre.x - src.x) * 0.5f,
+                    src.y + (centre.y - src.y) * 0.5f,
+                )
+                val midAlpha = beamPassAlpha(
+                    mid, w, centre, r, right, StageBeams.CORE_WIDTH_RATIO, 1f,
+                )
+                assertTrue(
+                    "mid-flight alpha between source and peak: $midAlpha",
+                    midAlpha > StageBeams.SOURCE_ALPHA && midAlpha < StageBeams.PEAK_ALPHA,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun noBeamLightOnTheGroundOutsideThePool() {
+        // v1.0.63, the user's sentence as a sampled proof:
+        // "灯光照到光圈范围就淡化，不照下去了，地上就一光圈".
+        // Over a dense grid around the pool, for both lamps
+        // and both draw passes combined exactly as the
+        // backdrop composites them: every point that is
+        // OUTSIDE the pool ellipse and at-or-below the pool
+        // centre line (the ground) has beam alpha identically
+        // zero — and so does every point below the pool's
+        // bottom edge, wherever it sits. The only light on
+        // the ground is the pool itself.
+        for ((w, centre, r) in beamGeometries() + listOf(
+            Triple(1920f, Offset(420f, 880f), 260f),
+            Triple(1600f, Offset(700f, 700f), 137.5f),
+            Triple(1600f, Offset(300f, 900f), 40f),
+        )) {
+            val ry = r * SpotlightGeom.FLATTEN
+            val step = r / 25f
+            var x = centre.x - 2.4f * r
+            while (x <= centre.x + 2.4f * r) {
+                var y = centre.y - 0.8f * r
+                while (y <= centre.y + 2.4f * r) {
+                    val p = Offset(x, y)
+                    val nx = (x - centre.x) / r
+                    val ny = (y - centre.y) / ry
+                    val rho = kotlin.math.sqrt(nx * nx + ny * ny)
+                    val a = beamAlphaAt(p, w, centre, r)
+                    if (rho > 1.002f && y >= centre.y) {
+                        assertEquals(
+                            "beam light on the ground outside the pool at $p " +
+                                "(stage $w, centre $centre, r $r)",
+                            0f, a, 0f,
+                        )
+                    }
+                    if (y > centre.y + ry + 1f) {
+                        assertEquals(
+                            "beam light below the pool's bottom edge at $p " +
+                                "(stage $w, centre $centre, r $r)",
+                            0f, a, 0f,
+                        )
+                    }
+                    y += step
+                }
+                x += step
+            }
+        }
+    }
+
+    /** Stage geometries (width, pool centre, pool radius)
+     *  the beam pins are proven over: the TV stage with the
+     *  pool left-of-centre and centred, and the user's phone. */
+    private fun beamGeometries(): List<Triple<Float, Offset, Float>> = listOf(
+        Triple(1600f, Offset(300f, 900f), 200f),
+        Triple(1920f, Offset(960f, 950f), 300f),
+        Triple(869f, Offset(190f, 330f), 110f),
+    )
+
+    /** Point-in-convex-polygon (the cone is convex; boundary
+     *  counts as inside), by consistent cross-product sign. */
+    private fun pointInConvex(poly: List<Offset>, p: Offset): Boolean {
+        var sign = 0
+        for (i in poly.indices) {
+            val a = poly[i]
+            val b = poly[(i + 1) % poly.size]
+            val cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+            val s = when {
+                cross > 0f -> 1
+                cross < 0f -> -1
+                else -> 0
+            }
+            if (s != 0) {
+                if (sign == 0) sign = s else if (s != sign) return false
+            }
+        }
+        return true
+    }
+
+    /**
+     * The alpha ONE backdrop pass (one lamp, one width pass)
+     * paints at [p], modelled on the very primitives the
+     * backdrop draws with: inside the plain [StageBeams.cone]
+     * polygon, the linear gradient along lamp → centre with
+     * the [StageBeams.peakStop] peak, scaled by the pass's
+     * alpha share; outside the polygon, exactly zero.
+     */
+    private fun beamPassAlpha(
+        p: Offset,
+        stageWidth: Float,
+        centre: Offset,
+        radius: Float,
+        right: Boolean,
+        widthRatio: Float,
+        alphaScale: Float,
+    ): Float {
+        val landingHalf = radius * StageBeams.TARGET_RADIUS_RATIO
+        val poly = StageBeams.cone(stageWidth, centre, landingHalf, right, widthRatio)
+        if (!pointInConvex(poly, p)) return 0f
+        val src = StageBeams.sourceCentre(stageWidth, right)
+        val ax = centre.x - src.x
+        val ay = centre.y - src.y
+        val len2 = ax * ax + ay * ay
+        if (len2 <= 0f) return 0f
+        val f = ((p.x - src.x) * ax + (p.y - src.y) * ay) / len2
+        val peak = StageBeams.peakStop(src, centre, radius)
+        val base = when {
+            f <= 0f -> StageBeams.SOURCE_ALPHA
+            f <= peak -> StageBeams.SOURCE_ALPHA +
+                (StageBeams.PEAK_ALPHA - StageBeams.SOURCE_ALPHA) * (f / peak)
+            f <= 1f -> StageBeams.PEAK_ALPHA * (1f - (f - peak) / (1f - peak))
+            else -> 0f
+        }
+        return base * alphaScale
+    }
+
+    /** The combined beam alpha at [p]: both lamps, both
+     *  passes, composited source-over exactly as the Canvas
+     *  stacks them — zero only when every pass is zero. */
+    private fun beamAlphaAt(
+        p: Offset,
+        stageWidth: Float,
+        centre: Offset,
+        radius: Float,
+    ): Float {
+        var remaining = 1f
+        for (right in listOf(false, true)) {
+            for ((ratio, scale) in listOf(
+                1f to StageBeams.WASH_ALPHA_RATIO,
+                StageBeams.CORE_WIDTH_RATIO to 1f,
+            )) {
+                remaining *= 1f - beamPassAlpha(p, stageWidth, centre, radius, right, ratio, scale)
+            }
+        }
+        return 1f - remaining
     }
 
     @Test

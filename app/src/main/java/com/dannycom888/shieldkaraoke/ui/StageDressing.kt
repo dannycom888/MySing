@@ -45,8 +45,9 @@ import androidx.compose.ui.graphics.Path
  * shadow layers (the keeper shares the placement and follows;
  * the row is untouched): the cones now END at the pool —
  * past the centre their light falls to nothing within a
- * fraction of the pool's radius ([StageBeams.FADE_PER_RADIUS])
- * — and the intersection is dimmed (beam peak 0.16 → 0.10,
+ * fraction of the pool's radius (the tail law retired in
+ * v1.0.63, see below) — and the intersection is dimmed
+ * (beam peak 0.16 → 0.10,
  * the solo pools scaled by
  * [SpotlightGeom.SOLO_POOL_ALPHA_SCALE]); the solo
  * reflection starts stronger over the light
@@ -54,6 +55,27 @@ import androidx.compose.ui.graphics.Path
  * shadow presses the feet into the pool (see
  * [SpotlightGeom] CONTACT_SHADOW_* and the contactShadow
  * modifier in Spotlight.kt).
+ *
+ * v1.0.63: the .61 fade tail is retired (the user, on the
+ * .61 stage: "灯光照到光圈范围就淡化，不照下去了，地上就一
+ * 光圈" — when the light reaches the pool it should fade,
+ * not shine on past it; on the ground there is just the one
+ * pool). The tail could not honour that: it was a
+ * parallelogram pushed along a slanted axis, and its far
+ * corner swung BELOW the pool, outside the ellipse, while
+ * its axial projection still sat in the gradient's bright
+ * stretch — light on the ground past the pool, by
+ * construction, at any tail length. So the cone is the
+ * plain cone again, ending at its landing segment on the
+ * pool centre, and the gradient does the ending instead:
+ * it peaks where the axis crosses INTO the pool ellipse
+ * and falls to zero AT the centre (see [StageBeams]). No
+ * beam polygon reaches below the centre line at all, and
+ * the only points it paints on that line are the landing
+ * segment, which lies inside the pool — so on the ground,
+ * outside the one pool, the beam alpha is identically
+ * zero. The tests pin that with a sampled proof over the
+ * same primitives the backdrop draws with.
  *
  * Pure numbers live in [StageFloor] / [StageBeams] so unit
  * tests can pin them; the drawing is two small composables.
@@ -243,14 +265,18 @@ object StageBeams {
      *  read as one pool of light, brightest where they meet. */
     const val TARGET_RADIUS_RATIO = 0.85f
 
-    /** Alpha at the cone's landing end — deliberately low: the
+    /** Alpha at the cone's peak — deliberately low: the
      *  beams are backdrop, and lyric legibility is pinned
      *  against this ceiling by the tests. v1.0.61: 0.16 →
      *  0.10 — at 0.16 the two cones' overlap on the pool was
      *  the stage's brightest blob, a glaring white patch at
-     *  the intersection (the user: dim it); at 0.10 the
-     *  landing reads only a little brighter than the beam
-     *  itself, with the pool's own glow doing the rest. */
+     *  the intersection (the user: dim it); at 0.10 the peak
+     *  reads only a little brighter than the beam itself,
+     *  with the pool's own glow doing the rest. v1.0.63: the
+     *  peak's VALUE does not move — where it sits does: it
+     *  stood at the pool centre, and now stands where the
+     *  cone's axis crosses into the pool (see [peakStop]),
+     *  the light fading from there to nothing at the centre. */
     const val PEAK_ALPHA = 0.10f
 
     /** Alpha at the lamp end: the beam strengthens as it
@@ -311,27 +337,38 @@ object StageBeams {
         )
     }
 
-    /** How far past the pool centre the cone's light reaches
-     *  before it is fully gone, per unit of the pool's radius
-     *  (v1.0.61): the .60 cones stopped AT the centre, but
-     *  their bright landing segment plus the pool's own spill
-     *  read as one bright plate running to the stage's bottom
-     *  edge, with the dancer standing on its upper half. The
-     *  cone now carries a short tail past the centre along its
-     *  own axis, inside which the gradient falls from the peak
-     *  to nothing — the light ENDS at the pool, and below the
-     *  pool there is no wedge left. A fraction of the pool
-     *  radius, so the tail scales with the pool it lands on,
-     *  and always less than one radius (pinned). */
-    const val FADE_PER_RADIUS = 0.6f
-
-    /** The fade tail's length for a pool [radiusPx] in radius. */
-    fun fadeLengthPx(radiusPx: Float): Float = radiusPx * FADE_PER_RADIUS
+    /**
+     * The distance from the pool's centre to the pool
+     * ELLIPSE's boundary along a direction (v1.0.63): the
+     * pool is an ellipse of semi-axes [radiusPx] horizontally
+     * and [radiusPx] × [SpotlightGeom.FLATTEN] vertically, so
+     * its boundary along a unit direction (dx, dy) sits at
+     * radiusPx / √(dx² + (dy / FLATTEN)²) — the full radius
+     * for a horizontal direction, the squashed radius for a
+     * vertical one, always between the two. Measured BACK
+     * from the centre along a cone's axis, this is the point
+     * where the axis crosses INTO the pool: where the beam's
+     * gradient peaks (see [peakStop]). (The .61 design ran a
+     * tail FORWARD past the centre instead; measured, its
+     * far corner left the ellipse below the pool at
+     * near-peak alpha, so the tail is retired, not
+     * shortened.)
+     */
+    fun poolBoundaryDistancePx(axisDir: Offset, radiusPx: Float): Float {
+        val len = kotlin.math.sqrt(axisDir.x * axisDir.x + axisDir.y * axisDir.y)
+        if (len <= 0f) return radiusPx * SpotlightGeom.FLATTEN
+        val dx = axisDir.x / len
+        val dy = axisDir.y / len
+        val flat = SpotlightGeom.FLATTEN
+        val denom = kotlin.math.sqrt(dx * dx + (dy / flat) * (dy / flat))
+        return if (denom > 0f) radiusPx / denom else radiusPx * flat
+    }
 
     /** The unit vector along one cone's axis, from its lamp
      *  [src] toward the pool [centre] — the direction the
-     *  fade tail runs. A degenerate axis (lamp on the pool)
-     *  falls straight down. */
+     *  beam travels, along which the pool's boundary is
+     *  measured (see [poolBoundaryDistancePx]). A degenerate
+     *  axis (lamp on the pool) falls straight down. */
     fun axisDirection(src: Offset, centre: Offset): Offset {
         val dx = centre.x - src.x
         val dy = centre.y - src.y
@@ -339,56 +376,21 @@ object StageBeams {
         return if (len > 0f) Offset(dx / len, dy / len) else Offset(0f, 1f)
     }
 
-    /** Where one cone's light is fully gone: the pool centre
-     *  pushed one fade length further along the cone's axis.
-     *  This is the gradient's end point — everything past it
-     *  along the axis clamps to zero alpha. */
-    fun fadeEnd(src: Offset, centre: Offset, radiusPx: Float): Offset {
-        val d = axisDirection(src, centre)
-        val f = fadeLengthPx(radiusPx)
-        return Offset(centre.x + d.x * f, centre.y + d.y * f)
-    }
-
     /** Where the gradient's peak stop sits, as a fraction of
-     *  the lamp → fade-end axis: the peak stays exactly AT
-     *  the pool centre (the landing is not dimmed or shifted
-     *  by the tail), and the remaining fraction is the fall
-     *  to nothing. */
+     *  the lamp → pool-centre axis (v1.0.63): the gradient
+     *  spans the lamp to the CENTRE and dies there — its end
+     *  point is the centre itself — and the peak sits where
+     *  the axis crosses INTO the pool ellipse, one
+     *  [poolBoundaryDistancePx] before the centre. The light
+     *  reaches full strength exactly as it reaches the pool,
+     *  then fades across the pool to nothing at its centre:
+     *  it never shines past the pool, and below the centre
+     *  line the cone paints nothing at all. */
     fun peakStop(src: Offset, centre: Offset, radiusPx: Float): Float {
         val axis = (centre - src).getDistance()
-        val total = axis + fadeLengthPx(radiusPx)
-        return if (total > 0f) axis / total else 1f
-    }
-
-    /**
-     * One cone WITH its fade tail (v1.0.61): the four corners
-     * of [cone] plus the landing segment pushed one fade
-     * length along the axis — six points (lamp-left,
-     * lamp-right, landing-right, tail-right, tail-left,
-     * landing-left). The landing segment itself is [cone]'s,
-     * untouched: the tail is a parallelogram extension of it,
-     * so the cone still lands exactly on the pool and only
-     * its light's END moved, from a hard edge at the centre
-     * to a quick melt just past it.
-     */
-    fun coneWithFade(
-        stageWidthPx: Float,
-        targetCentre: Offset,
-        targetHalfWidthPx: Float,
-        radiusPx: Float,
-        right: Boolean,
-        widthRatio: Float = 1f,
-    ): List<Offset> {
-        val base = cone(stageWidthPx, targetCentre, targetHalfWidthPx, right, widthRatio)
-        val src = sourceCentre(stageWidthPx, right)
-        val d = axisDirection(src, targetCentre)
-        val f = fadeLengthPx(radiusPx)
-        val tail = Offset(d.x * f, d.y * f)
-        return listOf(
-            base[0], base[1], base[2],
-            base[2] + tail, base[3] + tail,
-            base[3],
-        )
+        if (axis <= 0f) return 0f
+        val entry = axis - poolBoundaryDistancePx(axisDirection(src, centre), radiusPx)
+        return (entry / axis).coerceIn(0f, 1f)
     }
 }
 
@@ -403,20 +405,21 @@ object StageBeams {
  * placement's own layout): two stage follow-spots crossing
  * onto one pool of light, in the pool's own colour. The fill
  * is a linear gradient along the cone's axis — faint at the
- * lamp, strongest at the landing — drawn as a wide wash plus
- * a narrower core for soft edges without blur. Until the
- * first solo placement has been laid out there is no target
- * and the backdrop draws nothing.
+ * lamp, strongest where the axis reaches the pool — drawn as
+ * a wide wash plus a narrower core for soft edges without
+ * blur. Until the first solo placement has been laid out
+ * there is no target and the backdrop draws nothing.
  *
- * v1.0.61: the cone's light ENDS at the pool. The path is
- * [StageBeams.coneWithFade] — the .60 cone plus a short tail
- * past the centre — and the gradient runs lamp → fade end
- * with THREE stops: the source alpha at the lamp, the peak
- * exactly at the pool centre ([StageBeams.peakStop]), and
- * zero at the fade end, less than one pool radius past the
- * centre. Below the pool the stage is dark again: what reads
- * on stage is two light columns and one pool, never a bright
- * wedge running to the bottom edge.
+ * v1.0.63: the beam ENDS at the pool. The path is the plain
+ * cone — its lowest points are the landing segment ON the
+ * pool centre, inside the pool's ellipse — and the gradient
+ * runs lamp → centre with THREE stops: the source alpha at
+ * the lamp, the peak where the axis crosses into the pool
+ * ([StageBeams.peakStop]), and zero AT the centre. The beam
+ * fades as it crosses the pool and is gone by its middle;
+ * below the centre line it paints nothing anywhere, so the
+ * only light on the ground is the pool itself — never a
+ * bright wedge running past it to the bottom edge.
  */
 @Composable
 fun StageBeamBackdrop(target: PoolTarget?, modifier: Modifier = Modifier) {
@@ -426,14 +429,13 @@ fun StageBeamBackdrop(target: PoolTarget?, modifier: Modifier = Modifier) {
         val landingHalf = t.radiusPx * StageBeams.TARGET_RADIUS_RATIO
         for (right in listOf(false, true)) {
             val src = StageBeams.sourceCentre(size.width, right)
-            val end = StageBeams.fadeEnd(src, t.centrePx, t.radiusPx)
             val peak = StageBeams.peakStop(src, t.centrePx, t.radiusPx)
             for ((ratio, alphaScale) in listOf(
                 1f to StageBeams.WASH_ALPHA_RATIO,
                 StageBeams.CORE_WIDTH_RATIO to 1f,
             )) {
-                val pts = StageBeams.coneWithFade(
-                    size.width, t.centrePx, landingHalf, t.radiusPx, right, ratio,
+                val pts = StageBeams.cone(
+                    size.width, t.centrePx, landingHalf, right, ratio,
                 )
                 val path = Path().apply {
                     moveTo(pts[0].x, pts[0].y)
@@ -453,7 +455,7 @@ fun StageBeamBackdrop(target: PoolTarget?, modifier: Modifier = Modifier) {
                             1f to beamColor.copy(alpha = 0f),
                         ),
                         start = src,
-                        end = end,
+                        end = t.centrePx,
                     ),
                 )
             }

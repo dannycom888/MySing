@@ -2171,3 +2171,35 @@ APK：`MySing-1.0.41.apk`，30,336,531 字节，SHA-256 `62df376be7ff56a8d1dc010
 
 - APK：`MySing-1.0.59.apk`，33,456,792 B（比 v1.0.58 的 33,456,795 B 小 3 B——纯代码改动、无新素材），SHA-256 `724c52c0e175c17924f665bea37e12fe5a2eaa60b576b054bc6258a1ec8414fc`，versionCode 59，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
 - 设备侧待用户验：①舞台底部无白线无淡带、倒影还在；②独唱伴舞明显变大、上移，邀请步进长高时无跳变；③鼓掌/邀请五人排贴回舞台底边、倒影跟着；④星星更大更多、左侧密歌词后稀，唱歌时全场星光随拍轻轻一亮一落、暂停时呼吸停住；⑤手机页新顺序，点中文+男歌手直接出全部中文男歌曲，收藏/最近与语言性别组合生效，输首字联想照旧。
+
+## v1.0.60 — 独唱下移 5%、星星收进上方三分之一、光束改追光汇聚独唱光圈（2026-11-17）
+
+用户在 v1.0.59 后逐条点名（05:20–05:28）：伴舞下移一些；星星只出现在上方三分一（经选项确认是「只在上方三分之一那片」，不是避开上方）；倒影获赞「非常漂亮」（原样保留）；随后追加光束改造——两道光束改为聚光灯式打向独唱伴舞脚下的聚光池、颜色跟光圈统一。未动：.58 播放器三档梯子与诊断 cause 链、.59 点歌页版面与组合筛选、改伴舞规则与接口、伴奏配对、语音搜索、仪式/后奏时序、哪吒帧序、邀请帧链、聚光池本体画法、五人排位置。
+
+### 一、独唱伴舞下移一些
+
+- 新常量/纯函数（StageFloor）：`SOLO_DROP_FRACTION = 0.05`（舞台区高的 5%）、`soloDropDp(zone) = zone × 0.05`。独唱 DancerImage 的 modifier 在原步进左移 guard 之外恒加 y 向下偏移 `soloDropDp(zoneHeight)`——人物、聚光池、倒影作为一个整体平移：人物大小（静止 0.80/紧凑 0.72、步进 0.95/0.88）、步进增长比、倒影深度律（soloReflectionDepthDp 随当前高度让位）一字未动；倒影的渐隐尾巴因此探出区底边 5% 区高，不裁剪（与 .59 五人排倒影溢出同机制）。
+- 仪式 keeper 是同一独唱落位：其 DancerImage 加同样的偏移（keeper 区与独唱区同高、同底边），交接不跳。五人排位置未动（.59 刚按用户要求回原位）。
+
+### 二、星星只出现在上方三分之一
+
+- 新常量 `Stars.TOP_BAND_FRACTION = 1/3`；`generate()` 里 `yFrac = nextFloat() × TOP_BAND_FRACTION`——同一颗随机数只做缩放，同种子下横向分布与 .59 逐颗一致（x、半径、峰值 alpha、周期、相位全不变），纵向整体压进上方 1/3 带，带外零颗；带变窄、密度自然变高，星数（108/紧凑 72）与半径（0.9–2.6dp）不减。
+- 横向三区发牌（左 55% / 歌词区 15% / 右 30%）不变、在带内继续成立；逐颗慢闪（MIN_PERIOD_SEC = 3.5 钉保留）、随拍呼吸 breathMultiplier、暂停冻结（呼吸跟播放时钟）全部保留。
+
+### 三、光束改追光：两束汇聚独唱光圈
+
+- 落点单一事实源：`SpotlightGeom.poolCentreInFigureBoxDp(figureH)` 把 spotlightPool 实际绘制的池心提为纯函数（cx = 图宽/2；cy = 图高 × FEET_BASELINE_FRACTION + ry × CENTRE_DROP_PER_RY，其中 0.98 的字面量提为常量 FEET_BASELINE_FRACTION、绘制处改引同一常量）；`StageFloor.poolCentreInZoneDp(zoneW, zoneH, figureH, depth, drop, overflow)` 再按落位律算区内池心——包装层底锚于区底、按下移量平移、减倒影深、步进 guard 左移多少池心跟多少。
+- 两处写入、状态不清空：独唱布局与仪式 keeper 布局各以 onGloballyPositioned 取本区在根坐标的原点，用 SideEffect 把 `PoolTarget`（池心 px + 池半径 px）写进 Activity 状态 `soloPoolTarget`；独唱写当前帧实数（步进长高时池心、半径随动），keeper 写静止落位数。五人排/仪式群相时独唱不在台，光束继续打向上次独唱落位的光圈（keeper 在台时与之同位、天然吻合），不为排另设落点；仅在 App 冷启动、首个独唱落位布局完成前无目标、光束不画。
+- 几何退役扇形：StageBeams 的 polygon 与 TOP_*/BOTTOM_*/MELT_AT_BOTTOM 常量、背景色熔接层整体删除。新 `cone(stageW, targetCentre, targetHalfWidth, right, widthRatio)`：灯口中心在顶部 SOURCE_CENTRE_FRAC = 0.10（右灯 0.90）、灯口半宽 0.028 × 屏宽；落点段以池心为中心、半宽 = 池半径 × TARGET_RADIUS_RATIO（0.85，落在光池沿口之内）；两束喂同一个点，落点段逐点重合——对齐是构造性的。
+- 画法：沿锥轴线性渐变，灯端 SOURCE_ALPHA = 0.05 → 落点端 PEAK_ALPHA = 0.16（峰值上限未动，歌词可读性钉保留）；每束画两遍——外层宽锥 alpha × 0.45 + 内芯锥（CORE_WIDTH_RATIO = 0.55）全 alpha——无 blur 软边（API 30 旧办法）。汇聚处略亮来自两锥在池处重叠加光池本体，不靠调高单束 alpha。
+- 同色一盏灯：`SpotlightGeom.POOL_COLOR_ARGB = 0xFFFFF6D8` 提为唯一色号常量，光池的 POOL_CENTRE / POOL_MID / POOL_EDGE 与 StageBeams.COLOR_ARGB 都引它；光束旧色 0xFFFFF3D0 退役。
+
+### 四、测试（485 = 480 基线 + 净增 5，0 失败）
+
+- StageDressingTest（15 = 11 + 净增 4）：新钉——下移量 0.05（且在 0.04–0.06 内）与 soloDropDp 恰 4 处调用（独唱/keeper 两落位 × 视觉偏移 + 瞄准计算）；池心函数对手算值（图内 figure 200 → (78, 214.3456)；区内静止落位 → (180, 362.953)）及 guard 左移、去 drop 时池心的跟随；两锥落点段与目标池心逐点重合、灯口分居顶部两侧、锥体自灯口向落点张开、芯锥同心更窄；同色钉（POOL_COLOR_ARGB = 0xFFFFF6D8 且光束色 === 它）；静音钉改版（峰值 ≤ 0.20、灯端 alpha < 落点端、落点盘在池沿内）。退役三钉：扇形展开、右束镜像（落点偏左后两锥不再镜像——是两盏灯打同一个点）、背景熔接。既有钉计数更新：soloReflectionDepthDp 调用点 2 → 3（keeper 的瞄准发布器读同一静止深度）。
+- StarsTest（11 = 10 + 1）：新钉 fieldLivesOnlyInTheTopThird（TOP_BAND_FRACTION = 1/3、全场星 y < 1/3、带被用满 max y > 0.30、横向发牌 55/15/30 不变）；everyStarStaysInSpecRanges 的 y 上限收紧到带界；fieldIsSpreadAcrossTheSky 的纵向跨度改按带口径（> 0.25）。
+
+### 五、交付与待验
+
+- APK：`MySing-1.0.60.apk`，33,456,789 B（比 v1.0.59 的 33,456,792 B 小 3 B——纯代码改动、无新素材），SHA-256 `6c2f86ca0d2ecfa0645717d54253c7ff637ebe921f3df6787374e3a6a16c04c5`，versionCode 60，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
+- 设备侧待用户验：①独唱伴舞比 .59 低约舞台高 5%，邀请步进、仪式交接无跳变；②星星只在上方三分之一出现，左侧仍密、歌词后面仍稀，唱歌时随拍呼吸照旧、暂停停住；③两道光束自顶部两盏灯交叉打在独唱脚下光圈上、与光圈同色，汇聚处略亮、灯端淡，不压歌词；一齐鼓掌/邀请与仪式群相时光束仍打原独唱光圈位置；④冷启动第一首歌落位前光束暂不出现（落位一成即亮）。

@@ -38,6 +38,14 @@ import kotlin.random.Random
  * twinkles, riding the playback clock — pause freezes the
  * breath (the position stops), the twinkles keep their wall
  * clock, and an idle stage breathes not at all.
+ *
+ * v1.0.60: the sky itself moves up — the user ruled the stars
+ * live ONLY in the stage's top third ("星星只出现在上方三分
+ * 一那片"), a band of sky above the dancer's head and the
+ * lyric lines. Vertically the field is the .59 field
+ * compressed into that band; horizontally nothing changes —
+ * the left-heavy dealing below is untouched, its shares now
+ * read within the band.
  */
 object Stars {
     const val SEED = 20261116L
@@ -58,6 +66,14 @@ object Stars {
     /** A star never goes fully dark: at its dimmest it still
      *  holds this fraction of its peak. */
     const val MIN_ALPHA_FRACTION = 0.30f
+
+    // ---- the vertical band: top third only (v1.0.60) -------
+
+    /** The sky's depth, as a fraction of the stage height:
+     *  every star's y lands in [0, TOP_BAND_FRACTION) — the
+     *  top third of the stage, and nowhere else (the user:
+     *  "星星只出现在上方三分一那片"). Pinned by the tests. */
+    const val TOP_BAND_FRACTION = 1f / 3f
 
     // ---- distribution: left-heavy, lyrics-sparse (v1.0.59) --
 
@@ -139,7 +155,11 @@ object Stars {
     /** Deterministic field generation: same seed, same sky.
      *  Stars are dealt zone by zone ([zoneCounts]) — the left
      *  of the stage first — and each star's x is sampled inside
-     *  its own zone; everything else is sampled as before. */
+     *  its own zone; everything else is sampled as before.
+     *  v1.0.60: each star's y is sampled inside the top-third
+     *  band ([TOP_BAND_FRACTION]) — the same draw, scaled, so
+     *  for a given seed the horizontal field is the .59 field
+     *  unchanged and only the sky's depth compresses. */
     fun generate(count: Int, seed: Long = SEED): List<Star> {
         val rnd = Random(seed)
         val (left, lyrics, _) = zoneCounts(count)
@@ -156,7 +176,7 @@ object Stars {
             }
             Star(
                 xFrac = zx0 + rnd.nextFloat() * (zx1 - zx0),
-                yFrac = rnd.nextFloat(),
+                yFrac = rnd.nextFloat() * TOP_BAND_FRACTION,
                 radiusDp = MIN_RADIUS_DP + rnd.nextFloat() * (MAX_RADIUS_DP - MIN_RADIUS_DP),
                 peakAlpha = MIN_PEAK_ALPHA + rnd.nextFloat() * (MAX_PEAK_ALPHA - MIN_PEAK_ALPHA),
                 periodSec = MIN_PERIOD_SEC + rnd.nextFloat() * (MAX_PERIOD_SEC - MIN_PERIOD_SEC),

@@ -72,10 +72,38 @@ class StarsTest {
     }
 
     @Test
+    fun fieldLivesOnlyInTheTopThird() {
+        // v1.0.60: the user's sky is a band — the stars appear
+        // ONLY in the stage's top third ("星星只出现在上方
+        // 三分一那片"), never a single one below it.
+        assertEquals(1f / 3f, Stars.TOP_BAND_FRACTION, 0.0001f)
+        for (n in listOf(Stars.COUNT_FULL, Stars.COUNT_COMPACT, 256)) {
+            val stars = Stars.generate(n)
+            assertTrue(
+                "every star inside the band",
+                stars.all { it.yFrac >= 0f && it.yFrac < Stars.TOP_BAND_FRACTION },
+            )
+            // The band is USED, not huddled against the top
+            // edge: the field reaches deep into its third.
+            assertTrue(
+                "the field fills the band: max y ${stars.maxOf { it.yFrac }}",
+                stars.maxOf { it.yFrac } > 0.30f,
+            )
+        }
+        // The move up changed nothing horizontally: the .59
+        // left-heavy dealing is the same within the band.
+        val byZone = Stars.generate(Stars.COUNT_FULL)
+            .groupBy { Stars.zoneOf(it.xFrac) }
+        assertTrue((byZone[0]?.size ?: 0) >= Stars.COUNT_FULL / 2)
+        assertEquals(Triple(55, 15, 30), Stars.zoneCounts(100))
+    }
+
+    @Test
     fun everyStarStaysInSpecRanges() {
         for (s in Stars.generate(128)) {
             assertTrue(s.xFrac in 0f..1f)
-            assertTrue(s.yFrac in 0f..1f)
+            // v1.0.60: y is band-limited to the top third.
+            assertTrue(s.yFrac in 0f..Stars.TOP_BAND_FRACTION)
             assertTrue(s.phase in 0f..1f)
             assertTrue(s.radiusDp in Stars.MIN_RADIUS_DP..Stars.MAX_RADIUS_DP)
             assertTrue(s.peakAlpha in Stars.MIN_PEAK_ALPHA..Stars.MAX_PEAK_ALPHA)
@@ -153,7 +181,10 @@ class StarsTest {
     fun fieldIsSpreadAcrossTheSky() {
         val stars = Stars.generate(Stars.COUNT_FULL)
         assertTrue(stars.maxOf { it.xFrac } - stars.minOf { it.xFrac } > 0.5f)
-        assertTrue(stars.maxOf { it.yFrac } - stars.minOf { it.yFrac } > 0.5f)
+        // v1.0.60: vertically the spread fills the top-third
+        // band instead of the whole sky (the band is 1/3 deep;
+        // the field reaches across nearly all of it).
+        assertTrue(stars.maxOf { it.yFrac } - stars.minOf { it.yFrac } > 0.25f)
         // Independent phases: the field never pulses in unison.
         assertTrue(stars.map { it.phase }.distinct().size > stars.size / 2)
     }

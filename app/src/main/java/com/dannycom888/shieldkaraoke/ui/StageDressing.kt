@@ -7,7 +7,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.clipPath
 
 /**
  * Stage dressing (v1.0.57): the approved mock
@@ -24,6 +23,17 @@ import androidx.compose.ui.graphics.drawscope.clipPath
  * The solo dancer also takes her full pre-.57 size back (see
  * [StageFloor.soloReflectionDepthDp]): the reflection yields
  * room, never the figure.
+ *
+ * v1.0.60: the two corner fans become follow-spots — both
+ * cones converge on the solo dancer's spotlight pool, in the
+ * pool's own colour (see [StageBeams] / [PoolTarget]). And
+ * the restored solo dancer sat a touch high for the
+ * user's eye ("伴舞下移一些"), so the whole solo placement —
+ * figure, spotlight pool and reflection as one unit — drops
+ * by [StageFloor.SOLO_DROP_FRACTION] of the zone (see
+ * [StageFloor.soloDropDp]). A pure translation: her size,
+ * the step envelope and the reflection's depth law are all
+ * exactly the .59 ones; only where the unit stands changes.
  *
  * Pure numbers live in [StageFloor] / [StageBeams] so unit
  * tests can pin them; the drawing is two small composables.
@@ -77,6 +87,65 @@ object StageFloor {
             (zoneHeightDp - figureHeightDp).coerceAtLeast(0f),
         )
 
+    /** How far the solo placement drops, as a fraction of the
+     *  zone's height (v1.0.60 — the user: "伴舞下移一些", move
+     *  the dancer down a bit): a small, fixed share — enough
+     *  to see, small enough to keep her clear of the control
+     *  bar's business. Pinned by the tests; taste changes go
+     *  through them. */
+    const val SOLO_DROP_FRACTION = 0.05f
+
+    /**
+     * The solo dancer's downward shift in a zone
+     * [zoneHeightDp] tall (v1.0.60): the figure, her spotlight
+     * pool and her reflection translate down together by this
+     * much — one unit, so the mirror still starts exactly at
+     * her feet and the step's growth still pivots on the same
+     * (now lower) baseline. The playback dancer and the
+     * ceremony keeper both take this drop from their own
+     * zone's height; the two zones are the same height over
+     * the same bottom edge (the stage box), so the handover
+     * still lands on the identical placement. Her reflection's
+     * faded tail now ends this far below the zone's bottom
+     * edge — unclipped spill, the same mechanism the
+     * celebration row's reflections have used since v1.0.59.
+     */
+    fun soloDropDp(zoneHeightDp: Float): Float =
+        zoneHeightDp * SOLO_DROP_FRACTION
+
+    /**
+     * The solo pool's centre inside the dancer's zone, in dp
+     * from the zone's top-left (v1.0.60) — where the stage
+     * beams aim. Composed from the placement law itself: the
+     * wrapper is bottom-anchored in the zone and translated
+     * down by [dropDp] (the v1.0.60 drop), shifted left by
+     * [overflowDp] when the stepped-forward figure outgrows
+     * the zone (the v1.0.28 guard's applied shift, ≥ 0), and
+     * inside the wrapper the pool rides at
+     * [SpotlightGeom.poolCentreInFigureBoxDp] under a figure
+     * [figureHeightDp] tall with [depthDp] of reflection
+     * reserved below it. The wrapper's centre column never
+     * moves horizontally (the figure box is centred in the
+     * wrapper, the pool centred in the box), so x is simply
+     * the zone's middle minus the guard's shift. Both beam
+     * writers (the playback dancer and the ceremony keeper)
+     * feed this function their own live numbers, so the aim
+     * follows the placement — step, drop and all — instead of
+     * a written-down coordinate.
+     */
+    fun poolCentreInZoneDp(
+        zoneWidthDp: Float,
+        zoneHeightDp: Float,
+        figureHeightDp: Float,
+        depthDp: Float,
+        dropDp: Float,
+        overflowDp: Float,
+    ): Offset {
+        val inBox = SpotlightGeom.poolCentreInFigureBoxDp(figureHeightDp)
+        val wrapperTop = zoneHeightDp - (figureHeightDp + depthDp) + dropDp
+        return Offset(zoneWidthDp / 2f - overflowDp, wrapperTop + inBox.y)
+    }
+
     /**
      * The reflection flip: the figure stack (height H) is drawn
      * once more in a same-height node laid out just below the
@@ -107,101 +176,156 @@ object StageFloor {
         depthDp / figureHeightDp
 }
 
-object StageBeams {
-    /** Beam outline as fractions of the stage size, read off
-     *  the approved mock: a narrow mouth at the top corner
-     *  fanning out as it falls to the floor. The right beam is
-     *  the left one's mirror. */
-    const val TOP_LEFT_FRAC = 0.07f
-    const val TOP_RIGHT_FRAC = 0.19f
-    const val BOTTOM_LEFT_FRAC = 0.21f
-    const val BOTTOM_RIGHT_FRAC = 0.44f
-    const val BOTTOM_Y_FRAC = 0.86f
+/**
+ * Where the beams aim (v1.0.60): the solo dancer's spotlight
+ * pool — its centre and its horizontal radius, in root
+ * (screen) pixels. Written by the two layouts that stand at
+ * the solo placement (the playback dancer and the ceremony
+ * keeper, both feeding [StageFloor.poolCentreInZoneDp] their
+ * live geometry), read by [StageBeamBackdrop]. It persists
+ * when neither is on stage (the celebration row, the
+ * ceremony's group phases): the beams keep aiming at the
+ * solo placement's pool, which is also where the keeper
+ * stands when she is out. Null only until the first solo
+ * placement has ever been laid out.
+ */
+data class PoolTarget(val centrePx: Offset, val radiusPx: Float)
 
-    /** Alpha at the beam's bright core — deliberately low: the
+object StageBeams {
+    /** Where each lamp hangs: the source segment's centre, as
+     *  a fraction of the stage width — the left lamp over the
+     *  stage's left shoulder, the right one mirrored. The
+     *  CONES are not mirrors of each other any more (v1.0.60):
+     *  both converge on the one pool, which stands left of
+     *  centre, so the right cone crosses the stage. */
+    const val SOURCE_CENTRE_FRAC = 0.10f
+
+    /** Half-width of the cone at the lamp, as a fraction of
+     *  the stage width: a follow-spot leaves its lamp narrow
+     *  and lands wide. */
+    const val SOURCE_HALF_FRAC = 0.028f
+
+    /** The cone's half-width where it lands, as a fraction of
+     *  the pool's horizontal radius: the light disc sits a
+     *  little inside the pool's own edge, so beam and pool
+     *  read as one pool of light, brightest where they meet. */
+    const val TARGET_RADIUS_RATIO = 0.85f
+
+    /** Alpha at the cone's landing end — deliberately low: the
      *  beams are backdrop, and lyric legibility is pinned
-     *  against this ceiling by the tests. */
+     *  against this ceiling by the tests. The convergence
+     *  brightening comes from the two cones overlapping at the
+     *  pool and from the pool itself, not from hotter beams. */
     const val PEAK_ALPHA = 0.16f
 
-    /** By the floor the beam has mostly melted into the stage
-     *  background (the mock's beams never reach the floor at
-     *  full strength). */
-    const val MELT_AT_BOTTOM = 0.55f
+    /** Alpha at the lamp end: the beam strengthens as it
+     *  converges (the user: brighter near the pool, fading
+     *  toward the source). */
+    const val SOURCE_ALPHA = 0.05f
 
-    /** Warm white, the spotlight pool's family. */
-    const val COLOR_ARGB = 0xFFFFF3D0L
+    /** The bright core cone's width, as a fraction of the
+     *  outer cone's: each beam is drawn twice — a wide faint
+     *  wash and a narrower core over it — which softens the
+     *  cone's edges without any blur (the Shield is API 30;
+     *  no RenderEffect). */
+    const val CORE_WIDTH_RATIO = 0.55f
+
+    /** The outer wash's share of the cone's gradient alphas. */
+    const val WASH_ALPHA_RATIO = 0.45f
+
+    /** The pool's own colour (v1.0.60): beam and pool are the
+     *  same lamp, so the beam colour IS
+     *  [SpotlightGeom.POOL_COLOR_ARGB], taken from the one
+     *  constant — never restated here. */
+    const val COLOR_ARGB = SpotlightGeom.POOL_COLOR_ARGB
+
+    /** The lamp point of one cone on a stage [stageWidthPx]
+     *  wide; [right] hangs the other lamp. */
+    fun sourceCentre(stageWidthPx: Float, right: Boolean): Offset =
+        Offset(
+            (if (right) 1f - SOURCE_CENTRE_FRAC else SOURCE_CENTRE_FRAC) * stageWidthPx,
+            0f,
+        )
 
     /**
-     * The four corners of one beam (top-left, top-right,
-     * bottom-right, bottom-left) for a stage of
-     * [widthPx] × [heightPx]; [right] mirrors the beam to the
-     * other top corner.
+     * The four corners of one follow-spot cone (lamp-left,
+     * lamp-right, landing-right, landing-left): from the
+     * side's lamp segment at the stage's top edge, converging
+     * on [targetCentre] — the pool's centre — and landing
+     * [targetHalfWidthPx] wide around it. [widthRatio] scales
+     * both ends for the core pass (see [CORE_WIDTH_RATIO]).
+     * Both sides are fed the SAME target, so the two cones'
+     * landing segments coincide exactly: the alignment is by
+     * construction, and the tests pin it.
      */
-    fun polygon(widthPx: Float, heightPx: Float, right: Boolean): List<Offset> {
-        fun x(frac: Float) = (if (right) 1f - frac else frac) * widthPx
-        val bottomY = BOTTOM_Y_FRAC * heightPx
+    fun cone(
+        stageWidthPx: Float,
+        targetCentre: Offset,
+        targetHalfWidthPx: Float,
+        right: Boolean,
+        widthRatio: Float = 1f,
+    ): List<Offset> {
+        val src = sourceCentre(stageWidthPx, right)
+        val shw = SOURCE_HALF_FRAC * stageWidthPx * widthRatio
+        val thw = targetHalfWidthPx * widthRatio
         return listOf(
-            Offset(x(TOP_LEFT_FRAC), 0f),
-            Offset(x(TOP_RIGHT_FRAC), 0f),
-            Offset(x(BOTTOM_RIGHT_FRAC), bottomY),
-            Offset(x(BOTTOM_LEFT_FRAC), bottomY),
+            Offset(src.x - shw, 0f),
+            Offset(src.x + shw, 0f),
+            Offset(targetCentre.x + thw, targetCentre.y),
+            Offset(targetCentre.x - thw, targetCentre.y),
         )
     }
 }
 
-/** The stage background the beams melt into — MainActivity's
- *  navy base, restated here because the melt overlay must match
- *  it exactly. */
-private val STAGE_BG = Color(0xFF0D1B3E)
-
 /**
- * The two light beams (v1.0.57): drawn ONCE, statically, as the
- * player stage's bottom layer (the root composes this under the
- * bubble field, and every screen element draws over both).
- * Each beam is a fanned polygon filled with a gradient across
- * its width (clear edges, warm core) and then melted downward
- * with a background-colour gradient clipped to the same path —
- * soft on every side without any blur (the Shield is API 30;
- * no RenderEffect). No state, no clock: a stage light rig does
- * not flicker, and stillness cannot fight the lyric sweep's
- * frame budget.
+ * The two follow-spot beams (v1.0.57 as static fans from the
+ * top corners; v1.0.60 re-aimed): drawn as the player stage's
+ * bottom layer (the root composes this under the bubble
+ * field, and every screen element draws over both). Each beam
+ * is now a cone from its top lamp CONVERGING on the solo
+ * dancer's spotlight pool ([target] — the pool's centre and
+ * radius in screen pixels, kept current by the solo
+ * placement's own layout): two stage follow-spots crossing
+ * onto one pool of light, in the pool's own colour. The fill
+ * is a linear gradient along the cone's axis — faint at the
+ * lamp, strongest at the landing — drawn as a wide wash plus
+ * a narrower core for soft edges without blur. Until the
+ * first solo placement has been laid out there is no target
+ * and the backdrop draws nothing.
  */
 @Composable
-fun StageBeamBackdrop(modifier: Modifier = Modifier) {
+fun StageBeamBackdrop(target: PoolTarget?, modifier: Modifier = Modifier) {
     val beamColor = Color(StageBeams.COLOR_ARGB)
     Canvas(modifier = modifier) {
+        val t = target ?: return@Canvas
+        val landingHalf = t.radiusPx * StageBeams.TARGET_RADIUS_RATIO
         for (right in listOf(false, true)) {
-            val pts = StageBeams.polygon(size.width, size.height, right)
-            val path = Path().apply {
-                moveTo(pts[0].x, pts[0].y)
-                lineTo(pts[1].x, pts[1].y)
-                lineTo(pts[2].x, pts[2].y)
-                lineTo(pts[3].x, pts[3].y)
-                close()
-            }
-            val minX = pts.minOf { it.x }
-            val maxX = pts.maxOf { it.x }
-            drawPath(
-                path = path,
-                brush = Brush.horizontalGradient(
-                    colorStops = arrayOf(
-                        0f to beamColor.copy(alpha = 0f),
-                        0.5f to beamColor.copy(alpha = StageBeams.PEAK_ALPHA),
-                        1f to beamColor.copy(alpha = 0f),
-                    ),
-                    startX = minX,
-                    endX = maxX,
-                ),
-            )
-            clipPath(path) {
-                drawRect(
-                    brush = Brush.verticalGradient(
+            val src = StageBeams.sourceCentre(size.width, right)
+            for ((ratio, alphaScale) in listOf(
+                1f to StageBeams.WASH_ALPHA_RATIO,
+                StageBeams.CORE_WIDTH_RATIO to 1f,
+            )) {
+                val pts = StageBeams.cone(size.width, t.centrePx, landingHalf, right, ratio)
+                val path = Path().apply {
+                    moveTo(pts[0].x, pts[0].y)
+                    lineTo(pts[1].x, pts[1].y)
+                    lineTo(pts[2].x, pts[2].y)
+                    lineTo(pts[3].x, pts[3].y)
+                    close()
+                }
+                drawPath(
+                    path = path,
+                    brush = Brush.linearGradient(
                         colorStops = arrayOf(
-                            0f to STAGE_BG.copy(alpha = 0f),
-                            1f to STAGE_BG.copy(alpha = StageBeams.MELT_AT_BOTTOM),
+                            0f to beamColor.copy(
+                                alpha = StageBeams.SOURCE_ALPHA * alphaScale,
+                            ),
+                            1f to beamColor.copy(
+                                alpha = StageBeams.PEAK_ALPHA * alphaScale,
+                            ),
                         ),
-                        startY = 0f,
-                        endY = size.height * StageBeams.BOTTOM_Y_FRAC,
+                        start = src,
+                        end = t.centrePx,
                     ),
                 )
             }

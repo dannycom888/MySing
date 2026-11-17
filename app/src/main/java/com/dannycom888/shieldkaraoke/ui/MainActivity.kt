@@ -55,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +67,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -80,6 +82,8 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -199,6 +203,16 @@ class MainActivity : ComponentActivity() {
     private var ceremonyNext by mutableStateOf<QueueEntry?>(null)
     private var ceremonyKeeperKey by mutableStateOf<String?>(null)
     private var ceremonyStartMs by mutableStateOf(0L)
+    // v1.0.60: where the solo dancer's spotlight pool sits, in
+    // root (screen) pixels — the aim point of the two stage
+    // beams. Written by the solo dancer's layout and by the
+    // ceremony keeper's (the two layouts that stand at the
+    // solo placement, both via StageFloor.poolCentreInZoneDp),
+    // read by StageBeamBackdrop at the root. It is never
+    // cleared once set: while the celebration row or the
+    // ceremony's group phases own the stage, the beams keep
+    // aiming at the solo placement's pool.
+    private var soloPoolTarget by mutableStateOf<PoolTarget?>(null)
     private var confirmQuit by mutableStateOf(false)
     /** A TV browse order waiting on its dancer pick (v1.0.51):
      *  the song the host tapped on the browse page. While this
@@ -283,8 +297,12 @@ class MainActivity : ComponentActivity() {
                     // Stage light beams (v1.0.57): the player
                     // stage's bottom layer — composed under even
                     // the bubbles, and only while the stage is up.
+                    // v1.0.60: the beams are follow-spots now —
+                    // both converge on the solo dancer's
+                    // spotlight pool (soloPoolTarget, kept
+                    // current by the solo placement's layout).
                     if (screen == Screen.PLAYER) {
-                        StageBeamBackdrop(Modifier.fillMaxSize())
+                        StageBeamBackdrop(soloPoolTarget, Modifier.fillMaxSize())
                     }
                     // Ambient bubbles behind every screen (v1.0.25):
                     // the first child of the root, so all content —
@@ -1906,6 +1924,12 @@ class MainActivity : ComponentActivity() {
                                 // was ordered (v1.0.52). Later pick
                                 // changes never reach the stage.
                                 val dancer = Dancers.byKey(entry.dancerKey)
+                                // v1.0.60: this zone's laid-out
+                                // position, captured for the beam
+                                // aim point published below.
+                                var soloZoneCoords by remember {
+                                    mutableStateOf<LayoutCoordinates?>(null)
+                                }
                                 // v1.0.25: the zone measures ITSELF —
                                 // the dancer's height is a fraction
                                 // of the stage's real height (it used
@@ -1913,7 +1937,8 @@ class MainActivity : ComponentActivity() {
                                 // height, silently coerced down by
                                 // whatever the stage actually got).
                                 BoxWithConstraints(
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier.fillMaxSize()
+                                        .onGloballyPositioned { soloZoneCoords = it },
                                     contentAlignment = Alignment.BottomCenter,
                                 ) {
                                     // v1.0.32: during the intro invite
@@ -1984,6 +2009,38 @@ class MainActivity : ComponentActivity() {
                                     // edge never reaches a lyric.
                                     val stepOverflowDp =
                                         (SpotlightGeom.dancerWidthDp(dancerH.value) - maxWidth.value) / 2f
+                                    // v1.0.60: publish the pool's
+                                    // centre for the beams — the
+                                    // placement law evaluated on
+                                    // this frame's own numbers
+                                    // (her current height, the
+                                    // yielded reflection depth,
+                                    // the drop, the guard's applied
+                                    // shift), converted to root
+                                    // pixels off the zone's laid-out
+                                    // position. The beams converge
+                                    // on exactly the pool drawn
+                                    // under her feet, step and all.
+                                    val soloDensity = LocalDensity.current.density
+                                    SideEffect {
+                                        val coords = soloZoneCoords
+                                        if (coords != null) {
+                                            val centreDp = StageFloor.poolCentreInZoneDp(
+                                                maxWidth.value, maxHeight.value,
+                                                dancerH.value, soloFloorDepthDp,
+                                                StageFloor.soloDropDp(maxHeight.value),
+                                                stepOverflowDp.coerceAtLeast(0f),
+                                            )
+                                            val origin = coords.localToRoot(Offset.Zero)
+                                            soloPoolTarget = PoolTarget(
+                                                centrePx = Offset(
+                                                    origin.x + centreDp.x * soloDensity,
+                                                    origin.y + centreDp.y * soloDensity,
+                                                ),
+                                                radiusPx = SpotlightGeom.poolRadiusXDp(dancerH.value) * soloDensity,
+                                            )
+                                        }
+                                    }
                                     // v1.0.55: the baby's fall /
                                     // get-up frame chain (see
                                     // BabyFall.chainBlend): while a
@@ -2047,11 +2104,25 @@ class MainActivity : ComponentActivity() {
                                     }
                                     DancerImage(
                                         dancer = dancer,
-                                        modifier = if (stepOverflowDp > 0f) {
-                                            Modifier.offset(x = (-stepOverflowDp).dp)
-                                        } else {
-                                            Modifier
-                                        },
+                                        // v1.0.60: the whole unit —
+                                        // figure, pool, reflection —
+                                        // stands a little lower (the
+                                        // user: "伴舞下移一些"): a pure
+                                        // downward offset of
+                                        // StageFloor.soloDropDp on top
+                                        // of the step's leftward guard.
+                                        // The ceremony keeper takes
+                                        // the identical drop, so the
+                                        // handover still lands on the
+                                        // same placement.
+                                        modifier = Modifier.offset(
+                                            x = if (stepOverflowDp > 0f) {
+                                                (-stepOverflowDp).dp
+                                            } else {
+                                                0.dp
+                                            },
+                                            y = StageFloor.soloDropDp(maxHeight.value).dp,
+                                        ),
                                         pose = when (dancerPhase) {
                                             DancerActivity.Phase.DANCING -> DanceMotion.pose(
                                                 dancer.profile, positionMs, currentBpm,
@@ -2961,6 +3032,11 @@ class MainActivity : ComponentActivity() {
             //     starts, so the handover has no jump. ---
             if (phase == Ceremony.Phase.EXITING || phase == Ceremony.Phase.SOLO_INVITE) {
                 val keeper = Dancers.ALL[Ceremony.keeperIndex(ceremonyKeeperKey)]
+                // v1.0.60: this zone's laid-out position, for
+                // the beam aim point published below.
+                var keeperZoneCoords by remember {
+                    mutableStateOf<LayoutCoordinates?>(null)
+                }
                 // v1.0.25: the keeper's zone now matches the
                 // playback dancer zone EXACTLY (width 0.36 of the
                 // screen, height 0.72/0.80 of the stage's own
@@ -2969,7 +3045,8 @@ class MainActivity : ComponentActivity() {
                 // geometry step after all). Her spotlight pool
                 // stays lit through the solo invite.
                 BoxWithConstraints(
-                    modifier = Modifier.fillMaxHeight().width(screenW * 0.36f),
+                    modifier = Modifier.fillMaxHeight().width(screenW * 0.36f)
+                        .onGloballyPositioned { keeperZoneCoords = it },
                     contentAlignment = Alignment.BottomCenter,
                 ) {
                     // v1.0.50: the keeper invites with the same
@@ -2980,8 +3057,49 @@ class MainActivity : ComponentActivity() {
                     // clock (2 s = exactly out to the bow's peak).
                     val keeperClock = elapsedMs - Ceremony.CLAP_MS -
                         Ceremony.GROUP_INVITE_MS - Ceremony.EXIT_MS
+                    // v1.0.60: the keeper stands at the solo
+                    // placement, so she publishes the beams' aim
+                    // point from her resting numbers — the same
+                    // placement law, the same pool the solo
+                    // dancer will stand in when the song starts.
+                    val keeperDensity = LocalDensity.current.density
+                    SideEffect {
+                        val coords = keeperZoneCoords
+                        if (coords != null) {
+                            val restFigureH = StageFloor.figureHeightDp(
+                                maxHeight.value, if (compact) 0.72f else 0.80f,
+                            )
+                            val centreDp = StageFloor.poolCentreInZoneDp(
+                                maxWidth.value, maxHeight.value,
+                                restFigureH,
+                                StageFloor.soloReflectionDepthDp(
+                                    maxHeight.value, restFigureH,
+                                ),
+                                StageFloor.soloDropDp(maxHeight.value),
+                                0f,
+                            )
+                            val origin = coords.localToRoot(Offset.Zero)
+                            soloPoolTarget = PoolTarget(
+                                centrePx = Offset(
+                                    origin.x + centreDp.x * keeperDensity,
+                                    origin.y + centreDp.y * keeperDensity,
+                                ),
+                                radiusPx = SpotlightGeom.poolRadiusXDp(restFigureH) * keeperDensity,
+                            )
+                        }
+                    }
                     DancerImage(
                         dancer = keeper,
+                        // v1.0.60: the keeper stands at the solo
+                        // dancer's (lowered) placement — the same
+                        // drop from this zone's height, which is
+                        // the playback zone's height over the
+                        // same bottom edge, so the handover into
+                        // the song still lands on exactly the
+                        // same figure.
+                        modifier = Modifier.offset(
+                            y = StageFloor.soloDropDp(maxHeight.value).dp,
+                        ),
                         pose = DanceMotion.NEUTRAL_POSE,
                         // v1.0.59: the same resting geometry as
                         // the playback dancer — the full design

@@ -1,5 +1,6 @@
 package com.dannycom888.shieldkaraoke.ui
 
+import androidx.compose.ui.geometry.Offset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,6 +21,15 @@ import java.io.File
  * stage's bottom edge again with its reflections drawn below
  * the feet. The .57 pins that encoded the taxed figure and
  * the lifted row are replaced by the ones below.
+ *
+ * v1.0.60 amendments: the solo placement drops a fixed 5%
+ * of the zone (the user: "伴舞下移一些") — a translation pin:
+ * the amount, and that exactly the solo dancer and the
+ * ceremony keeper take it, so the handover cannot step. And
+ * the beams become follow-spots: the .57 fan pins are
+ * replaced by convergence pins — both cones land exactly on
+ * the pool centre the placement law computes, in the pool's
+ * own colour, taken from the one shared constant.
  */
 class StageDressingTest {
 
@@ -80,6 +90,45 @@ class StageDressingTest {
     }
 
     @Test
+    fun soloDancerStandsALittleLower() {
+        // v1.0.60: the user sent the restored solo dancer down
+        // a touch ("伴舞下移一些"). The drop is a fixed 5% of
+        // the zone — inside the "a little" she asked for, and
+        // a pure translation: it resizes nothing.
+        assertEquals(0.05f, StageFloor.SOLO_DROP_FRACTION, 0.0001f)
+        assertTrue(StageFloor.SOLO_DROP_FRACTION in 0.04f..0.06f)
+        assertEquals(20f, StageFloor.soloDropDp(400f), 0.01f)
+        assertEquals(0f, StageFloor.soloDropDp(0f), 0.001f)
+        // A twentieth of the zone can never swallow the figure
+        // it translates (her smallest design height is 0.72).
+        assertTrue(
+            StageFloor.soloDropDp(400f) <
+                StageFloor.figureHeightDp(400f, 0.72f),
+        )
+    }
+
+    @Test
+    fun soloDropAppliesToSoloDancerAndKeeperAlike() {
+        // Source pin: the drop is taken at exactly four call
+        // sites — each of the two placements (the playback
+        // dancer's DancerImage, the ceremony keeper's) takes
+        // it twice: once as the visual offset itself, and once
+        // inside its beam-aim evaluation
+        // (StageFloor.poolCentreInZoneDp's drop argument).
+        // All four read it off the placement's own zone height,
+        // and the two zones are the same height over the same
+        // bottom edge, so the keeper dissolves into the
+        // identical lowered placement when the song starts:
+        // no handover step, and the beams aim at the lowered
+        // pool, not the pre-.60 one.
+        val src = mainActivitySource()
+        assertEquals(
+            4,
+            Regex("""StageFloor\.soloDropDp\(""").findAll(src).count(),
+        )
+    }
+
+    @Test
     fun stepForwardKeepsItsPreFloorGrowthRatio() {
         // The figure's own growth across the intro step is once
         // more exactly the design ratio — nothing is skimmed
@@ -117,42 +166,123 @@ class StageDressingTest {
         )
     }
 
-    // ---- StageBeams -------------------------------------------
+    // ---- StageBeams (v1.0.60: follow-spots) ------------------
 
     @Test
-    fun beamsFanOutFromTheTopCornersAndReachTheFloor() {
-        val w = 1600f
-        val h = 900f
-        for (right in listOf(false, true)) {
-            val pts = StageBeams.polygon(w, h, right)
-            assertEquals(4, pts.size)
-            assertTrue("both beams start at the very top", pts[0].y == 0f && pts[1].y == 0f)
-            assertTrue(
-                "the beam reaches the floor band",
-                pts[2].y >= 0.8f * h && pts[3].y == pts[2].y,
-            )
-            val topWidth = kotlin.math.abs(pts[1].x - pts[0].x)
-            val bottomWidth = kotlin.math.abs(pts[2].x - pts[3].x)
-            assertTrue("the beam fans out as it falls", bottomWidth > topWidth)
-            for (p in pts) {
-                assertTrue("inside the stage horizontally", p.x in 0f..w)
-            }
-        }
-        // The left beam slants toward the centre as it falls.
-        val left = StageBeams.polygon(w, h, right = false)
-        assertTrue(left[3].x > left[0].x && left[2].x > left[1].x)
+    fun poolCentreInTheFigureBoxMatchesTheDrawnPool() {
+        // The aim point IS the drawn pool's centre — the same
+        // numbers spotlightPool draws around, restated as a
+        // pure function. Figure 200 tall → box 156 wide, pool
+        // ry = 156 × 1.2 × 0.28 = 52.416, centre =
+        // (78, 200 × 0.98 + 52.416 × 0.35 = 214.3456).
+        assertEquals(0.98f, SpotlightGeom.FEET_BASELINE_FRACTION, 0.0001f)
+        val c = SpotlightGeom.poolCentreInFigureBoxDp(200f)
+        assertEquals(78f, c.x, 0.01f)
+        assertEquals(214.3456f, c.y, 0.01f)
+        // The centre sits BELOW the figure box's bottom edge:
+        // the pool is a floor ellipse under the feet.
+        assertTrue("pool centre below the feet: ${c.y}", c.y > 200f)
+        // The draw site uses the shared fraction, not a
+        // restated literal — one number, two readers.
+        assertTrue(
+            "spotlightPool draws around the shared baseline fraction",
+            spotlightSource().contains("SpotlightGeom.FEET_BASELINE_FRACTION"),
+        )
     }
 
     @Test
-    fun rightBeamMirrorsTheLeft() {
+    fun beamsAimWhereTheSoloPlacementPutsThePool() {
+        // A resting solo placement worked by hand: zone
+        // 360 × 400, figure 320 (0.80 of the zone), yielded
+        // reflection depth 80, the v1.0.60 drop 20, no guard
+        // shift. Wrapper top = 400 − (320 + 80) + 20 = 20;
+        // the pool centre inside the figure box is
+        // (124.8, 342.953), so in the zone it is
+        // (180, 362.953) — the point the beams must hit.
+        val centre = StageFloor.poolCentreInZoneDp(
+            zoneWidthDp = 360f, zoneHeightDp = 400f,
+            figureHeightDp = 320f, depthDp = 80f,
+            dropDp = 20f, overflowDp = 0f,
+        )
+        assertEquals(180f, centre.x, 0.01f)
+        assertEquals(362.953f, centre.y, 0.01f)
+        // The guard's leftward shift moves the aim with the
+        // figure; removing the drop raises it by exactly the
+        // drop — the aim follows the placement, always.
+        val shifted = StageFloor.poolCentreInZoneDp(360f, 400f, 320f, 80f, 20f, 10f)
+        assertEquals(170f, shifted.x, 0.01f)
+        assertEquals(centre.y, shifted.y, 0.01f)
+        val undropped = StageFloor.poolCentreInZoneDp(360f, 400f, 320f, 80f, 0f, 0f)
+        assertEquals(centre.y - 20f, undropped.y, 0.01f)
+        // Source pin: exactly two writers evaluate the law in
+        // MainActivity — the solo dancer's layout and the
+        // ceremony keeper's — and the root feeds their state
+        // to the backdrop.
+        val src = mainActivitySource()
+        assertEquals(
+            2,
+            Regex("""StageFloor\.poolCentreInZoneDp\(""").findAll(src).count(),
+        )
+        assertTrue(
+            "the backdrop is fed the solo pool target",
+            src.contains("StageBeamBackdrop(soloPoolTarget,"),
+        )
+    }
+
+    @Test
+    fun bothBeamsConvergeExactlyOnThePoolCentre() {
+        // Whatever centre they are fed, both cones' landing
+        // segments are centred exactly on it and coincide with
+        // each other — the two follow-spots land on ONE pool.
+        // (The .57 mirror pin is retired with the fans: with
+        // an off-centre pool the cones are not mirrors, they
+        // are two lamps on one target.)
         val w = 1600f
-        val h = 900f
-        val left = StageBeams.polygon(w, h, right = false)
-        val right = StageBeams.polygon(w, h, right = true)
-        for (i in left.indices) {
-            assertEquals(w - left[i].x, right[i].x, 0.01f)
-            assertEquals(left[i].y, right[i].y, 0.01f)
+        val target = Offset(300f, 900f)
+        val half = 100f
+        val left = StageBeams.cone(w, target, half, right = false)
+        val right = StageBeams.cone(w, target, half, right = true)
+        assertEquals(4, left.size)
+        assertEquals(4, right.size)
+        for (cone in listOf(left, right)) {
+            assertEquals(target.x, (cone[2].x + cone[3].x) / 2f, 0.01f)
+            assertEquals(target.y, (cone[2].y + cone[3].y) / 2f, 0.01f)
         }
+        assertEquals(left[2], right[2])
+        assertEquals(left[3], right[3])
+        // Lamps: at the very top, each on its own side.
+        for (cone in listOf(left, right)) {
+            assertTrue(cone[0].y == 0f && cone[1].y == 0f)
+        }
+        assertTrue((left[0].x + left[1].x) / 2f < w / 2f)
+        assertTrue((right[0].x + right[1].x) / 2f > w / 2f)
+        // A follow-spot cone widens from lamp to landing.
+        for (cone in listOf(left, right)) {
+            val lampWidth = kotlin.math.abs(cone[1].x - cone[0].x)
+            val landWidth = kotlin.math.abs(cone[2].x - cone[3].x)
+            assertTrue("cone widens: $lampWidth → $landWidth", landWidth > lampWidth)
+        }
+        // The core pass is the same cone, narrower at both
+        // ends, still centred on the pool.
+        val core = StageBeams.cone(
+            w, target, half, right = false,
+            widthRatio = StageBeams.CORE_WIDTH_RATIO,
+        )
+        assertTrue(StageBeams.CORE_WIDTH_RATIO in 0.3f..0.8f)
+        assertEquals(target.x, (core[2].x + core[3].x) / 2f, 0.01f)
+        assertTrue(
+            kotlin.math.abs(core[2].x - core[3].x) <
+                kotlin.math.abs(left[2].x - left[3].x),
+        )
+    }
+
+    @Test
+    fun beamAndPoolAreTheSameLampColour() {
+        // One colour constant for the pool and the beams that
+        // converge on it — the warm white-gold the pool has
+        // always been (#FFF6D8), never restated per element.
+        assertEquals(0xFFFFF6D8L, SpotlightGeom.POOL_COLOR_ARGB)
+        assertEquals(SpotlightGeom.POOL_COLOR_ARGB, StageBeams.COLOR_ARGB)
     }
 
     @Test
@@ -160,7 +290,14 @@ class StageDressingTest {
         // The legibility ceiling: a beam core brighter than
         // this would start washing the lyrics it sits under.
         assertTrue(StageBeams.PEAK_ALPHA > 0f && StageBeams.PEAK_ALPHA <= 0.20f)
-        assertTrue(StageBeams.MELT_AT_BOTTOM in 0.3f..0.8f)
+        // The cone strengthens toward the pool, never the
+        // other way: faintest at the lamp.
+        assertTrue(
+            StageBeams.SOURCE_ALPHA > 0f &&
+                StageBeams.SOURCE_ALPHA < StageBeams.PEAK_ALPHA,
+        )
+        // The landing disc stays inside the pool's own edge.
+        assertTrue(StageBeams.TARGET_RADIUS_RATIO in 0.5f..1f)
     }
 
     // ---- layer order (source pins) ----------------------------
@@ -224,12 +361,15 @@ class StageDressingTest {
             src.contains("reflectionDepthDp = soloFloorDepthDp.dp"),
         )
         // The solo stage and the ceremony keeper share the one
-        // yielding-depth formula (two call sites in MainActivity:
-        // the playback dancer's, and the keeper's) — that is
-        // what makes the handover land on the identical figure
-        // over the identical reflection.
+        // yielding-depth formula — that is what makes the
+        // handover land on the identical figure over the
+        // identical reflection. Three call sites in
+        // MainActivity: the playback dancer's depth, the
+        // keeper's DancerImage depth, and the keeper's beam-aim
+        // publisher (v1.0.60), which reads the same resting
+        // depth to aim the beams at her pool.
         assertEquals(
-            2,
+            3,
             Regex("""StageFloor\.soloReflectionDepthDp\(""").findAll(src).count(),
         )
         assertTrue(
@@ -257,6 +397,16 @@ class StageDressingTest {
             "no floor depth grows inside the row any more",
             !rowBody.contains("floorDepth"),
         )
+    }
+
+    private fun spotlightSource(): String {
+        val candidates = listOf(
+            File("src/main/java/com/dannycom888/shieldkaraoke/ui/Spotlight.kt"),
+            File("app/src/main/java/com/dannycom888/shieldkaraoke/ui/Spotlight.kt"),
+        )
+        val file = candidates.firstOrNull { it.isFile }
+            ?: throw AssertionError("Spotlight.kt not found; tried ${candidates.map { it.absolutePath }}")
+        return file.readText()
     }
 
     private fun stageDressingSource(): String {

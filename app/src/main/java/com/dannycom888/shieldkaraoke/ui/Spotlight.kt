@@ -162,11 +162,53 @@ object SpotlightGeom {
 
     /** Full pool height (the flattened ellipse's vertical span). */
     fun poolHeightDp(dancerHeightDp: Float): Float = poolWidthDp(dancerHeightDp) * FLATTEN
+
+    /** The pool's warm white-gold, as a raw ARGB value
+     *  (v1.0.60): the ONE colour the pool and the stage beams
+     *  share — the beams converge on the pool, and the user
+     *  ruled beam and pool must read as the same lamp, so both
+     *  take the colour from here and nowhere else. */
+    const val POOL_COLOR_ARGB = 0xFFFFF6D8L
+
+    /** Where the feet sit inside the figure box, as a fraction
+     *  of its height: the cutout baseline is ~2% above the
+     *  canvas's bottom edge, and the pool's centre rides a
+     *  little below that line (see [poolCentreInFigureBoxDp]).
+     *  Named in v1.0.60 so the drawn pool and the beams' aim
+     *  point share the one number. */
+    const val FEET_BASELINE_FRACTION = 0.98f
+
+    /**
+     * The pool's centre inside the figure box of a dancer
+     * [figureHeightDp] tall, in dp from the box's top-left —
+     * the exact point [spotlightPool] draws around (its cx /
+     * cy, restated as a pure function). v1.0.60: the stage
+     * beams converge on this point, so it is computed once,
+     * here, and both the pool's own draw and the beams' target
+     * derive from it — the aim cannot drift from the light.
+     * Note the centre sits BELOW the box's bottom edge (the
+     * feet baseline plus the centre drop): the pool is a floor
+     * ellipse, drawn unclipped behind the figure.
+     */
+    fun poolCentreInFigureBoxDp(figureHeightDp: Float): Offset {
+        val w = dancerWidthDp(figureHeightDp)
+        val ry = w * RADIUS_PER_DANCER_WIDTH * FLATTEN
+        return Offset(
+            w / 2f,
+            figureHeightDp * FEET_BASELINE_FRACTION + ry * CENTRE_DROP_PER_RY,
+        )
+    }
+
+    /** The pool's horizontal radius for a dancer
+     *  [figureHeightDp] tall, in dp — the radius the beams'
+     *  landing disc is sized against. */
+    fun poolRadiusXDp(figureHeightDp: Float): Float =
+        dancerWidthDp(figureHeightDp) * RADIUS_PER_DANCER_WIDTH
 }
 
-private val POOL_CENTRE = Color(0xFFFFF6D8)
-private val POOL_MID = Color(0xFFFFF6D8)
-private val POOL_EDGE = Color(0xFFFFF6D8).copy(alpha = 0f)
+private val POOL_CENTRE = Color(SpotlightGeom.POOL_COLOR_ARGB)
+private val POOL_MID = Color(SpotlightGeom.POOL_COLOR_ARGB)
+private val POOL_EDGE = Color(SpotlightGeom.POOL_COLOR_ARGB).copy(alpha = 0f)
 
 /**
  * Draws the spotlight pool behind the content of the node this is
@@ -187,8 +229,13 @@ fun Modifier.spotlightPool(alphaScale: Float = 1f): Modifier = drawBehind {
     val cx = size.width / 2f
     // Feet stand ~2% above the frame canvas's bottom edge (the
     // cutout baseline); the pool centre sits a little below that
-    // line so the brightest light pools around the feet.
-    val cy = size.height * 0.98f + ry * SpotlightGeom.CENTRE_DROP_PER_RY
+    // line so the brightest light pools around the feet. The
+    // fraction is SpotlightGeom.FEET_BASELINE_FRACTION — the
+    // same number the beams' aim point is computed from
+    // (SpotlightGeom.poolCentreInFigureBoxDp), so the drawn
+    // centre and the aimed-at centre are one point.
+    val cy = size.height * SpotlightGeom.FEET_BASELINE_FRACTION +
+        ry * SpotlightGeom.CENTRE_DROP_PER_RY
     val a = SpotlightGeom.CENTRE_ALPHA * alphaScale.coerceIn(0f, 1f)
     withTransform({ scale(1f, ry / rx, Offset(cx, cy)) }) {
         drawCircle(

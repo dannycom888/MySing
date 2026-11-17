@@ -53,9 +53,9 @@ object FillerPolicy {
  * all [EntrySource.ORDERED] — is there to be SUNG, so it starts
  * with accompaniment (vocal cancellation) ON. A filler song is
  * background listening nobody sings to, so it keeps the
- * original vocal. Same per-song reset discipline as pitch:
- * the default is applied fresh at every song start, and a
- * manual toggle afterwards rules for that song only. On the
+ * original vocal. The default is applied fresh at every song
+ * start, and a manual toggle afterwards rules for that song
+ * only. On the
  * bare plain-retry build the default is still recorded — the
  * processor simply is not in that chain, and the degradation
  * note reports it truthfully as before.

@@ -251,4 +251,86 @@ class PlayQueueTest {
         assertEquals("小刚", jumped?.orderedBy)
         assertEquals("下一首：小红点的 凤凰传奇 - 最炫民族风", q.nextUpText())
     }
+
+    // --- v1.0.56: re-pick a waiting song's dancer （开唱之前都可以换） ---
+
+    @Test
+    fun `waiting song's dancer can be changed by its orderer and playback reads the new value`() {
+        // The loosened rule end to end at the queue layer: 小明
+        // orders with the sumo, changes his mind while the song
+        // waits, and when the song takes the stage it is the NEW
+        // pick that every reader (stage, ceremony keeper) sees.
+        val q = PlayQueue()
+        q.add(song("1"), "小红", "modern")
+        q.add(song("2"), "小明", "sumo")
+        val result = q.changeWaitingDancer(0, "2", "小明", "robot")
+        assertEquals(DancerChangeResult.CHANGED, result)
+        assertEquals("robot", q.waitingList.first().dancerKey)
+        q.finishCurrent()
+        assertEquals("2", q.current?.song?.id)
+        assertEquals("robot", q.current?.dancerKey)
+    }
+
+    @Test
+    fun `dancer change is refused once the song has started`() {
+        // finishCurrent() is the ceremony-lock moment too: the
+        // entry leaves the waiting list and becomes current (the
+        // Activity locks it as the ceremony's next song before
+        // startSong runs). From that instant its dancer is frozen.
+        val q = PlayQueue()
+        q.add(song("1"), "小红", "modern")
+        q.add(song("2"), "小明", "sumo")
+        q.finishCurrent()
+        val result = q.changeWaitingDancer(0, "2", "小明", "robot")
+        assertEquals(DancerChangeResult.LOCKED, result)
+        assertEquals("sumo", q.current?.dancerKey)
+    }
+
+    @Test
+    fun `cannot change the dancer of someone else's song`() {
+        val q = PlayQueue()
+        q.add(song("1"), "小红", "modern")
+        q.add(song("2"), "小红", "sumo")
+        val result = q.changeWaitingDancer(0, "2", "小明", "robot")
+        assertEquals(DancerChangeResult.NOT_YOURS, result)
+        assertEquals("sumo", q.waitingList.first().dancerKey)
+    }
+
+    @Test
+    fun `dancer change for a song no longer queued is not found`() {
+        val q = PlayQueue()
+        q.add(song("1"), "小明", "modern")
+        q.add(song("2"), "小明", "sumo")
+        q.removeWaitingAt(0) // song "2" was deleted meanwhile
+        val result = q.changeWaitingDancer(0, "2", "小明", "robot")
+        assertEquals(DancerChangeResult.NOT_FOUND, result)
+    }
+
+    @Test
+    fun `a shifted queue does not lose the change - the index is only a hint`() {
+        // Race: the phone rendered the row at index 1, then the
+        // song ahead of it was deleted, so the row now sits at 0.
+        // The (song id, orderer) identity still finds the entry.
+        val q = PlayQueue()
+        q.add(song("1"), "小红", "modern")
+        q.add(song("2"), "小红", "modern")
+        q.add(song("3"), "小明", "sumo")
+        q.removeWaitingAt(0) // "2" goes away; "3" shifts 1 -> 0
+        val result = q.changeWaitingDancer(1, "3", "小明", "baby")
+        assertEquals(DancerChangeResult.CHANGED, result)
+        assertEquals("baby", q.waitingList.first().dancerKey)
+    }
+
+    @Test
+    fun `with duplicate orders the addressed row is the one that changes`() {
+        // Same song ordered twice by the same person: the index
+        // disambiguates which of the two entries is re-picked.
+        val q = PlayQueue()
+        q.add(song("1"), "小红", "modern")
+        q.add(song("2"), "小明", "sumo")
+        q.add(song("2"), "小明", "ancient")
+        val result = q.changeWaitingDancer(1, "2", "小明", "robot")
+        assertEquals(DancerChangeResult.CHANGED, result)
+        assertEquals(listOf("sumo", "robot"), q.waitingList.map { it.dancerKey })
+    }
 }

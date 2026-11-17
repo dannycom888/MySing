@@ -234,7 +234,10 @@ class KaraokeHttpServer(
             val (status, contentType, response) = route(method, path, query, body)
             val out = sock.getOutputStream()
             val bytes = response.toByteArray(Charsets.UTF_8)
-            val statusText = when (status) { 200 -> "OK"; 400 -> "Bad Request"; 404 -> "Not Found"; else -> "Error" }
+            val statusText = when (status) {
+                200 -> "OK"; 400 -> "Bad Request"; 403 -> "Forbidden"
+                404 -> "Not Found"; 409 -> "Conflict"; else -> "Error"
+            }
             // The ordering page must never come from a phone's HTTP
             // cache: a cached copy is exactly the stale page this
             // release defends against (old boot id, old script).
@@ -305,11 +308,21 @@ class KaraokeHttpServer(
                 val cur = state.queue.current
                 obj.put("current", if (cur == null) JSONObject.NULL else JSONObject().apply {
                     put("artist", cur.song.artist); put("title", cur.song.title); put("by", cur.orderedBy)
+                    // v1.0.56: every listed song shows its bound
+                    // dancer （伴舞：×× on the page). The entry's
+                    // key rides resolved — a null snapshot reads as
+                    // the default dancer, exactly like the stage.
+                    put("dancer", cur.dancerKey ?: com.dannycom888.shieldkaraoke.state.DancerKeys.DEFAULT)
                 })
                 val arr = JSONArray()
                 state.queue.waitingList.forEach { e ->
                     arr.put(JSONObject().apply {
                         put("artist", e.song.artist); put("title", e.song.title); put("by", e.orderedBy)
+                        // v1.0.56: the id addresses the entry when
+                        // its orderer re-picks its dancer (the bare
+                        // index shifts as the queue moves).
+                        put("id", e.song.id)
+                        put("dancer", e.dancerKey ?: com.dannycom888.shieldkaraoke.state.DancerKeys.DEFAULT)
                     })
                 }
                 obj.put("waiting", arr)
@@ -367,6 +380,44 @@ class KaraokeHttpServer(
                 val json = try { JSONObject(body) } catch (e: Exception) { JSONObject() }
                 state.removeWaitingAt(json.optInt("index", -1))
                 Triple(200, "application/json; charset=utf-8", JSONObject().put("ok", true).toString())
+            }
+
+            // Re-pick the dancer of a song that is still waiting
+            // (v1.0.56, the user's loosened rule: 开唱之前都可以换）.
+            // Only the entry's own orderer may, and only inside the
+            // waiting window — PlayQueue.changeWaitingDancer owns
+            // the validation and reports which wall the request hit;
+            // each outcome gets its own readable reply in the
+            // phone's language, like the order replies.
+            method == "POST" && path == "/api/queue-dancer" -> {
+                val json = try { JSONObject(body) } catch (e: Exception) { JSONObject() }
+                val name = json.optString("name").trim()
+                val who = json.optString("who")
+                val ui = UiLang.parse(json.optString("lang"))
+                if (name.isBlank() || !com.dannycom888.shieldkaraoke.state.DancerKeys.isValid(who)) {
+                    Triple(400, "application/json; charset=utf-8",
+                        JSONObject().put("error", ServerStrings.get(ui, ServerKey.DANCER_INVALID)).toString())
+                } else {
+                    val result = state.changeWaitingDancer(
+                        json.optInt("index", -1), json.optString("id"), name, who,
+                    )
+                    when (result) {
+                        com.dannycom888.shieldkaraoke.queue.DancerChangeResult.CHANGED ->
+                            Triple(200, "application/json; charset=utf-8", JSONObject().apply {
+                                put("ok", true); put("who", who)
+                                put("message", ServerStrings.get(ui, ServerKey.QUEUE_DANCER_CHANGED))
+                            }.toString())
+                        com.dannycom888.shieldkaraoke.queue.DancerChangeResult.NOT_YOURS ->
+                            Triple(403, "application/json; charset=utf-8",
+                                JSONObject().put("error", ServerStrings.get(ui, ServerKey.QUEUE_DANCER_NOT_YOURS)).toString())
+                        com.dannycom888.shieldkaraoke.queue.DancerChangeResult.LOCKED ->
+                            Triple(409, "application/json; charset=utf-8",
+                                JSONObject().put("error", ServerStrings.get(ui, ServerKey.QUEUE_DANCER_LOCKED)).toString())
+                        com.dannycom888.shieldkaraoke.queue.DancerChangeResult.NOT_FOUND ->
+                            Triple(404, "application/json; charset=utf-8",
+                                JSONObject().put("error", ServerStrings.get(ui, ServerKey.QUEUE_DANCER_GONE)).toString())
+                    }
+                }
             }
 
             // Per-orderer dancer pick. Since v1.0.52 this only

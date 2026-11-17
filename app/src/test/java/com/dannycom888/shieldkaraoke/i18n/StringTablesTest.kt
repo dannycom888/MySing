@@ -43,8 +43,10 @@ class StringTablesTest {
     fun tvTemplatesRender() {
         assertEquals("歌库共 1092 首", TvStrings.get(UiLang.ZH, TvKey.LIBRARY_COUNT, 1092))
         assertEquals("1092 songs in the library", TvStrings.get(UiLang.EN, TvKey.LIBRARY_COUNT, 1092))
-        assertEquals("调 -2", TvStrings.get(UiLang.ZH, TvKey.PITCH_LABEL, -2))
-        assertEquals("Key -2", TvStrings.get(UiLang.EN, TvKey.PITCH_LABEL, -2))
+        // (The PITCH_LABEL spot checks were deleted in v1.0.56
+        // with the pitch keys themselves — pitch shift was removed
+        // at the user's word; the parity tests above prove both
+        // tables dropped the keys together.)
         assertEquals("5 秒后开始", TvStrings.get(UiLang.ZH, TvKey.INTERLUDE_COUNTDOWN, 5))
         assertEquals("Starting in 5 s", TvStrings.get(UiLang.EN, TvKey.INTERLUDE_COUNTDOWN, 5))
         // Song names are data: they pass through the %s slot as-is.

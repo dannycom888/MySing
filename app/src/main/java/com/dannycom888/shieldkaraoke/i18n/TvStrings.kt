@@ -15,7 +15,7 @@ enum class TvKey {
     // Player
     NEXT_UP, INTERLUDE_COUNTDOWN, NOW_SINGING_LINE,
     PAUSE, RESUME, REPLAY, ACCOMP_ON, ACCOMP_OFF,
-    PITCH_DOWN, PITCH_LABEL, PITCH_UP, DANCERS_ON, DANCERS_OFF,
+    DANCERS_ON, DANCERS_OFF,
     QUIT, GO_ORDER, QUIT_TITLE, QUIT_TEXT, QUIT_CONFIRM, QUIT_CANCEL,
     PLAY_ERROR, CORNER_QR_CAPTION, CORNER_QR_DESC,
     // The corner card's no-network placeholder (v1.0.42).
@@ -103,9 +103,6 @@ object TvStrings {
         TvKey.REPLAY to "↺ 重唱",
         TvKey.ACCOMP_ON to "🎙 伴奏中",
         TvKey.ACCOMP_OFF to "🎤 原唱",
-        TvKey.PITCH_DOWN to "降调 −",
-        TvKey.PITCH_LABEL to "调 %d",
-        TvKey.PITCH_UP to "升调 ＋",
         TvKey.DANCERS_ON to "💃 伴舞开",
         TvKey.DANCERS_OFF to "💃 伴舞关",
         TvKey.QUIT to "🚪 不唱了",
@@ -197,9 +194,6 @@ object TvStrings {
         TvKey.REPLAY to "↺ Replay",
         TvKey.ACCOMP_ON to "🎙 Backing on",
         TvKey.ACCOMP_OFF to "🎤 Original",
-        TvKey.PITCH_DOWN to "Key −",
-        TvKey.PITCH_LABEL to "Key %d",
-        TvKey.PITCH_UP to "Key ＋",
         TvKey.DANCERS_ON to "💃 Dancers on",
         TvKey.DANCERS_OFF to "💃 Dancers off",
         TvKey.QUIT to "🚪 End song",

@@ -209,16 +209,37 @@ class PhonePageTest {
     }
 
     @Test
-    fun dancerHintSaysThePickIsLockedToTheSong() {
-        // v1.0.52: the old hint promised a mid-song swap ("点一下
-        // 电视上立刻换" / "the TV updates right away") — that
-        // behaviour is gone, and so is the copy. The new hint says
-        // the pick binds to the song at order time, in both
-        // languages (static HTML and the language dictionary).
-        assertTrue(html.contains("点歌时选的伴舞就配这首歌，定了就不变"))
-        assertTrue(html.contains("locked to the song when you order it"))
+    fun dancerHintSaysWaitingSongsCanStillChangeDancer() {
+        // v1.0.56 loosens the v1.0.52 copy: the pick still binds
+        // to the song at order time, but a song that is still
+        // waiting can be re-picked from the queue — the hint says
+        // exactly that, in both languages, and the old "定了就不变"
+        // wording is gone.
+        assertTrue(html.contains("点歌时选的伴舞就配这首歌；开唱之前，点你排队里的歌可以换一位"))
+        assertTrue(html.contains("before it starts, tap your song in the queue to change it"))
+        assertFalse(html.contains("定了就不变"))
         assertFalse(html.contains("立刻换"))
         assertFalse(html.contains("updates right away"))
+    }
+
+    @Test
+    fun queueRowsShowTheirBoundDancerAndMineOpenTheChangePicker() {
+        // v1.0.56: every queue row is tagged （伴舞：××） from the
+        // entry's dancer in /api/queue; tapping one of MY waiting
+        // rows opens the change picker (its own cards, data-pick —
+        // not the order picker's data-who), and the pick posts to
+        // /api/queue-dancer addressed by row index + song id.
+        assertTrue(html.contains("rowDancer: '（伴舞：{dancer}）'"))
+        assertTrue(html.contains("rowDancer: '(Dancer: {dancer})'"))
+        assertTrue(html.contains("fmt(t('rowDancer'), {dancer: dancerName(e.dancer || 'modern')}"))
+        assertTrue(html.contains("id=\"dpick\""))
+        assertTrue(html.contains("data-pick=\"modern\""))
+        assertTrue(html.contains("data-pick=\"robot\""))
+        assertTrue(html.contains("openDancerPicker(idx, entry)"))
+        assertTrue(html.contains("fetch('/api/queue-dancer'"))
+        assertTrue(html.contains("index:target.index, id:target.id, who:who, lang:ui"))
+        // The delete button must not also open the picker.
+        assertTrue(html.contains("ev.stopPropagation()"))
     }
 
     @Test

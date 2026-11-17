@@ -327,6 +327,85 @@ class KaraokeHttpServerSocketTest {
     }
 
     @Test
+    fun waitingDancerCanBeChangedFromThePhoneUntilItStarts() {
+        // v1.0.56, the loosened rule over a real socket with real
+        // Chinese names: 开唱之前都可以换，开唱后锁定.
+        //  - /api/queue lists every entry's bound dancer;
+        //  - the orderer re-picks their waiting song's dancer and
+        //    the entry (and only it) follows;
+        //  - another name is refused with its own readable reason;
+        //  - once the song advances to current (the ceremony-lock
+        //    moment) the same request is refused as started.
+        assertEquals(200, postOrder(chineseSong.id, "小明").status)
+        val ordered = postJson(
+            "/api/order",
+            """{"id":"${englishSong.id}","name":"小明","who":"sumo"}""",
+        )
+        assertEquals(200, ordered.status)
+        assertEquals("sumo", state.queue.waitingList.first().dancerKey)
+
+        // The queue payload carries the binding for the page's
+        // （伴舞：××） tag, plus the song id that addresses the row.
+        val queueResponse = rawGet("/api/queue")
+        assertEquals(200, queueResponse.status)
+        val queueJson = org.json.JSONObject(String(queueResponse.bodyBytes, Charsets.UTF_8))
+        val waiting0 = queueJson.getJSONArray("waiting").getJSONObject(0)
+        assertEquals(englishSong.id, waiting0.getString("id"))
+        assertEquals("sumo", waiting0.getString("dancer"))
+        assertTrue(queueJson.getJSONObject("current").has("dancer"))
+
+        // The orderer changes it while it waits.
+        val changed = postJson(
+            "/api/queue-dancer",
+            """{"name":"小明","index":0,"id":"${englishSong.id}","who":"robot","lang":"zh"}""",
+        )
+        assertEquals(200, changed.status)
+        assertEquals("伴舞换好了", org.json.JSONObject(changed.body).getString("message"))
+        assertEquals("robot", state.queue.waitingList.first().dancerKey)
+
+        // Somebody else's name is refused, in their language, and
+        // the entry does not move.
+        val notYours = postJson(
+            "/api/queue-dancer",
+            """{"name":"William","index":0,"id":"${englishSong.id}","who":"baby","lang":"en"}""",
+        )
+        assertEquals(403, notYours.status)
+        assertEquals(
+            "You can only change the dancer on your own songs",
+            org.json.JSONObject(notYours.body).getString("error"),
+        )
+        assertEquals("robot", state.queue.waitingList.first().dancerKey)
+
+        // An unusable dancer key is a plain 400, like /api/dancer.
+        val invalid = postJson(
+            "/api/queue-dancer",
+            """{"name":"小明","index":0,"id":"${englishSong.id}","who":"nobody"}""",
+        )
+        assertEquals(400, invalid.status)
+
+        // The song starts (advance == the ceremony locks it as
+        // current): from here its dancer is frozen at the value
+        // the change left behind.
+        state.advanceAfterFinish()
+        assertEquals(englishSong.id, state.queue.current?.song?.id)
+        val locked = postJson(
+            "/api/queue-dancer",
+            """{"name":"小明","index":0,"id":"${englishSong.id}","who":"baby","lang":"zh"}""",
+        )
+        assertEquals(409, locked.status)
+        assertEquals("已经开唱，不能换了", org.json.JSONObject(locked.body).getString("error"))
+        assertEquals("robot", state.queue.current?.dancerKey)
+
+        // And a song that is nowhere any more reads as gone.
+        val gone = postJson(
+            "/api/queue-dancer",
+            """{"name":"小明","index":3,"id":"NOPE|missing","who":"baby","lang":"zh"}""",
+        )
+        assertEquals(404, gone.status)
+        assertEquals("这首歌已经不在队列里了", org.json.JSONObject(gone.body).getString("error"))
+    }
+
+    @Test
     fun garbageRequestDoesNotKillServer() {
         rawExchange { out ->
             out.write("GARBAGE\r\n\r\n".toByteArray(Charsets.US_ASCII)); out.flush()
@@ -436,6 +515,26 @@ class KaraokeHttpServerSocketTest {
             ) return i
         }
         return bytes.size
+    }
+
+    /** POST an arbitrary JSON body to [path] on the shared test
+     *  server (the queue-dancer flow needs bodies postOrder's
+     *  fixed order shape cannot express). */
+    private fun postJson(path: String, json: String): Response {
+        val body = json.toByteArray(Charsets.UTF_8)
+        val head = (
+            "POST $path HTTP/1.1\r\n" +
+                "Host: ::1:$port\r\n" +
+                "Content-Type: application/json; charset=utf-8\r\n" +
+                "Content-Length: ${body.size}\r\n" +
+                "Connection: close\r\n" +
+                "\r\n"
+            ).toByteArray(Charsets.US_ASCII)
+        return rawExchange { out ->
+            out.write(head)
+            out.write(body)
+            out.flush()
+        }
     }
 
     private fun orderJson(id: String, name: String, lang: String? = null): String =

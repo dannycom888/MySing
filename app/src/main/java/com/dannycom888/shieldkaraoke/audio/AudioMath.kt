@@ -5,9 +5,8 @@ import kotlin.math.pow
 /** Pure audio math shared by playback features, kept testable. */
 object AudioMath {
 
-    /** Pitch factor for a semitone shift: +12 doubles, -12 halves. */
-    fun semitoneFactor(semitones: Int): Float =
-        2.0.pow(semitones.coerceIn(-12, 12) / 12.0).toFloat()
+    // (semitoneFactor lived here until v1.0.55; pitch shift was
+    // removed end to end in v1.0.56 at the user's word.)
 
     const val TARGET_RMS_DBFS = -16.0
     const val MAX_GAIN_DB = 10.0

@@ -5,14 +5,8 @@ import org.junit.Test
 
 class AudioMathTest {
 
-    @Test
-    fun `semitone factors`() {
-        assertEquals(1.0f, AudioMath.semitoneFactor(0), 0.001f)
-        assertEquals(2.0f, AudioMath.semitoneFactor(12), 0.001f)
-        assertEquals(0.5f, AudioMath.semitoneFactor(-12), 0.001f)
-        // out-of-range shifts clamp to one octave
-        assertEquals(2.0f, AudioMath.semitoneFactor(24), 0.001f)
-    }
+    // (The `semitone factors` test was deleted in v1.0.56 with the
+    // pitch-shift feature itself, removed at the user's word.)
 
     @Test
     fun `gain pulls quiet and loud songs toward target`() {

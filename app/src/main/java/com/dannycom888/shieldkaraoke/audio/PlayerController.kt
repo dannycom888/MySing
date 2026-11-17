@@ -8,7 +8,6 @@ import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
-import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -17,9 +16,11 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 
 /**
  * Owns the ExoPlayer and every remote-controlled playback feature:
- * pause/resume, replay, 原唱/伴奏 (vocal cancel), 升降调 (pitch),
+ * pause/resume, replay, 原唱/伴奏 (vocal cancel),
  * and per-song loudness normalisation via LoudnessEnhancer.
- * Pitch resets to 原调 on every new song (KTV convention).
+ * (Pitch shift lived here until v1.0.55; the user found it useless
+ * in practice and v1.0.56 removes it end to end — controls, state
+ * and application alike.)
  *
  * v1.0.3 self-healing: if playback errors out (the custom AudioSink /
  * vocal-processor chain is the prime suspect), the player is rebuilt
@@ -101,9 +102,6 @@ class PlayerController(private val context: Context) {
     private var loudnessEnhancer: LoudnessEnhancer? = null
 
     var onEnded: (() -> Unit)? = null
-
-    var semitones: Int = 0
-        private set
 
     /** Last playback error (code name + first message line) this
      *  song; null when none. Whether it is currently displayed is
@@ -204,8 +202,6 @@ class PlayerController(private val context: Context) {
         originalUri = uri
         accompanimentFileUri = accompanimentUri
         currentGainDb = gainDb
-        semitones = 0
-        player.playbackParameters = PlaybackParameters(1f, 1f)
         // Per-song accompaniment default (v1.0.44): the caller
         // derives it from the entry's source via
         // AccompanimentPolicy — ordered songs start with
@@ -256,7 +252,6 @@ class PlayerController(private val context: Context) {
         player.setMediaItem(MediaItem.fromUri(uri))
         player.prepare()
         if (resumeAt > 0) player.seekTo(resumeAt)
-        player.playbackParameters = PlaybackParameters(1f, AudioMath.semitoneFactor(semitones))
         applyGain(currentGainDb)
         player.play()
     }
@@ -340,7 +335,7 @@ class PlayerController(private val context: Context) {
     }
 
     /** Replace the playing file with the song's other file at the
-     *  current position — same LRC, same progress, same pitch;
+     *  current position — same LRC, same progress;
      *  only the audio under the singing changes. The position is
      *  clamped to the new file's duration when it is already
      *  known (the two files are sample-exact by construction,
@@ -361,7 +356,6 @@ class PlayerController(private val context: Context) {
         player.seekTo(
             if (duration > 0) minOf(position, duration) else position.coerceAtLeast(0L)
         )
-        player.playbackParameters = PlaybackParameters(1f, AudioMath.semitoneFactor(semitones))
         applyGain(currentGainDb)
         player.playWhenReady = wasPlayWhenReady
     }
@@ -374,11 +368,6 @@ class PlayerController(private val context: Context) {
     val isAccompaniment: Boolean
         get() = usingAccompanimentFile ||
             (fallback.path == FallbackStateMachine.Path.CUSTOM && vocalProcessor.enabled)
-
-    fun shiftPitch(deltaSemitones: Int) {
-        semitones = (semitones + deltaSemitones).coerceIn(-12, 12)
-        player.playbackParameters = PlaybackParameters(1f, AudioMath.semitoneFactor(semitones))
-    }
 
     fun stop() {
         player.stop()

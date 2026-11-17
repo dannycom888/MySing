@@ -2,6 +2,7 @@ package com.dannycom888.shieldkaraoke.state
 
 import com.dannycom888.shieldkaraoke.library.Category
 import com.dannycom888.shieldkaraoke.library.Song
+import com.dannycom888.shieldkaraoke.queue.DancerChangeResult
 import com.dannycom888.shieldkaraoke.queue.EntrySource
 import com.dannycom888.shieldkaraoke.queue.QueueEntry
 import org.junit.Assert.assertEquals
@@ -52,6 +53,32 @@ class KaraokeStateTest {
         state.advanceAfterFinish()
         assertEquals("2", state.queue.current?.song?.id)
         assertEquals("baby", state.queue.current?.dancerKey)
+    }
+
+    @Test
+    fun `waiting dancer change flows through the state and freezes at start`() {
+        // v1.0.56: the phone's re-pick lands on the waiting entry
+        // (and bumps the state version so the TV re-reads it);
+        // once the song advances to current — the ceremony-lock
+        // moment included — the same request is refused as LOCKED
+        // and the value that started is the value that stays.
+        val state = KaraokeState()
+        state.order(song("1"), "小红", "modern")
+        state.order(song("2"), "小明", "sumo")
+        val versionBefore = state.version
+
+        val changed = state.changeWaitingDancer(0, "2", "小明", "robot")
+        assertEquals(DancerChangeResult.CHANGED, changed)
+        assertEquals("robot", state.queue.waitingList.first().dancerKey)
+        assertTrue(state.version > versionBefore)
+
+        state.advanceAfterFinish()
+        assertEquals("2", state.queue.current?.song?.id)
+        assertEquals("robot", state.queue.current?.dancerKey)
+
+        val locked = state.changeWaitingDancer(0, "2", "小明", "baby")
+        assertEquals(DancerChangeResult.LOCKED, locked)
+        assertEquals("robot", state.queue.current?.dancerKey)
     }
 
     @Test

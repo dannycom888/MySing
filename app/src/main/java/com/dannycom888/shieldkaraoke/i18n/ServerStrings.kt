@@ -9,6 +9,11 @@ enum class ServerKey {
     ORDER_START_NOW,
     ORDER_QUEUED,
     DANCER_INVALID,
+    // Re-picking a waiting song's dancer from the phone (v1.0.56).
+    QUEUE_DANCER_CHANGED,
+    QUEUE_DANCER_NOT_YOURS,
+    QUEUE_DANCER_LOCKED,
+    QUEUE_DANCER_GONE,
 }
 
 /**
@@ -25,6 +30,10 @@ object ServerStrings {
         ServerKey.ORDER_START_NOW to "马上开唱！",
         ServerKey.ORDER_QUEUED to "已加入，前面还有 %d 首",
         ServerKey.DANCER_INVALID to "名字或伴舞选择不对",
+        ServerKey.QUEUE_DANCER_CHANGED to "伴舞换好了",
+        ServerKey.QUEUE_DANCER_NOT_YOURS to "只能换自己点的歌的伴舞",
+        ServerKey.QUEUE_DANCER_LOCKED to "已经开唱，不能换了",
+        ServerKey.QUEUE_DANCER_GONE to "这首歌已经不在队列里了",
     )
 
     private val EN: Map<ServerKey, String> = mapOf(
@@ -33,6 +42,10 @@ object ServerStrings {
         ServerKey.ORDER_START_NOW to "You're up — singing now!",
         ServerKey.ORDER_QUEUED to "Added — %d song(s) ahead of you",
         ServerKey.DANCER_INVALID to "Invalid name or dancer choice",
+        ServerKey.QUEUE_DANCER_CHANGED to "Dancer changed",
+        ServerKey.QUEUE_DANCER_NOT_YOURS to "You can only change the dancer on your own songs",
+        ServerKey.QUEUE_DANCER_LOCKED to "That song has already started — its dancer is locked",
+        ServerKey.QUEUE_DANCER_GONE to "That song is no longer in the queue",
     )
 
     /** Key set of each language's table, for the parity test. */

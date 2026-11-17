@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import com.dannycom888.shieldkaraoke.library.Catalog
 import com.dannycom888.shieldkaraoke.library.Song
 import com.dannycom888.shieldkaraoke.queue.AddResult
+import com.dannycom888.shieldkaraoke.queue.DancerChangeResult
 import com.dannycom888.shieldkaraoke.queue.PlayQueue
 import com.dannycom888.shieldkaraoke.queue.QueueEntry
 
@@ -42,8 +43,9 @@ class KaraokeState {
 
     /** Order a song (TV tap or phone). Never interrupts the current
      *  song. [dancerKey] is the orderer's pick at this moment; it is
-     *  snapshotted into the queue entry (v1.0.52) and never changes
-     *  for that entry again. */
+     *  snapshotted into the queue entry (v1.0.52). Since v1.0.56 the
+     *  snapshot may still be re-picked while the entry waits — see
+     *  [changeWaitingDancer] — and freezes when the song starts. */
     @Synchronized
     fun order(song: Song, orderedBy: String, dancerKey: String? = null): AddResult {
         val wasIdle = queue.current == null
@@ -61,6 +63,26 @@ class KaraokeState {
         queue.removeWaitingAt(index)
         bump()
         onQueueChanged?.invoke()
+    }
+
+    /** Phone page (v1.0.56): re-pick the dancer of a song that is
+     *  still waiting. The queue validates ownership and the
+     *  waiting window; only an actual change bumps the version,
+     *  so the TV's reads of the entry (next-up banner, ceremony
+     *  keeper) follow the newest value from here on. */
+    @Synchronized
+    fun changeWaitingDancer(
+        index: Int,
+        songId: String,
+        orderedBy: String,
+        dancerKey: String,
+    ): DancerChangeResult {
+        val result = queue.changeWaitingDancer(index, songId, orderedBy, dancerKey)
+        if (result == DancerChangeResult.CHANGED) {
+            bump()
+            onQueueChanged?.invoke()
+        }
+        return result
     }
 
     /** TV queue panel's "下一首唱" (v1.0.19): promote a waiting song

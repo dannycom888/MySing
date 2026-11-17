@@ -22,10 +22,18 @@ enum class EntrySource { ORDERED, FILLER }
  *  v1.0.52 (the user's call): the dancer is bound to the *song*,
  *  not to the orderer. [dancerKey] is a snapshot of the dancer the
  *  orderer had picked at the moment of ordering, frozen into the
- *  entry for its whole life — waiting, singing, ceremony keeper.
- *  Changing one's pick afterwards only affects the *next* order;
- *  it never reaches back into an existing entry (the old mid-song
- *  live swap is gone). A null key (filler, or an order that carried
+ *  entry — changing one's pick afterwards only affects the *next*
+ *  order; it never reaches back into an existing entry (the old
+ *  mid-song live swap is gone).
+ *
+ *  v1.0.56 (the user loosens the rule): while the entry is still
+ *  WAITING, its orderer may re-pick this song's dancer from the
+ *  phone page — [PlayQueue.changeWaitingDancer] is the only write
+ *  path, and it only ever touches waiting entries. The moment the
+ *  entry becomes current — singing, or locked as the handover
+ *  ceremony's next song — the field is frozen for good. That is
+ *  why it is a var: mutable during the waiting window, by exactly
+ *  one guarded method. A null key (filler, or an order that carried
  *  no pick anywhere) resolves to the default dancer at read time,
  *  the same fallback [com.dannycom888.shieldkaraoke.ui.Dancers.byKey]
  *  has always applied. */
@@ -33,9 +41,29 @@ data class QueueEntry(
     val song: Song,
     val orderedBy: String,
     val source: EntrySource = EntrySource.ORDERED,
-    val dancerKey: String? = null,
+    var dancerKey: String? = null,
 ) {
     val isFiller: Boolean get() = source == EntrySource.FILLER
+}
+
+/** Outcome of a waiting entry's dancer change (v1.0.56). The
+ *  phone server maps each value to its own readable reply, so the
+ *  phone can say WHY a change did not happen instead of failing
+ *  silently. */
+enum class DancerChangeResult {
+    /** The waiting entry now carries the new dancer. */
+    CHANGED,
+
+    /** The song is in the queue, but under somebody else's name. */
+    NOT_YOURS,
+
+    /** The song has left the waiting list because it is the
+     *  current one — singing, or locked as the ceremony's next
+     *  song. Its dancer is frozen. */
+    LOCKED,
+
+    /** No such song anywhere in the queue any more. */
+    NOT_FOUND,
 }
 
 /** Result of adding a song: where it landed and whether it was
@@ -127,6 +155,47 @@ class PlayQueue {
     @Synchronized
     fun removeWaitingAt(index: Int): QueueEntry? =
         if (index in waiting.indices) waiting.removeAt(index) else null
+
+    /**
+     * Re-pick the dancer of a song that is still WAITING (v1.0.56):
+     * the orderer taps their queued song on the phone page and
+     * chooses another dancer. Only the entry's own orderer may do
+     * this, and only while the entry waits — the moment it becomes
+     * current (singing, or locked as the ceremony's next song) the
+     * dancer is frozen, which is why this method searches the
+     * waiting list only and reports a current entry as
+     * [DancerChangeResult.LOCKED].
+     *
+     * The phone addresses the entry by its waiting [index] plus
+     * the song id it saw; queues shift under it (deletes, jumps),
+     * so the index is a disambiguation hint among the orderer's
+     * own duplicate orders of the same song, never the identity:
+     * an entry is only ever changed when BOTH the song id and the
+     * orderer name match it. Races resolve here, at the server,
+     * exactly as the result enum reports them.
+     */
+    @Synchronized
+    fun changeWaitingDancer(
+        index: Int,
+        songId: String,
+        orderedBy: String,
+        dancerKey: String,
+    ): DancerChangeResult {
+        val addressed = waiting.getOrNull(index)
+            ?.takeIf { it.song.id == songId && it.orderedBy == orderedBy }
+        val entry = addressed
+            ?: waiting.firstOrNull { it.song.id == songId && it.orderedBy == orderedBy }
+        if (entry != null) {
+            entry.dancerKey = dancerKey
+            return DancerChangeResult.CHANGED
+        }
+        if (waiting.any { it.song.id == songId }) return DancerChangeResult.NOT_YOURS
+        val cur = current
+        if (cur != null && cur.song.id == songId && cur.orderedBy == orderedBy) {
+            return DancerChangeResult.LOCKED
+        }
+        return DancerChangeResult.NOT_FOUND
+    }
 
     /**
      * Move the waiting song at [index] to the front of the waiting

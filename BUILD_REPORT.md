@@ -2037,3 +2037,33 @@ APK：`MySing-1.0.41.apk`，30,336,531 字节，SHA-256 `62df376be7ff56a8d1dc010
 
 - APK：`MySing-1.0.55.apk`，33,440,424 B（比 v1.0.54 的 33,309,472 B 大 130,952 B——9 张新绘制帧 webp），SHA-256 `97dea7054ec9f9e2d01b956032e84cb795e75f20122dc969dc6c061ee55447b6`，versionCode 55，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
 - 设备侧待用户验：盯哪吒跳舞等他摔一次——整段应是一支连贯小动画：站着→倾倒（脚不离地）→翻身→躺平停一拍→侧身撑前→俯卧肘撑→手撑地半撑→撑起中→蹲→起身中→站直小晃站稳；不再有旋转硬倒、不再有压扁蹲、不再一闪一闪跳帧；暂停时动画应冻在当前帧。
+
+## v1.0.56 — 手机上排队中的歌开唱前可换伴舞 + 删除升降调（2026-11-16）
+
+两件都是用户当晚的指令。其一：v1.0.52「伴舞跟歌绑定」放宽——点自己排队中的歌可以弹出选伴舞、开唱之前都可以换，队列里每首歌后面标「（伴舞：××）」。其二：升/降调他实测「似乎没用」，明确说删，整条功能连根删除。
+
+### 一、排队中改伴舞（开唱前可换，开唱即冻结）
+
+- **模型**：`QueueEntry.dancerKey` 由 val 改 var，唯一写路径是 `PlayQueue.changeWaitingDancer`——只搜等待列表。条目一旦成为 current（开唱，或被 `advance()` 推进 current 的仪式锁定瞬间——仪式锁定的下一首在队列里已经是 current、不在等待列表），就不可能被改到；请求若正中 current 本人，回报 `LOCKED`。结果四态：`CHANGED` / `NOT_YOURS`（歌在队列里、不是你的名）/ `LOCKED` / `NOT_FOUND`。
+- **寻址与竞态**：身份是（songId，点歌人）二元组；手机传来的 index 只是同一人重复点同一首歌时的消歧提示，不是身份——队列在打开弹窗期间被删歌/切歌移位，仍按身份找到条目（有单测钉住移位场景）；被删、被「现在唱」切走等一律以服务端校验结果为准。
+- **服务端**：新接口 `POST /api/queue-dancer` {name,index,id,who,lang}：成功 200 +「伴舞换好了」；别人的歌 403「只能换自己点的歌的伴舞」；已开唱/仪式锁定 409「已经开唱，不能换了」；已不在队列 404「这首歌已经不在队列里了」；名字空/伴舞键非法 400（沿用 DANCER_INVALID）。新文案 4 条进 ServerStrings 双语表（parity 测试钉住）。`/api/queue` 的 current 与 waiting 条目都带 `dancer`（null 快照按舞台同口径解析为默认 Amy），waiting 另带 `id` 供寻址。
+- **手机页**：队列每行（含正在唱行）歌名后追加「（伴舞：××）」/「(Dancer: ××)」，名字走 CUSTOM_DANCER_NAMES 优先、页面语言字典兜底，与选伴舞卡片同名源。我点的等待行可点（光标提示），弹出换伴舞弹窗：六张卡（`data-pick`，与点歌选择器的 `data-who` 分开，互不触发）、预选该条目当前伴舞、取消键；选定即 POST，服务端回执（成功或拒绝原因）短暂显示在消息行并刷新队列。别人的行不弹窗。删歌按钮补了 stopPropagation，不再误触行点击。选伴舞区提示文案双语同步改版：「点歌时选的伴舞就配这首歌；开唱之前，点你排队里的歌可以换一位。」旧「定了就不变」措辞退役。
+- **读取点天然跟随**：仪式 keeper 在仪式开始时读 `entry.dancerKey`、诊断行同理——等待期改完的值就是开唱时的值，无额外接线。电视点歌的选伴舞（点歌时一步）不变；电视面板不加改伴舞。
+- **状态层**：`KaraokeState.changeWaitingDancer` 转发队列校验，仅 CHANGED 时 bump 版本 + 回调，TV 侧随之重读。
+
+### 二、删除升降调（按用户指令删除的功能）
+
+- 删除清单：控制条三键「降调 −」「调 %d」「升调 ＋」（MainActivity，连 `semitoneLabel` 状态与 startSong 里的每歌复位）；`PlayerController.shiftPitch` 与 `semitones` 状态，及全部 PlaybackParameters 应用点（load 的复位、错误重试的重新应用、换源时的重新应用——变调没了之后播放参数恒为默认，新建播放器天然默认，换源/重试不再触碰）；`AudioMath.semitoneFactor`；`TvStrings` 的 PITCH_DOWN/PITCH_LABEL/PITCH_UP 三键（中英两表同删，parity 测试证明）；FillerPicker 注释里对 pitch 的引用。控制条其余按钮顺序不变、三键位置不留空位，焦点链随之收拢。
+- 测试删改：AudioMathTest 的 `semitone factors` 删除；StringTablesTest 里 PITCH_LABEL 的双语 spot check 删除（两处都在文件里留了一行退役注记）。
+
+### 三、测试（438 = 430 基线 + 净增 8，0 失败）
+
+- PlayQueueTest +6：等待中改成功且推进到 current 后读到新值；开唱后（advance 后）改被拒 LOCKED 且值不变；改别人的歌 NOT_YOURS；歌已删 NOT_FOUND；队列移位后按身份仍改中；同歌同人重复点时按 index 消歧只改被点中的那条。
+- KaraokeStateTest +1：状态层改成功 + 版本 bump，advance 后同请求变 LOCKED、开唱值保持改后的值。
+- KaraokeHttpServerSocketTest +1：真 socket + 真中文名全链路——点歌带 who 快照 → /api/queue 带 dancer/id → 本人改成功（回执「伴舞换好了」）→ 换名字改被拒 403（英文原因按请求语言）→ 非法 who 400 → advance 后改被拒 409「已经开唱，不能换了」→ 不存在的歌 404。
+- PhonePageTest +1 新增、1 改写：队列行伴舞标记/弹窗/data-pick/接口接线与删歌 stopPropagation 钉住；提示文案测试改名改断言为新版措辞（旧「定了就不变」必须绝迹）。
+
+### 四、交付与待验
+
+- APK：`MySing-1.0.56.apk`，33,456,793 B（比 v1.0.55 的 33,440,424 B 大 16,369 B——纯代码与页面改动、无新素材），SHA-256 `ca3a8227bbcd27e69d12d790c5ab9ef3f8668274c0fc08a7131fb25e2806a944`，versionCode 56，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
+- 设备侧待用户验：手机连点两首 → 点自己排队中的那首 → 弹窗换一位伴舞 → 行尾「（伴舞：××）」随之变、开唱时出的就是新伴舞；歌开唱后再点改 → 提示「已经开唱，不能换了」；点别人的歌不弹窗；电视控制条上降调/调/升调三键已消失、其余按钮照常。

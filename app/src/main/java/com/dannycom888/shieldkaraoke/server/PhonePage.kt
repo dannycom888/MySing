@@ -53,6 +53,10 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 #qsummary{margin-top:2px}
 #qlist div{padding:6px 4px;border-bottom:1px solid #223}
 #qlist .mine{background:#4a3a08;border-left:4px solid #FFD54F}
+#qlist .qmine{cursor:pointer}
+#dpick{position:fixed;inset:0;background:rgba(4,8,24,.85);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:18px 10px;overflow-y:auto;box-sizing:border-box}
+#dpick.hidden{display:none}
+#dpickBox{background:#0d1b3e;border:1px solid #446;border-radius:12px;padding:12px;max-width:520px;width:100%;box-sizing:border-box}
 .badge{background:#FFD54F;color:#111;border-radius:8px;padding:1px 6px;font-size:12px;font-weight:bold;white-space:nowrap}
 .del{background:#a33;color:#fff}
 .hidden{display:none}
@@ -91,7 +95,7 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <button class="chip" id="recentTab" data-i="fRecent">🕘 最近唱过</button>
 </div>
 <h1 data-i="dancerTitle">💃 选伴舞</h1>
-<p class="small" data-i="dancerHint">点歌时选的伴舞就配这首歌，定了就不变；想换一位，下一首歌再选。</p>
+<p class="small" data-i="dancerHint">点歌时选的伴舞就配这首歌；开唱之前，点你排队里的歌可以换一位。</p>
 <div id="dancers" class="dcards">
 <div class="dcard" data-who="modern"><img src="/dancer-anim/modern" onerror="this.onerror=null;this.src='/dancer-img/modern'" alt="Amy"><span data-dancer="modern">Amy</span></div>
 <div class="dcard" data-who="ancient"><img src="/dancer-anim/ancient" onerror="this.onerror=null;this.src='/dancer-img/ancient'" alt="秀颖"><span data-dancer="ancient">秀颖</span></div>
@@ -102,6 +106,21 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 </div>
 <div id="msg" class="small"></div>
 <div id="songs"></div>
+</div>
+<div id="dpick" class="hidden">
+<div id="dpickBox">
+<h1 data-i="changeDancerTitle">💃 换伴舞</h1>
+<div id="dpickSong" class="small"></div>
+<div class="dcards">
+<div class="dcard" data-pick="modern"><img src="/dancer-anim/modern" onerror="this.onerror=null;this.src='/dancer-img/modern'" alt="Amy"><span data-dancer="modern">Amy</span></div>
+<div class="dcard" data-pick="ancient"><img src="/dancer-anim/ancient" onerror="this.onerror=null;this.src='/dancer-img/ancient'" alt="秀颖"><span data-dancer="ancient">秀颖</span></div>
+<div class="dcard" data-pick="sumo"><img src="/dancer-anim/sumo" onerror="this.onerror=null;this.src='/dancer-img/sumo'" alt="姿三四郎"><span data-dancer="sumo">姿三四郎</span></div>
+<div class="dcard" data-pick="ancient_girl"><img src="/dancer-anim/ancient_girl" onerror="this.onerror=null;this.src='/dancer-img/ancient_girl'" alt="汉娜"><span data-dancer="ancient_girl">汉娜</span></div>
+<div class="dcard" data-pick="baby"><img src="/dancer-anim/baby" onerror="this.onerror=null;this.src='/dancer-img/baby'" alt="哪吒"><span data-dancer="baby">哪吒</span></div>
+<div class="dcard" data-pick="robot"><img src="/dancer-anim/robot" onerror="this.onerror=null;this.src='/dancer-img/robot'" alt="瓦力"><span data-dancer="robot">瓦力</span></div>
+</div>
+<p><button id="dpickCancel" data-i="cancel" style="width:100%">取消</button></p>
+</div>
 </div>
 <script>
 var CUSTOM_DANCER_NAMES = $customNamesJson;
@@ -119,7 +138,8 @@ zh: {
   fAll: '全部', fZh: '中文', fEn: '英文', fAny: '男女不限', fM: '男歌手', fF: '女歌手',
   fFav: '❤ 收藏', fRecent: '🕘 最近唱过',
   dancerTitle: '💃 选伴舞',
-  dancerHint: '点歌时选的伴舞就配这首歌，定了就不变；想换一位，下一首歌再选。',
+  dancerHint: '点歌时选的伴舞就配这首歌；开唱之前，点你排队里的歌可以换一位。',
+  rowDancer: '（伴舞：{dancer}）', changeDancerTitle: '💃 换伴舞', cancel: '取消',
   order: '点歌', dup: '（提醒：这首已经在队列里了）',
   accBadge: '伴奏',
   sugMore: '还有更多结果，继续输入缩小范围',
@@ -140,7 +160,8 @@ en: {
   fAll: 'All', fZh: 'Chinese', fEn: 'English', fAny: 'Any singer', fM: 'Male', fF: 'Female',
   fFav: '❤ Favorites', fRecent: '🕘 Recent',
   dancerTitle: '💃 Pick a dancer',
-  dancerHint: "The dancer you pick is locked to the song when you order it — it won't change afterwards. Pick a different one for your next song.",
+  dancerHint: 'The dancer you pick goes with the song; before it starts, tap your song in the queue to change it.',
+  rowDancer: '(Dancer: {dancer})', changeDancerTitle: '💃 Change dancer', cancel: 'Cancel',
   order: 'Order', dup: " (Note: it's already in the queue)",
   accBadge: 'Acc.',
   sugMore: 'More matches — keep typing to narrow it down',
@@ -297,6 +318,26 @@ function paintQPanel(){
   document.getElementById('qarrow').textContent = qOpen ? '▴' : '▾';
 }
 document.getElementById('qhead').onclick = function(){ qOpen = !qOpen; paintQPanel(); };
+function dancerName(k){ return CUSTOM_DANCER_NAMES[k] || (t('dancers')[k]) || k; }
+// --- Change a waiting song's dancer (v1.0.56) -------------------
+// Tapping one of MY waiting rows opens this picker; the pick goes
+// to /api/queue-dancer, and the server is the judge: it checks the
+// song is still waiting and still mine, and answers with a
+// readable reason when it is not (started, locked, gone). Other
+// people's rows never open the picker.
+var pickTarget = null;
+function openDancerPicker(idx, e){
+  pickTarget = {index: idx, id: e.id};
+  document.getElementById('dpickSong').textContent = e.artist + ' - ' + e.title;
+  document.querySelectorAll('[data-pick]').forEach(function(c){
+    c.classList.toggle('on', c.getAttribute('data-pick') === (e.dancer || 'modern'));
+  });
+  document.getElementById('dpick').classList.remove('hidden');
+}
+function closeDancerPicker(){
+  document.getElementById('dpick').classList.add('hidden');
+  pickTarget = null;
+}
 function renderQueue(d){
   var waiting = d.waiting || [];
   document.getElementById('qcount').textContent = waiting.length + (d.current ? 1 : 0);
@@ -312,7 +353,8 @@ function renderQueue(d){
   if(d.current){
     var c = document.createElement('div');
     if(d.current.by === name) c.className = 'mine';
-    c.textContent = fmt(t('nowPlaying'), {song: d.current.artist + ' - ' + d.current.title, by: d.current.by});
+    c.textContent = fmt(t('nowPlaying'), {song: d.current.artist + ' - ' + d.current.title, by: d.current.by}) +
+      ' ' + fmt(t('rowDancer'), {dancer: dancerName(d.current.dancer || 'modern')});
     if(d.current.by === name){
       var cb = document.createElement('span'); cb.className = 'badge'; cb.textContent = t('mine');
       c.appendChild(document.createTextNode(' ')); c.appendChild(cb);
@@ -323,15 +365,19 @@ function renderQueue(d){
     var row = document.createElement('div');
     var mine = e.by === name;
     if(mine) row.className = 'mine';
-    row.textContent = (i + 1) + '. ' + fmt(t('waitingRow'), {song: e.artist + ' - ' + e.title, by: e.by});
+    row.textContent = (i + 1) + '. ' + fmt(t('waitingRow'), {song: e.artist + ' - ' + e.title, by: e.by}) +
+      ' ' + fmt(t('rowDancer'), {dancer: dancerName(e.dancer || 'modern')});
     if(mine){
       var b = document.createElement('span'); b.className = 'badge';
       b.textContent = fmt(t('minePos'), {n: i + 1});
       row.appendChild(document.createTextNode(' ')); row.appendChild(b);
+      row.classList.add('qmine');
+      row.onclick = (function(idx, entry){ return function(){ openDancerPicker(idx, entry); }; })(i, e);
     }
     row.appendChild(document.createTextNode(' '));
     var del = document.createElement('button'); del.textContent = t('del'); del.className = 'del';
-    del.onclick = function(){ fetch('/api/remove',{method:'POST',headers:{'Content-Type':'application/json'},
+    del.onclick = function(ev){ if(ev && ev.stopPropagation) ev.stopPropagation();
+      fetch('/api/remove',{method:'POST',headers:{'Content-Type':'application/json'},
       body: JSON.stringify({index:i})}).then(loadQueue).catch(netErr); };
     row.appendChild(del); el.appendChild(row);
   });
@@ -364,6 +410,18 @@ document.querySelectorAll('[data-who]').forEach(function(c){ c.onclick=function(
   myDancer=c.getAttribute('data-who'); localStorage.setItem('sk_dancer', myDancer); paintDancers();
   fetch('/api/dancer',{method:'POST',headers:{'Content-Type':'application/json'},
     body: JSON.stringify({name:name, who:myDancer, lang:ui})}).catch(netErr);
+}; });
+document.getElementById('dpickCancel').onclick = closeDancerPicker;
+document.querySelectorAll('[data-pick]').forEach(function(c){ c.onclick=function(){
+  if(!pickTarget) return;
+  var target = pickTarget;
+  var who = c.getAttribute('data-pick');
+  closeDancerPicker();
+  fetch('/api/queue-dancer',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name:name, index:target.index, id:target.id, who:who, lang:ui})}).then(function(r){return r.json()}).then(function(d){
+    document.getElementById('msg').textContent = d.message || d.error || '';
+    loadQueue();
+  }).catch(netErr);
 }; });
 document.getElementById('favTab').onclick=function(){ mode='fav'; hideSuggest(); loadSongs(); };
 document.getElementById('recentTab').onclick=function(){ mode='recent'; hideSuggest(); loadSongs(); };

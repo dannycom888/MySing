@@ -215,7 +215,6 @@ class MainActivity : ComponentActivity() {
      *  included. */
     private var sweepColor by mutableStateOf(SweepColor.DEFAULT)
     private var accompaniment by mutableStateOf(false)
-    private var semitoneLabel by mutableStateOf(0)
     private var scanning by mutableStateOf(false)
     private var quitting = false
 
@@ -474,7 +473,6 @@ class MainActivity : ComponentActivity() {
         // filler on the original vocal (AccompanimentPolicy);
         // a manual toggle from here rules for this song only.
         accompaniment = AccompanimentPolicy.defaultOnStart(entry.source)
-        semitoneLabel = 0
         celebrating = false
         celebrationToken++
         clearCeremony()
@@ -2414,9 +2412,6 @@ class MainActivity : ComponentActivity() {
                     ) {
                         accompaniment = !accompaniment; controller.setAccompaniment(accompaniment)
                     }
-                    Chip(s(TvKey.PITCH_DOWN), false, onFocused = { panelFocused = false }, compact = compact) { controller.shiftPitch(-1); semitoneLabel = controller.semitones }
-                    Chip(s(TvKey.PITCH_LABEL, semitoneLabel), false, onFocused = { panelFocused = false }, compact = compact) { }
-                    Chip(s(TvKey.PITCH_UP), false, onFocused = { panelFocused = false }, compact = compact) { controller.shiftPitch(1); semitoneLabel = controller.semitones }
                     Chip(
                         if (dancersOn) s(TvKey.DANCERS_ON) else s(TvKey.DANCERS_OFF), dancersOn,
                         onFocused = { panelFocused = false },

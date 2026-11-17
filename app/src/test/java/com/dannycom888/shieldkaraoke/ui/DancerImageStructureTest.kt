@@ -34,6 +34,14 @@ import java.io.File
  * one fixed rect, both cross-fade layers inside it, and the
  * reflection is the SAME stack — never a second, separately
  * resolved frame draw that could drift from the figure.
+ *
+ * v1.0.61 amendment: the contact shadow joins the frame rect
+ * as a draw modifier in the chain — NOT a fourth node (the
+ * three-node pin above stands) — and its paint order is the
+ * point: pool first, shadow over the pool, figure over both.
+ * The shadow is opt-in (a Boolean parameter, default off), so
+ * only the call sites that ask for it — the solo placement —
+ * ever paint it.
  */
 class DancerImageStructureTest {
 
@@ -91,6 +99,34 @@ class DancerImageStructureTest {
             "the frame box and the reflection node both BottomCenter-align the stack (feet on the floor line, canvas centres coincident)",
             2,
             Regex("""contentAlignment = Alignment\.BottomCenter""").findAll(body).count(),
+        )
+    }
+
+    @Test
+    fun contactShadowPaintsOverThePoolAndUnderTheFigure() {
+        val body = dancerImageBody()
+        // Opt-in only: the parameter defaults off, so a call
+        // site that does not ask for the shadow never gets one.
+        assertTrue(
+            "the contact shadow must be an opt-in parameter, default off",
+            body.contains("contactShadow: Boolean = false"),
+        )
+        // The layer order is the modifier chain's order: the
+        // pool's draw modifier is applied first (it paints
+        // first), the shadow's next (it paints over the pool),
+        // and the figure stack is the content both paint
+        // behind.
+        val pool = body.indexOf("Modifier.spotlightPool")
+        val shadow = body.indexOf("Modifier.contactShadow")
+        val figure = body.indexOf("figureLayers()")
+        assertTrue("the pool modifier must be applied", pool >= 0)
+        assertTrue(
+            "the shadow paints over the pool",
+            shadow > pool,
+        )
+        assertTrue(
+            "the figure paints over the shadow",
+            figure > shadow,
         )
     }
 

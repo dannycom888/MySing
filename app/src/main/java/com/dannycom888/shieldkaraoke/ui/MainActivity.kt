@@ -2321,6 +2321,20 @@ class MainActivity : ComponentActivity() {
                                         // whenever no step is running).
                                         heightDp = dancerH,
                                         spotlight = true,
+                                        // v1.0.61: the solo
+                                        // placement's light package —
+                                        // her pool dimmed where the
+                                        // beams land on it, a
+                                        // contact shadow pressing
+                                        // her feet into the light,
+                                        // and a stronger reflection
+                                        // top so the mirror stays
+                                        // readable over the pool.
+                                        spotlightAlphaScale =
+                                            SpotlightGeom.SOLO_POOL_ALPHA_SCALE,
+                                        contactShadow = true,
+                                        reflectionTopAlpha =
+                                            StageFloor.SOLO_REFLECTION_TOP_ALPHA,
                                         // v1.0.57: her reflection
                                         // under her feet. v1.0.59:
                                         // the depth her current
@@ -3130,6 +3144,17 @@ class MainActivity : ComponentActivity() {
                         framesOverride = keeper.inviteChain,
                         alpha = 0.95f * Ceremony.keeperSoloAlpha(elapsedMs),
                         spotlight = true,
+                        // v1.0.61: the keeper stands at the solo
+                        // placement, so she carries the same light
+                        // package as the playback dancer — dimmed
+                        // pool, contact shadow, stronger
+                        // reflection top — and the handover into
+                        // the song keeps all three, unstepped.
+                        spotlightAlphaScale =
+                            SpotlightGeom.SOLO_POOL_ALPHA_SCALE,
+                        contactShadow = true,
+                        reflectionTopAlpha =
+                            StageFloor.SOLO_REFLECTION_TOP_ALPHA,
                     )
                 }
             }
@@ -3250,6 +3275,20 @@ class MainActivity : ComponentActivity() {
          *  wrapper IS the figure's rect, so the pool follows its
          *  position and size, and fades with [alpha]). */
         spotlight: Boolean = false,
+        /** v1.0.61: scale for the pool's centre alpha, on top
+         *  of the figure's own fade. The solo placement passes
+         *  the dimming factor from SpotlightGeom (the beam
+         *  intersection on its pool was the stage's brightest
+         *  blob); everyone else keeps the pool at full centre. */
+        spotlightAlphaScale: Float = 1f,
+        /** v1.0.61: the contact shadow under the feet — a soft
+         *  dark patch pressed into the pool, painted over the
+         *  light and under the figure, so the feet read as
+         *  standing IN the light instead of floating over it.
+         *  Only the solo placement carries one (the playback
+         *  dancer and the ceremony keeper); the celebration
+         *  row's figures do not. */
+        contactShadow: Boolean = false,
         /** v1.0.50: draw from this frame list instead of the
          *  dancer's dance frames — the invite chain and the clap
          *  pair of the animated gestures (see [InviteCycle] /
@@ -3273,6 +3312,14 @@ class MainActivity : ComponentActivity() {
          *  [StageFloor.soloReflectionDepthDp]), so the two
          *  always agree on one figure over one reflection. */
         reflectionDepthDp: Dp? = null,
+        /** v1.0.61: the reflection's top alpha — the strength
+         *  of the mirror at the foot baseline, before its fade
+         *  to nothing at the band's bottom edge. The default is
+         *  the shared StageFloor value; the solo placement
+         *  passes its stronger top so the mirror's first
+         *  stretch stays readable over the pool its beams land
+         *  on, and the feet stay joined to their reflection. */
+        reflectionTopAlpha: Float = StageFloor.REFLECTION_TOP_ALPHA,
         /** v1.0.59: measure the figure only and let the
          *  reflection DRAW below the wrapper's bottom edge
          *  instead of reserving layout room for it. The
@@ -3388,7 +3435,23 @@ class MainActivity : ComponentActivity() {
                 ),
         ) {
             Box(
-                modifier = (if (spotlight) Modifier.spotlightPool(alphaScale = alpha) else Modifier)
+                // v1.0.61 layer order inside the frame rect: the
+                // pool paints first (the outer draw modifier),
+                // the contact shadow paints over the pool, and
+                // the figure stack paints over both — light,
+                // then the dark the feet press into it, then the
+                // feet themselves.
+                modifier = (if (spotlight) {
+                    Modifier.spotlightPool(alphaScale = alpha * spotlightAlphaScale)
+                } else {
+                    Modifier
+                }).then(
+                    if (contactShadow) {
+                        Modifier.contactShadow(alphaScale = alpha)
+                    } else {
+                        Modifier
+                    },
+                )
                     .width(SpotlightGeom.dancerWidthDp(heightDp.value).dp)
                     .height(heightDp)
                     .align(Alignment.TopCenter),
@@ -3402,8 +3465,9 @@ class MainActivity : ComponentActivity() {
                 // bottom — nothing clips, and the flip lands
                 // its pixels exactly in the reflection band).
                 // The offscreen layer + DstIn rect fade it from
-                // REFLECTION_TOP_ALPHA at the foot baseline to
-                // nothing at the band's bottom edge (the fade
+                // the caller's reflection top alpha at the foot
+                // baseline to nothing at the band's bottom edge
+                // (the fade
                 // gradient is drawn in this node's own space,
                 // where the flipped figure occupies only the
                 // top depthDp — see StageFloor.reflectionFadeStop).
@@ -3420,7 +3484,7 @@ class MainActivity : ComponentActivity() {
                                 brush = Brush.verticalGradient(
                                     colorStops = arrayOf(
                                         0f to Color.Black.copy(
-                                            alpha = StageFloor.REFLECTION_TOP_ALPHA,
+                                            alpha = reflectionTopAlpha,
                                         ),
                                         StageFloor.reflectionFadeStop(
                                             heightDp.value, depthDp.value,

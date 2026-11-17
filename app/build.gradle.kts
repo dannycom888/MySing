@@ -37,8 +37,8 @@ android {
         applicationId = "com.dannycom888.shieldkaraoke"
         minSdk = 26
         targetSdk = 36
-        versionCode = 60
-        versionName = "1.0.60"
+        versionCode = 61
+        versionName = "1.0.61"
     }
 
     if (canSignRelease) {

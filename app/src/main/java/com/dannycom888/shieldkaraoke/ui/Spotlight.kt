@@ -36,6 +36,19 @@ object SpotlightGeom {
     /** Alpha at the pool's centre (before the caller's own fade). */
     const val CENTRE_ALPHA = 0.50f
 
+    /** The solo placement's pool dimming (v1.0.61): where the
+     *  two follow-spot beams land on the solo pool, beam + beam
+     *  + pool stacked into the stage's brightest patch — a
+     *  glaring white blob at the intersection, the user ruled.
+     *  The beams' own peak came down in the same version
+     *  (StageBeams.PEAK_ALPHA 0.16 → 0.10), and the solo pools
+     *  (the playback dancer's and the ceremony keeper's — the
+     *  same placement) scale their centre by this factor:
+     *  effective centre 0.50 × 0.84 = 0.42. The shared
+     *  [CENTRE_ALPHA] itself does NOT move: the celebration
+     *  row's pools keep it exactly as it was. */
+    const val SOLO_POOL_ALPHA_SCALE = 0.84f
+
     /** The celebration row (ceremony + end-of-song applause)
      *  aims for this fraction of the screen height — as tall as
      *  the width budget below allows. v1.0.45 set 0.46; v1.0.48
@@ -204,6 +217,74 @@ object SpotlightGeom {
      *  landing disc is sized against. */
     fun poolRadiusXDp(figureHeightDp: Float): Float =
         dancerWidthDp(figureHeightDp) * RADIUS_PER_DANCER_WIDTH
+
+    // ---- the contact shadow (v1.0.61) -------------------------
+    // A soft dark patch pressed into the pool directly under
+    // the feet. The user's v1.0.60 photo: with the floor band
+    // gone, nothing visually planted the dancer — bright pool
+    // above, below and around the feet, and she read as dancing
+    // in mid-air. The pool lights the floor; the contact shadow
+    // is what her feet press INTO that light. Drawn over the
+    // pool, under the figure (see the contactShadow modifier
+    // below and its place in DancerImage's frame-box chain).
+    // Solo placement only: the playback dancer and the ceremony
+    // keeper carry one; the celebration row does not.
+
+    /** Shadow width per unit of the figure's own width:
+     *  narrower than the pool (1.2× the width each way), about
+     *  the spread of two feet and the body's weight. */
+    const val CONTACT_SHADOW_WIDTH_PER_FIGURE_WIDTH = 0.9f
+
+    /** Vertical radius as a fraction of the horizontal radius:
+     *  a flat floor ellipse, in the pool's own squash family
+     *  (the pool flattens at 0.28). */
+    const val CONTACT_SHADOW_FLATTEN = 0.30f
+
+    /** Alpha at the shadow's centre (before the caller's own
+     *  fade): dark enough to plant the feet in the light,
+     *  restrained enough to stay a shadow, not a hole. */
+    const val CONTACT_SHADOW_ALPHA = 0.26f
+
+    /** The shadow's colour: plain black — over the warm pool
+     *  it reads as the light's own shade, never as a tint. */
+    const val CONTACT_SHADOW_COLOR_ARGB = 0xFF000000L
+
+    /** How far the shadow's centre sits below the foot
+     *  baseline, as a fraction of its own vertical radius: the
+     *  patch nestles just under the feet the way the pool's
+     *  centre rides below the line (the pool uses 0.35 of its
+     *  own, much larger ry). */
+    const val CONTACT_SHADOW_CENTRE_DROP_PER_RY = 0.40f
+
+    /** The shadow's horizontal radius for a dancer
+     *  [figureHeightDp] tall, in dp. */
+    fun contactShadowRadiusXDp(figureHeightDp: Float): Float =
+        dancerWidthDp(figureHeightDp) *
+            CONTACT_SHADOW_WIDTH_PER_FIGURE_WIDTH / 2f
+
+    /** The shadow's vertical radius for a dancer
+     *  [figureHeightDp] tall, in dp. */
+    fun contactShadowRadiusYDp(figureHeightDp: Float): Float =
+        contactShadowRadiusXDp(figureHeightDp) * CONTACT_SHADOW_FLATTEN
+
+    /**
+     * The shadow's centre inside the figure box of a dancer
+     * [figureHeightDp] tall, in dp from the box's top-left —
+     * centred on the figure's column, riding just below the
+     * shared feet baseline ([FEET_BASELINE_FRACTION], the same
+     * line the pool hangs from), and well inside the pool: the
+     * whole patch lands within the pool's ellipse, so the dark
+     * sits inside the light, never spilling past its edge.
+     */
+    fun contactShadowCentreInFigureBoxDp(figureHeightDp: Float): Offset {
+        val w = dancerWidthDp(figureHeightDp)
+        return Offset(
+            w / 2f,
+            figureHeightDp * FEET_BASELINE_FRACTION +
+                contactShadowRadiusYDp(figureHeightDp) *
+                CONTACT_SHADOW_CENTRE_DROP_PER_RY,
+        )
+    }
 }
 
 private val POOL_CENTRE = Color(SpotlightGeom.POOL_COLOR_ARGB)
@@ -244,6 +325,49 @@ fun Modifier.spotlightPool(alphaScale: Float = 1f): Modifier = drawBehind {
                     0f to POOL_CENTRE.copy(alpha = a),
                     0.55f to POOL_MID.copy(alpha = a * 0.42f),
                     1f to POOL_EDGE,
+                ),
+                center = Offset(cx, cy),
+                radius = rx,
+            ),
+            radius = rx,
+            center = Offset(cx, cy),
+        )
+    }
+}
+
+private val SHADOW_CENTRE = Color(SpotlightGeom.CONTACT_SHADOW_COLOR_ARGB)
+private val SHADOW_EDGE = Color(SpotlightGeom.CONTACT_SHADOW_COLOR_ARGB).copy(alpha = 0f)
+
+/**
+ * Draws the v1.0.61 contact shadow: a soft dark ellipse
+ * pressed into the pool directly under the feet, so the
+ * dancer stands IN the light instead of floating over it
+ * (the user's v1.0.60 photo — "感觉人在半空跳舞"). Like
+ * [spotlightPool], the node this is applied to is expected to
+ * wrap exactly one dancer image, so the patch follows the
+ * figure's position and size; unlike the pool it is applied
+ * INSIDE the pool in the frame box's modifier chain, which is
+ * what puts it over the light and under the figure.
+ * [alphaScale] fades the patch together with its dancer (the
+ * ceremony's melts), exactly as the pool's does. All geometry
+ * is ratio work on the box, the pool's own style; the pure
+ * numbers live in [SpotlightGeom] where the tests pin them.
+ */
+fun Modifier.contactShadow(alphaScale: Float = 1f): Modifier = drawBehind {
+    val rx = size.width *
+        SpotlightGeom.CONTACT_SHADOW_WIDTH_PER_FIGURE_WIDTH / 2f
+    val ry = rx * SpotlightGeom.CONTACT_SHADOW_FLATTEN
+    val cx = size.width / 2f
+    val cy = size.height * SpotlightGeom.FEET_BASELINE_FRACTION +
+        ry * SpotlightGeom.CONTACT_SHADOW_CENTRE_DROP_PER_RY
+    val a = SpotlightGeom.CONTACT_SHADOW_ALPHA * alphaScale.coerceIn(0f, 1f)
+    withTransform({ scale(1f, ry / rx, Offset(cx, cy)) }) {
+        drawCircle(
+            brush = Brush.radialGradient(
+                colorStops = arrayOf(
+                    0f to SHADOW_CENTRE.copy(alpha = a),
+                    0.6f to SHADOW_CENTRE.copy(alpha = a * 0.55f),
+                    1f to SHADOW_EDGE,
                 ),
                 center = Offset(cx, cy),
                 radius = rx,

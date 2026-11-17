@@ -2203,3 +2203,44 @@ APK：`MySing-1.0.41.apk`，30,336,531 字节，SHA-256 `62df376be7ff56a8d1dc010
 
 - APK：`MySing-1.0.60.apk`，33,456,789 B（比 v1.0.59 的 33,456,792 B 小 3 B——纯代码改动、无新素材），SHA-256 `6c2f86ca0d2ecfa0645717d54253c7ff637ebe921f3df6787374e3a6a16c04c5`，versionCode 60，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
 - 设备侧待用户验：①独唱伴舞比 .59 低约舞台高 5%，邀请步进、仪式交接无跳变；②星星只在上方三分之一出现，左侧仍密、歌词后面仍稀，唱歌时随拍呼吸照旧、暂停停住；③两道光束自顶部两盏灯交叉打在独唱脚下光圈上、与光圈同色，汇聚处略亮、灯端淡，不压歌词；一齐鼓掌/邀请与仪式群相时光束仍打原独唱光圈位置；④冷启动第一首歌落位前光束暂不出现（落位一成即亮）。
+
+## v1.0.61 — 修「伴舞像在半空跳舞」：光束落池收住、交集压淡、倒影贴脚、脚下接触影（2026-11-17）
+
+用户真机截图（Note10+，v1.0.60，Amy 跳舞中）定位：两道光束汇聚后没有收住，继续铺成一大片亮梯形直到舞台底边，像一块斜放的亮板；伴舞的脚在这块亮板的上半部，倒影被亮板冲淡、只在亮板下缘之外才看得见——脚与倒影之间视觉上隔着一截，人就像悬在亮板上方跳；脚下也全是最亮的光，没有任何把脚「压」在地面的接触影。随后追加一条：聚光灯交集处再淡一些——两束光交叠落点（光圈中心一带）是最亮的一块白斑，要求整体压淡。本版只动独唱舞台的光/影层，keeper 同落位跟随，五人排不动。未动：独唱下移 5%、人物大小、星星（上方三分之一/慢闪/呼吸）、点歌页、播放器三档梯子、仪式/后奏时序、哪吒帧序、改伴舞规则、伴奏配对、语音搜索。
+
+**改前层序（.60，独唱画框内由下而上）**：根层光束（锥体止于池心、落点边即峰值 0.16，无落点后渐隐）→ 泡泡/星光 → 聚光池（drawBehind，池心 alpha 0.50，独唱与五人排同值）→ 人物 → 倒影节点（共享顶 alpha 0.55）。问题全在这叠光里：锥体底边 + 两锥重叠 + 池心 0.50 在落点一带叠成全场最亮的一块，倒影顶段（0.55）压不过它，脚下又没有任何暗部。
+
+**改后层序（.61）**：根层光束（峰值降至 0.10，落点后带渐隐尾巴归零）→ 泡泡/星光 → 聚光池（独唱/keeper 经 SOLO_POOL_ALPHA_SCALE 压到等效池心 0.42；五人排仍 0.50）→ **接触影（新，暗色压地）** → 人物 → 倒影节点（独唱/keeper 顶 alpha 0.75；五人排仍 0.55）。
+
+### 一、光束落到光圈就收住
+
+- StageBeams 新增纯几何：`FADE_PER_RADIUS = 0.6`、`fadeLengthPx(radius) = radius × 0.6`（钉死 ≤ 1 个池半径）、`axisDirection`（灯→池心单位向量）、`fadeEnd`（池心沿锥轴再推一个渐隐长度，即渐变终点）、`peakStop`（峰值停点在灯→渐隐终点轴上的比例，峰值仍恰在池心）、`coneWithFade`（在原 cone 四点之外把落点段沿轴平移出尾巴，共六点——落点段本身逐点不动，对齐仍是构造性的）。
+- StageBeamBackdrop 改用 coneWithFade + 三段渐变：灯端 SOURCE_ALPHA = 0.05 → peakStop 处 PEAK（见第二节的新值）→ 终点 alpha 0。舞台上只剩「两道光柱 + 一个光圈」：池心下方一个池半径之内光已归零，不再有亮楔形铺向舞台底边。峰值位置与落点对齐不变（锥体落点段 = .60 的落点段）。
+
+### 二、交集压淡（追加条）
+
+- 光束峰值 `StageBeams.PEAK_ALPHA` 0.16 → **0.10**（−37.5%）：两锥在落点的重叠亮度随之从「全场最白」降到只比光束本身略亮、柔和过渡；StageDressingTest 的静音钉上限同步从 0.20 收紧到 0.12 并钉死 0.10 本值（覆盖 .60 报告「峰值上限未动」的说法——那是 .60 的口径，本版按用户追加指令更新）。
+- 独唱池心同步压淡，但不动共享常量：`SpotlightGeom.CENTRE_ALPHA` 保持 0.50（五人排的池原样），新增 `SOLO_POOL_ALPHA_SCALE = 0.84`，独唱与 keeper 的 DancerImage 经新参数 `spotlightAlphaScale` 把池心做到等效 **0.42**。
+- 接触影（第三节）是独立的暗层、不随这次调淡缩放，压地效果不被抵消：光越淡，脚下那团暗反而越站得住。
+
+### 三、倒影贴脚且看得见
+
+- 层序核查结论：倒影节点本就在光池与光束之上（根层光束在最底、池是画框内 drawBehind、倒影节点是画框之后的兄弟节点），断层不在层序而在强度——共享顶 alpha 0.55 压不过落点一带的叠光。
+- 新增 `StageFloor.SOLO_REFLECTION_TOP_ALPHA = 0.75`（钉下限 0.7）：DancerImage 新增参数 `reflectionTopAlpha`（默认共享值 0.55），DstIn 渐变首段改读该参数；独唱与 keeper 两处调用传 0.75。渐隐律不变（同一直线熔断、同 fadeStop 归零）、35% 深度让位律不变、倒影仍从脚底基线零距离开始（翻转几何一字未动）——只是它在光圈亮度之上重新读得出来，脚和倒影连成一体。五人排的倒影顶 alpha 保持 0.55。
+
+### 四、脚下接触影
+
+- SpotlightGeom 新增纯常量/函数：`CONTACT_SHADOW_WIDTH_PER_FIGURE_WIDTH = 0.9`（宽 = 人物宽 × 0.9）、`CONTACT_SHADOW_FLATTEN = 0.30`、`CONTACT_SHADOW_ALPHA = 0.26`（在 0.22–0.28 克制带内）、`CONTACT_SHADOW_COLOR_ARGB = 0xFF000000`、`CONTACT_SHADOW_CENTRE_DROP_PER_RY = 0.40`；`contactShadowRadiusXDp / RadiusYDp / CentreInFigureBoxDp` 与池心函数同风格（中心在人物中柱、骑在共享脚底基线之下、四个极值点经池椭圆方程验算全在池内——暗坐在光里，不溢出池沿）。
+- 新 modifier `Modifier.contactShadow(alphaScale)`（Spotlight.kt，与 spotlightPool 同款的扁椭圆径向渐变画法：中心 0.26 → 0.6 处 ×0.55 → 边沿归零，全柔边）。DancerImage 新增开关参数 `contactShadow: Boolean = false`，在画框 modifier 链里排在 spotlightPool **之后**（链序即画序：池 → 影 → 人物，结构钉已锁）；影随人物 alpha 一起淡（仪式熔接不露馅），但不随跳跃位移——它钉在基线上，脚起跳时影留在地上，正是压地的画法。
+- 只有独唱与 keeper 两处调用传 `contactShadow = true`；五人排四处与仪式排三处不传，排无接触影（按令不动）。
+
+### 五、测试（490 = 485 基线 + 净增 5，0 失败）
+
+- StageDressingTest（19 = 16 + 3）：静音钉改版（PEAK 钉死 0.10、上限 0.12）；新钉 beamLightDiesWithinOnePoolRadiusPastThePool（FADE_PER_RADIUS = 0.6、fadeLength ≤ 半径、coneWithFade 六点且前四点与 cone 逐点一致、尾巴中点 == fadeEnd 且距池心恰一个渐隐长度、peakStop 把峰值留在池心、Backdrop 源码恰一处零 alpha 终点）；新钉 soloPoolsAreDimmedAtTheIntersectionOnly（共享池心 0.50 不动、系数 0.84、等效 0.42，且独唱/keeper 恰两处同时取压淡系数 + 接触影 + 强倒影顶，排不取）；新钉 soloReflectionStartsStrongerOverThePool（0.75 本值、≥ 0.7 下限、> 共享 0.55、参数默认仍共享值）。
+- SpotlightGeomTest（12 = 11 + 1）：新钉 contactShadowGeometryIsPinned（0.9 宽比、0.30 扁率、0.26 alpha 在克制带内、figure 200 时 rx 70.2 / ry 21.06 / 中心 (78, 204.424)、在基线之下、整团在池椭圆内、随人物缩放）。
+- DancerImageStructureTest（4 = 3 + 1）：新钉 contactShadowPaintsOverThePoolAndUnderTheFigure（参数默认关；源码序 Modifier.spotlightPool < Modifier.contactShadow < 人物层调用）。既有三钉（画框定宽、双层同框、倒影同栈翻转）全过——接触影是 modifier 不是第四个节点，三节点钉不破。
+
+### 六、交付与待验
+
+- APK：`MySing-1.0.61.apk`，33,473,174 B（比 v1.0.60 的 33,456,789 B 大 16,385 B——纯代码改动：ZIP 文件清单与 .60 逐项一致、无新素材，增量全在 DEX，与 v1.0.56 的同类增量 +16,369 B 同量级），SHA-256 `79081042aaf969bcd9a5b27bb02f9dc6ab832652a836fe5509e0c20ec6d4ffa4`，versionCode 61，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测）。
+- 设备侧待用户验：①唱歌时两道光柱落在光圈上、光圈下方不再有亮板铺到舞台底边；②交集处不再是刺眼白斑，只比光束略亮；③脚下有一团柔和的暗影，人像踩在光里、不再悬空；④倒影从脚底直接连出、在光圈上也看得清；⑤仪式 keeper 交接时影子、倒影、池光不跳；⑥一齐鼓掌/邀请的五人排与 .60 一模一样（池 0.50、倒影顶 0.55、无接触影）。

@@ -30,6 +30,18 @@ import java.io.File
  * replaced by convergence pins — both cones land exactly on
  * the pool centre the placement law computes, in the pool's
  * own colour, taken from the one shared constant.
+ *
+ * v1.0.61 amendments (the user's photo of the .60 stage:
+ * "感觉人在半空跳舞", and "聚光灯交集处再淡一些"): the cones
+ * gain a fade tail — the peak still lands exactly on the
+ * pool centre, but the light is fully gone within one pool
+ * radius past it; the intersection is dimmed (beam peak
+ * 0.16 → 0.10, the solo pools scaled to an effective 0.42
+ * centre while the shared pool centre stays 0.50 for the
+ * row); the solo reflection's top alpha gets a floor (0.75,
+ * solo + keeper only); and the contact shadow's layer order
+ * (pool → shadow → figure) is pinned in
+ * DancerImageStructureTest.
  */
 class StageDressingTest {
 
@@ -289,7 +301,14 @@ class StageDressingTest {
     fun beamsStayBackdropQuiet() {
         // The legibility ceiling: a beam core brighter than
         // this would start washing the lyrics it sits under.
-        assertTrue(StageBeams.PEAK_ALPHA > 0f && StageBeams.PEAK_ALPHA <= 0.20f)
+        // v1.0.61: the ceiling itself came down — at the old
+        // 0.16 the two cones' overlap on the pool was a
+        // glaring white blob (the user: "聚光灯交集处再淡一些"),
+        // so the peak is now 0.10 and the pin's ceiling is
+        // 0.12: the intersection may only read a little
+        // brighter than the beam itself.
+        assertEquals(0.10f, StageBeams.PEAK_ALPHA, 0.0001f)
+        assertTrue(StageBeams.PEAK_ALPHA > 0f && StageBeams.PEAK_ALPHA <= 0.12f)
         // The cone strengthens toward the pool, never the
         // other way: faintest at the lamp.
         assertTrue(
@@ -298,6 +317,135 @@ class StageDressingTest {
         )
         // The landing disc stays inside the pool's own edge.
         assertTrue(StageBeams.TARGET_RADIUS_RATIO in 0.5f..1f)
+    }
+
+    @Test
+    fun beamLightDiesWithinOnePoolRadiusPastThePool() {
+        // v1.0.61: past the pool centre the light falls to
+        // nothing inside a fraction of the pool's radius —
+        // never a bright wedge running on to the stage's
+        // bottom edge.
+        assertEquals(0.6f, StageBeams.FADE_PER_RADIUS, 0.0001f)
+        for (r in listOf(0f, 40f, 137.5f, 300f)) {
+            assertTrue(
+                "the fade ends within one radius past the centre: r=$r",
+                StageBeams.fadeLengthPx(r) <= r + 0.001f,
+            )
+        }
+        assertEquals(120f, StageBeams.fadeLengthPx(200f), 0.01f)
+        // The faded cone: six points, and the first four ARE
+        // the plain cone's — the lamp and the landing segment
+        // do not move a hair; only a tail is appended.
+        val w = 1600f
+        val target = Offset(300f, 900f)
+        val half = 100f
+        val radius = 200f
+        val plain = StageBeams.cone(w, target, half, right = false)
+        val faded = StageBeams.coneWithFade(w, target, half, radius, right = false)
+        assertEquals(6, faded.size)
+        assertEquals(plain[0], faded[0])
+        assertEquals(plain[1], faded[1])
+        assertEquals(plain[2], faded[2])
+        assertEquals(plain[3], faded[5])
+        // The tail is the landing segment pushed along the
+        // axis: its midpoint is exactly the gradient's end
+        // point, one fade length past the centre.
+        val src = StageBeams.sourceCentre(w, right = false)
+        val tailMid = Offset(
+            (faded[3].x + faded[4].x) / 2f,
+            (faded[3].y + faded[4].y) / 2f,
+        )
+        val end = StageBeams.fadeEnd(src, target, radius)
+        assertEquals(end.x, tailMid.x, 0.01f)
+        assertEquals(end.y, tailMid.y, 0.01f)
+        assertEquals(
+            StageBeams.fadeLengthPx(radius),
+            (end - target).getDistance(),
+            0.01f,
+        )
+        // The gradient's peak stop sits strictly between lamp
+        // and fade end, at the centre: peakStop × (axis +
+        // fade) == axis.
+        val axis = (target - src).getDistance()
+        val stop = StageBeams.peakStop(src, target, radius)
+        assertTrue(stop in 0f..1f)
+        assertEquals(axis, stop * (axis + StageBeams.fadeLengthPx(radius)), 0.05f)
+        // Source pins: the backdrop draws the faded cone and
+        // its gradient really ends at zero alpha.
+        val dressing = stageDressingSource()
+        assertEquals(
+            2,
+            Regex("""coneWithFade\(""").findAll(dressing).count(),
+        )
+        assertEquals(
+            1,
+            Regex("""StageBeams\.peakStop\(""").findAll(dressing).count(),
+        )
+        assertEquals(
+            1,
+            Regex("""alpha = 0f""").findAll(dressing).count(),
+        )
+    }
+
+    @Test
+    fun soloPoolsAreDimmedAtTheIntersectionOnly() {
+        // v1.0.61: the shared pool centre does NOT move (the
+        // row's pools keep it); the solo placement's pools —
+        // where the two beams land — scale down to an
+        // effective 0.42.
+        assertEquals(0.50f, SpotlightGeom.CENTRE_ALPHA, 0.0001f)
+        assertEquals(0.84f, SpotlightGeom.SOLO_POOL_ALPHA_SCALE, 0.0001f)
+        assertTrue(SpotlightGeom.SOLO_POOL_ALPHA_SCALE in 0.8f..0.9f)
+        assertEquals(
+            0.42f,
+            SpotlightGeom.CENTRE_ALPHA * SpotlightGeom.SOLO_POOL_ALPHA_SCALE,
+            0.001f,
+        )
+        // Exactly the two solo-placement call sites (the
+        // playback dancer, the ceremony keeper) take the
+        // dimming, the contact shadow and the stronger
+        // reflection top — the row takes none of them.
+        val src = mainActivitySource()
+        assertEquals(
+            2,
+            Regex("""spotlightAlphaScale\s*=\s*SpotlightGeom\.SOLO_POOL_ALPHA_SCALE""")
+                .findAll(src).count(),
+        )
+        assertEquals(
+            2,
+            Regex("""contactShadow = true""").findAll(src).count(),
+        )
+        assertEquals(
+            2,
+            Regex("""reflectionTopAlpha\s*=\s*StageFloor\.SOLO_REFLECTION_TOP_ALPHA""")
+                .findAll(src).count(),
+        )
+    }
+
+    @Test
+    fun soloReflectionStartsStrongerOverThePool() {
+        // v1.0.61: the solo reflection's top — the stretch
+        // that lies over the pool — has a floor: at the shared
+        // 0.55 the light washed the mirror out and the feet
+        // looked cut from it. The fade's shape is untouched
+        // (the shared value and the fade stop law stand), only
+        // the solo top is hotter.
+        assertEquals(0.75f, StageFloor.SOLO_REFLECTION_TOP_ALPHA, 0.0001f)
+        assertTrue(
+            "the solo reflection top never drops below the readability floor",
+            StageFloor.SOLO_REFLECTION_TOP_ALPHA >= 0.7f,
+        )
+        assertTrue(
+            StageFloor.SOLO_REFLECTION_TOP_ALPHA > StageFloor.REFLECTION_TOP_ALPHA,
+        )
+        assertEquals(0.55f, StageFloor.REFLECTION_TOP_ALPHA, 0.0001f)
+        // The default every other figure keeps is the shared
+        // value, declared on the parameter itself.
+        assertTrue(
+            mainActivitySource().contains(
+                "reflectionTopAlpha: Float = StageFloor.REFLECTION_TOP_ALPHA",
+            ),
+        )
     }
 
     // ---- layer order (source pins) ----------------------------

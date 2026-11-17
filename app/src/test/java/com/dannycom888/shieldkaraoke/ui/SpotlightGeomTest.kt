@@ -182,6 +182,57 @@ class SpotlightGeomTest {
         assertTrue(kotlin.math.abs(comboVisualLeft - robotVisualRight) <= 0.003f)
     }
 
+    // ---- the contact shadow (v1.0.61) -------------------------
+    // A soft dark patch pressed into the pool under the feet:
+    // 0.9× the figure's width, flattened to 0.30, centre alpha
+    // restrained in the 0.22–0.28 band, centred on the figure's
+    // column just below the shared feet baseline, and lying
+    // wholly inside the pool's ellipse — the dark sits inside
+    // the light, planting the feet in it.
+
+    @Test
+    fun contactShadowGeometryIsPinned() {
+        assertEquals(
+            0.9f,
+            SpotlightGeom.CONTACT_SHADOW_WIDTH_PER_FIGURE_WIDTH,
+            0.0001f,
+        )
+        assertEquals(0.30f, SpotlightGeom.CONTACT_SHADOW_FLATTEN, 0.0001f)
+        assertEquals(0.26f, SpotlightGeom.CONTACT_SHADOW_ALPHA, 0.0001f)
+        assertTrue(SpotlightGeom.CONTACT_SHADOW_ALPHA in 0.22f..0.28f)
+        val h = 200f
+        val figW = SpotlightGeom.dancerWidthDp(h) // 156
+        val rx = SpotlightGeom.contactShadowRadiusXDp(h)
+        val ry = SpotlightGeom.contactShadowRadiusYDp(h)
+        assertEquals(figW * 0.9f / 2f, rx, 0.01f)
+        assertEquals(rx * 0.30f, ry, 0.01f)
+        // Narrower than the figure, much narrower than the pool.
+        assertTrue(2f * rx < figW)
+        assertTrue(2f * rx < SpotlightGeom.poolWidthDp(h))
+        val c = SpotlightGeom.contactShadowCentreInFigureBoxDp(h)
+        assertEquals(figW / 2f, c.x, 0.01f)
+        // Just below the feet baseline (0.98 × h = 196):
+        // centre = 196 + ry × 0.40 = 204.424.
+        assertEquals(204.424f, c.y, 0.01f)
+        assertTrue("the patch nestles below the baseline", c.y > h * 0.98f)
+        // Wholly inside the pool: the shadow's four extreme
+        // points satisfy the pool ellipse's equation.
+        val poolC = SpotlightGeom.poolCentreInFigureBoxDp(h)
+        val poolRx = SpotlightGeom.poolRadiusXDp(h)
+        val poolRy = SpotlightGeom.poolHeightDp(h) / 2f
+        for ((dx, dy) in listOf(
+            rx to 0f, -rx to 0f, 0f to ry, 0f to -ry,
+        )) {
+            val q = (dx / poolRx) * (dx / poolRx) +
+                ((c.y + dy - poolC.y) / poolRy) * ((c.y + dy - poolC.y) / poolRy)
+            assertTrue("shadow extreme inside the pool: q=$q", q <= 1f)
+        }
+        // Scales with the figure, like the pool does.
+        assertTrue(
+            SpotlightGeom.contactShadowRadiusXDp(300f) > rx,
+        )
+    }
+
     @Test
     fun poolIsWiderThanTheDancerButFlatterThanHer() {
         val h = 200f

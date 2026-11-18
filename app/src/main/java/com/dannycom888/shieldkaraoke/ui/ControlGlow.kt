@@ -84,6 +84,50 @@ object ControlGlow {
 }
 
 /**
+ * The text counterpart of the chip halo (v1.0.66): the
+ * now-singing line glows pink "the same way the buttons
+ * do" (the user's word). A rect silhouette cannot hug
+ * glyphs, so the halo is the text's own silhouette: the
+ * same line drawn again at small offsets around the
+ * original, in [ControlGlow.FOCUS_COLOR] at falling
+ * alphas — an inner ring that hugs the strokes and a
+ * fainter outer ring. Layered copies, never blur (the
+ * same API-30 rule as the chips).
+ *
+ * Pure data, so the falloff and the symmetry are unit
+ * pinned like the chip table.
+ */
+object TextGlow {
+
+    /** (dx dp, dy dp, alpha) per silhouette pass: an
+     *  8-direction inner ring at 1.2 dp, then the four
+     *  cardinal directions again at 2.4 dp with less than
+     *  half the alpha, so the bloom has a bright core and
+     *  a soft tail with no visible rim. Offsets come in
+     *  mirrored pairs — the halo grows evenly on every
+     *  side of the glyphs. */
+    val LAYERS: List<Triple<Float, Float, Float>> = listOf(
+        // Inner ring (radius 1.2 dp, alpha 0.30).
+        Triple(1.2f, 0f, 0.30f),
+        Triple(0.85f, 0.85f, 0.30f),
+        Triple(0f, 1.2f, 0.30f),
+        Triple(-0.85f, 0.85f, 0.30f),
+        Triple(-1.2f, 0f, 0.30f),
+        Triple(-0.85f, -0.85f, 0.30f),
+        Triple(0f, -1.2f, 0.30f),
+        Triple(0.85f, -0.85f, 0.30f),
+        // Outer ring (radius 2.4 dp, alpha 0.13).
+        Triple(2.4f, 0f, 0.13f),
+        Triple(0f, 2.4f, 0.13f),
+        Triple(-2.4f, 0f, 0.13f),
+        Triple(0f, -2.4f, 0.13f),
+    )
+
+    /** How far the bloom reaches past the glyphs. */
+    val REACH_DP: Float get() = LAYERS.maxOf { maxOf(kotlin.math.abs(it.first), kotlin.math.abs(it.second)) }
+}
+
+/**
  * The halo itself: the chip's rounded-rect silhouette
  * drawn behind the chip once per [ControlGlow.LAYERS]
  * entry, in [color] — white at rest, [ControlGlow]'s pink

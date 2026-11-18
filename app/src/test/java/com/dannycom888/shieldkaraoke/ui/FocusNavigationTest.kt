@@ -152,6 +152,86 @@ class FocusNavigationTest {
         }
     }
 
+    // ---------- v1.0.66: the admin page, path by path ----------
+
+    @Test
+    fun adminFocusPathsAreWired() {
+        val source = mainSource()
+        val admin = slice(source, "private fun AdminScreen", "private fun AdminDancerRow")
+        // In through the gear, back through the same door.
+        assertTrue(admin.contains("BackHandler { screen = adminReturnTo }"))
+        assertTrue(admin.contains("screen = adminReturnTo"))
+        // The folder card launches the system tree picker;
+        // the page (and its focus owner) stays composed
+        // across the round trip.
+        assertTrue(admin.contains("ActivityResultContracts.OpenDocumentTree()"))
+        assertTrue(admin.contains("picker.launch(null)"))
+        // Rescan is a plain focusable card next to it.
+        assertTrue(admin.contains("TvKey.RESCAN"))
+        // The sweep-colour chips are the shared Chip.
+        assertTrue(admin.contains("TvKey.SWEEP_GOLD"))
+        assertTrue(admin.contains("TvKey.SWEEP_PINK"))
+        // Restore-defaults goes through its confirm dialog.
+        assertTrue(admin.contains("confirmRestoreNames = true"))
+        assertTrue(admin.contains("TvKey.ADMIN_RESTORE_CONFIRM"))
+        // The rename editor is the native dialog, and it
+        // explicitly takes focus on show (the Leanback
+        // keyboard follows it).
+        val rename = slice(source, "private fun showRenameDialog", "private fun showSearchDialog")
+        assertTrue(rename.contains("edit.requestFocus()"))
+        assertTrue(rename.contains("setPositiveButton"))
+        assertTrue(rename.contains("setNegativeButton"))
+    }
+
+    // ---------- v1.0.66: the TV order flow, handoff by handoff ----------
+
+    @Test
+    fun orderingFlowHandoffsAreWired() {
+        val source = mainSource()
+        val browse = slice(source, "private fun BrowseScreen", "private fun BrandLogo")
+        // The search field carries its own anchor…
+        assertTrue(browse.contains("focusRequester(searchFieldRequester)"))
+        // …because the clear chip removes ITSELF with the
+        // query: its click must hand focus to the field.
+        val clearAt = browse.indexOf("TvKey.SEARCH_CLEAR")
+        assertTrue("clear chip found", clearAt >= 0)
+        assertTrue(
+            browse.substring(clearAt, minOf(clearAt + 700, browse.length))
+                .contains("refocusSearchField()"),
+        )
+        // The singer ✕ chip is the same shape: clearing the
+        // singer removes the chip, so its click hands focus
+        // to the first song row like a fresh query does.
+        val singerChipAt = browse.indexOf("TvKey.SINGER_CHIP")
+        assertTrue("singer chip found", singerChipAt >= 0)
+        assertTrue(
+            browse.substring(singerChipAt, minOf(singerChipAt + 700, browse.length))
+                .contains("focusFirstResultTick++"),
+        )
+        // A fresh query (typed save or voice result) lands
+        // on the first result — one shared move.
+        assertTrue(source.contains("focusFirstResultTick++"))
+        val query = slice(source, "private fun applyBrowseQuery", "private fun rescueFocus")
+        assertTrue(query.contains("focusFirstResultTick++"))
+        // Ordering while a song plays returns to the stage;
+        // ordering into an idle stage starts the song (the
+        // root's onShouldStart lands on the same screen) —
+        // either way the player screen's entry anchor owns
+        // the landing.
+        assertTrue(
+            source.contains(
+                "if (app.state.queue.current != null) screen = Screen.PLAYER",
+            ),
+        )
+        // The queue panel's focus machinery: expansion aims
+        // at the play-now chip, exits land back on the bar,
+        // and Back is two-stage while the panel has focus.
+        val player = slice(source, "private fun PlayerScreen", "private fun QueuePanel")
+        assertTrue(player.contains("PanelFocusTarget.PlayNowAction"))
+        assertTrue(player.contains("focusTarget = PanelFocusTarget.ControlBar"))
+        assertTrue(player.contains("BackHandler(enabled = panelFocused"))
+    }
+
     @Test
     fun ambientLayersCarryNoFocusable() {
         // Bubbles, stars, beams, pools, reflections: pure

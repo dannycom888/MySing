@@ -92,7 +92,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -1309,6 +1311,11 @@ class MainActivity : ComponentActivity() {
     private val playerControlRequester = FocusRequester()
     private val browseInitialRequester = FocusRequester()
     private val adminInitialRequester = FocusRequester()
+    // v1.0.66: the browse search field's own anchor — the
+    // clear chip next to it disposes ITSELF when clicked
+    // (it only exists while a query stands), so its click
+    // hands focus here explicitly instead of stranding it.
+    private val searchFieldRequester = FocusRequester()
     /** Whether ANY node in the composition currently holds
      *  focus; fed by the root's onFocusEvent (hasFocus). */
     private var hasAnyFocus by mutableStateOf(false)
@@ -1366,6 +1373,18 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             // Button not composed (page left mid-listen): nowhere
             // to send focus; the next D-pad press resolves it.
+        }
+    }
+
+    /** v1.0.66: hand focus to the browse search field —
+     *  the clear chip's exit move (it removes itself from
+     *  the tree in the same click that clears the query). */
+    private fun refocusSearchField() {
+        try {
+            searchFieldRequester.requestFocus()
+        } catch (e: Exception) {
+            // Field not composed (page left mid-clear): the
+            // rescue net covers the next D-pad press.
         }
     }
 
@@ -1597,7 +1616,17 @@ class MainActivity : ComponentActivity() {
                 Chip(s(TvKey.FILTER_MALE), filterGender == Gender.MALE) { filterGender = Gender.MALE }
                 Chip(s(TvKey.FILTER_FEMALE), filterGender == Gender.FEMALE) { filterGender = Gender.FEMALE }
                 if (filterArtist != null) {
-                    Chip(s(TvKey.SINGER_CHIP, filterArtist!!), true) { filterArtist = null }
+                    Chip(s(TvKey.SINGER_CHIP, filterArtist!!), true) {
+                        filterArtist = null
+                        // v1.0.66: this chip too exists only
+                        // while its own state stands — clearing
+                        // the singer removes the very chip the
+                        // remote is standing on. Hand focus to
+                        // the first song row (the list below
+                        // just un-filtered), the same move a
+                        // fresh query makes.
+                        focusFirstResultTick++
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -1611,12 +1640,22 @@ class MainActivity : ComponentActivity() {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SearchField(compact, Modifier.weight(1f)) { showSearchDialog() }
+                SearchField(
+                    compact,
+                    Modifier.weight(1f).focusRequester(searchFieldRequester),
+                ) { showSearchDialog() }
                 VoiceButton(compact, VoiceSearch.buttonState(voiceAvailable)) { onVoiceClick() }
                 if (browseQuery.isNotBlank()) {
                     Chip(s(TvKey.SEARCH_CLEAR), false) {
                         browseQuery = ""
                         voiceHint = null
+                        // v1.0.66: clearing the query removes
+                        // this chip itself — the remote was
+                        // standing on it. Focus goes to the
+                        // search field it belongs to (still
+                        // composed, one step left), not into
+                        // the vacuum the v1.0.65 repair outlawed.
+                        refocusSearchField()
                     }
                 }
             }
@@ -1902,7 +1941,25 @@ class MainActivity : ComponentActivity() {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val screenH = maxHeight
             val screenW = maxWidth
-            Column(modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 24.dp)) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(
+                    start = if (compact) 12.dp else 24.dp,
+                    end = if (compact) 12.dp else 24.dp,
+                    bottom = if (compact) 12.dp else 24.dp,
+                    // v1.0.66: the top edge breathes more
+                    // (the user: the spacing up top bigger
+                    // too). The whole column — banner row,
+                    // stage, control bar — rides down by the
+                    // same delta together, so every relation
+                    // measured inside it (the ceremony card's
+                    // 5%-of-screen perch under the banner,
+                    // the panel's topPad from the stage top,
+                    // the QR clearances at the root) keeps
+                    // its exact offset; only the stage's
+                    // flexible height gives up the delta.
+                    top = if (compact) 18.dp else 34.dp,
+                ),
+            ) {
                 val nextUp = state.queue.nextUpText(uiLang)
                 // Banner row (v1.0.29): the settings gear sits at
                 // its far left. The host lives on this screen (the
@@ -1940,9 +1997,18 @@ class MainActivity : ComponentActivity() {
                     // v1.0.31): the two chips label themselves in
                     // their own language, so the switch is findable
                     // from either side; the choice persists.
-                    Chip("中文", uiLang == UiLang.ZH, compact = compact) { switchUiLang(UiLang.ZH) }
+                    // v1.0.66: the language chips wear the same
+                    // glow as the control bar now (the user: the
+                    // top buttons didn't change colour) — white
+                    // at rest, pink + a notch bigger under the
+                    // remote. The CURRENT language keeps its own
+                    // signal (the gold selected fill), which the
+                    // halo never touches: fill says "this one is
+                    // active", halo says "the remote is here" —
+                    // the two stay tellable apart.
+                    Chip("中文", uiLang == UiLang.ZH, compact = compact, glow = true) { switchUiLang(UiLang.ZH) }
                     Spacer(Modifier.width(4.dp))
-                    Chip("EN", uiLang == UiLang.EN, compact = compact) { switchUiLang(UiLang.EN) }
+                    Chip("EN", uiLang == UiLang.EN, compact = compact, glow = true) { switchUiLang(UiLang.EN) }
                     Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
                     Box(
                         modifier = Modifier.weight(1f)
@@ -2488,15 +2554,32 @@ class MainActivity : ComponentActivity() {
                           }
                             Spacer(Modifier.width(LyricsBand.GAP_DP.dp))
                             Column(modifier = Modifier.width(band.widthDp.dp).fillMaxHeight()) {
-                                Text(
-                                    // A filler song has no orderer to
-                                    // credit: just its name (v1.0.20).
+                                // v1.0.66: the top of the stage
+                                // breathes more (the user: the
+                                // spacing up top bigger too) — a
+                                // gap under the banner row before
+                                // the now-singing line, and one
+                                // between the line and the lyrics.
+                                // Both live INSIDE this column, so
+                                // the stage box itself — and with
+                                // it the ceremony card's 5% perch
+                                // and the panel's topPad, both
+                                // measured from the stage's top —
+                                // does not move a hair.
+                                Spacer(Modifier.height(if (compact) 4.dp else 8.dp))
+                                NowSingingLine(
+                                    // A filler song has no orderer
+                                    // to credit, but the 正在唱
+                                    // prefix stays (v1.0.66 — the
+                                    // line always carries it).
                                     entry?.let {
-                                        if (it.isFiller) it.song.displayName
+                                        if (it.isFiller) s(TvKey.NOW_SINGING_FILLER, it.song.displayName)
                                         else s(TvKey.NOW_SINGING_LINE, it.song.displayName, it.orderedBy)
                                     } ?: "",
-                                    color = soft, fontSize = (if (compact) 12 else 15).sp,
+                                    compact,
+                                    band.widthDp,
                                 )
+                                Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
                                 LyricsView(
                                     lyrics, positionMs, compact,
                                     modifier = Modifier.weight(1f),
@@ -2694,8 +2777,15 @@ class MainActivity : ComponentActivity() {
                     // the chips fit the compact landscape width
                     // in one row and the bar hugs the screen bottom
                     // (the old overflow is the v1.0.25 root cause).
+                    // v1.0.66: the user on the real TV asked the
+                    // other way — the chips are slimmer now (see
+                    // Chip's inControlBar) and the gaps double, so
+                    // the row reads as six separate glowing keys,
+                    // and a focused chip's ×1.10 growth (a few dp
+                    // a side) lands inside the gap, never on its
+                    // neighbour.
                     horizontalArrangement = Arrangement.spacedBy(
-                        if (compact) 6.dp else 8.dp, Alignment.CenterHorizontally,
+                        if (compact) 12.dp else 16.dp, Alignment.CenterHorizontally,
                     ),
                 ) {
                     Chip(
@@ -2704,13 +2794,15 @@ class MainActivity : ComponentActivity() {
                         onFocused = { panelFocused = false },
                         compact = compact,
                         glow = true,
+                        inControlBar = true,
                     ) { controller.togglePlayPause() }
-                    Chip(s(TvKey.REPLAY), false, onFocused = { panelFocused = false }, compact = compact, glow = true) { controller.replay() }
+                    Chip(s(TvKey.REPLAY), false, onFocused = { panelFocused = false }, compact = compact, glow = true, inControlBar = true) { controller.replay() }
                     Chip(
                         if (accompaniment) s(TvKey.ACCOMP_ON) else s(TvKey.ACCOMP_OFF), accompaniment,
                         onFocused = { panelFocused = false },
                         compact = compact,
                         glow = true,
+                        inControlBar = true,
                     ) {
                         accompaniment = !accompaniment; controller.setAccompaniment(accompaniment)
                     }
@@ -2719,13 +2811,14 @@ class MainActivity : ComponentActivity() {
                         onFocused = { panelFocused = false },
                         compact = compact,
                         glow = true,
+                        inControlBar = true,
                     ) {
                         dancersOn = !dancersOn; app.prefs.dancersEnabled = dancersOn
                     }
                     // v1.0.31: no 🎲 filler chip any more — filler
                     // is unconditional (nobody orders, it starts).
-                    Chip(s(TvKey.QUIT), false, onFocused = { panelFocused = false }, compact = compact, glow = true) { confirmQuit = true }
-                    Chip(s(TvKey.GO_ORDER), false, onFocused = { panelFocused = false }, compact = compact, glow = true) { screen = Screen.BROWSE }
+                    Chip(s(TvKey.QUIT), false, onFocused = { panelFocused = false }, compact = compact, glow = true, inControlBar = true) { confirmQuit = true }
+                    Chip(s(TvKey.GO_ORDER), false, onFocused = { panelFocused = false }, compact = compact, glow = true, inControlBar = true) { screen = Screen.BROWSE }
                 }
             }
         }
@@ -3715,6 +3808,47 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * The now-singing line over the lyrics (v1.0.66 — the
+     * user: the singer–song line bigger, glowing pink
+     * outward "the same as the buttons' light", and the
+     * 正在唱 prefix always in front). One notch up in size
+     * (15 -> 20sp, compact 12 -> 15sp), white glyphs, and
+     * the pink halo is the text's own layered silhouette
+     * (see [TextGlow]) in the buttons' focus pink — no
+     * blur, the API-30 rule. A long title shrinks to fit
+     * the lyrics band by the band's own fit law ([LyricFit],
+     * the same one the lyric lines use), so it can never
+     * spill toward the QR card or the panel reserve; at
+     * the fit floor it clips on one line rather than
+     * wrapping and shoving the lyrics down.
+     */
+    @Composable
+    private fun NowSingingLine(text: String, compact: Boolean, bandWidthDp: Float) {
+        val baseSize = if (compact) 15 else 20
+        val measurer = rememberTextMeasurer()
+        val bandWidthPx = with(LocalDensity.current) { bandWidthDp.dp.toPx() }
+        val fittedSize = remember(text, baseSize, bandWidthPx) {
+            val natural = measurer.measure(
+                text = text,
+                style = TextStyle(fontSize = baseSize.sp),
+            ).size.width
+            (baseSize * LyricFit.scaleFor(natural.toFloat(), bandWidthPx)).toInt().coerceAtLeast(1)
+        }
+        Box {
+            for ((dx, dy, alpha) in TextGlow.LAYERS) {
+                Text(
+                    text,
+                    color = ControlGlow.FOCUS_COLOR.copy(alpha = alpha),
+                    fontSize = fittedSize.sp,
+                    maxLines = 1,
+                    modifier = Modifier.offset(dx.dp, dy.dp),
+                )
+            }
+            Text(text, color = Color.White, fontSize = fittedSize.sp, maxLines = 1)
+        }
+    }
+
+    /**
      * The admin entry (v1.0.26 on the old home screen, v1.0.29
      * also on the player screen, v1.0.31 also on the browse
      * page): just a small gear in a circle — the user's ruling
@@ -3728,14 +3862,40 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun GearButton(compact: Boolean, onClick: () -> Unit) {
         var focused by remember { mutableStateOf(false) }
+        // v1.0.66: the gear wears the control chips' glow
+        // (the user: the settings button up top didn't change
+        // colour either) — a white halo at rest; under the
+        // remote's focus or a pressing finger it grows a
+        // notch and the halo turns pink, exactly the chips'
+        // language (see ControlGlow). Its gold focus ring
+        // stays — the ring is the rows-and-cards focus
+        // language all over the TV pages; the halo is what
+        // changes colour.
+        val interactionSource = remember { MutableInteractionSource() }
+        val pressed by interactionSource.collectIsPressedAsState()
+        val highlighted = focused || pressed
+        val sizeDp = if (compact) 36 else 46
         Box(
             modifier = Modifier
-                .size(if (compact) 36.dp else 46.dp)
+                .size(sizeDp.dp)
+                .graphicsLayer {
+                    val s = if (highlighted) ControlGlow.FOCUS_SCALE else 1f
+                    scaleX = s
+                    scaleY = s
+                }
+                .controlGlow(
+                    if (highlighted) ControlGlow.FOCUS_COLOR else ControlGlow.NORMAL_COLOR,
+                    highlighted,
+                    cornerDp = sizeDp / 2f,
+                )
                 .border(2.dp, if (focused) gold else Color.Transparent, CircleShape)
                 .background(cardBg, CircleShape)
                 .focusable()
                 .onFocusChanged { focused = it.isFocused }
-                .clickable { onClick() }
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = LocalIndication.current,
+                ) { onClick() }
                 .semantics { contentDescription = s(TvKey.ADMIN_GEAR_DESC) },
             contentAlignment = Alignment.Center,
         ) {
@@ -3790,6 +3950,13 @@ class MainActivity : ComponentActivity() {
          *  Every other chip (browse filters, the banner's
          *  language switch, admin) leaves it off. */
         glow: Boolean = false,
+        /** v1.0.66: the player control bar's six chips pass
+         *  this — one notch slimmer (type and padding, see
+         *  below) now that the bar's spacing has room to
+         *  breathe; the user, on the real TV: the bottom
+         *  buttons smaller, the gaps between them bigger.
+         *  No other chip shrinks. */
+        inControlBar: Boolean = false,
         onClick: () -> Unit,
     ) {
         var focused by remember { mutableStateOf(false) }
@@ -3829,8 +3996,19 @@ class MainActivity : ComponentActivity() {
                 .then(clickMod)
                 // v1.0.24: chips sit a touch tighter (vertical
                 // 6dp -> 4dp) so the always-on control bar takes
-                // less of the stage's height.
-                .padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 4.dp),
+                // less of the stage's height. v1.0.66: the
+                // control bar's own chips sit one notch tighter
+                // still (inControlBar) — the bar's wider spacing
+                // is what the eye reads, not chip bulk.
+                .padding(
+                    horizontal = when {
+                        inControlBar && compact -> 7.dp
+                        inControlBar -> 10.dp
+                        compact -> 8.dp
+                        else -> 12.dp
+                    },
+                    vertical = if (inControlBar) 3.dp else 4.dp,
+                ),
         ) {
             // maxLines = 1 is a hard rule, not a style choice: a
             // chip label must never wrap character-by-character
@@ -3840,7 +4018,12 @@ class MainActivity : ComponentActivity() {
             Text(
                 label,
                 color = if (selected) Color.Black else Color.White,
-                fontSize = (if (compact) 12 else 13).sp,
+                fontSize = when {
+                    inControlBar && compact -> 11.sp
+                    inControlBar -> 12.sp
+                    compact -> 12.sp
+                    else -> 13.sp
+                },
                 maxLines = 1,
             )
         }

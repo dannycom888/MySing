@@ -159,6 +159,21 @@ class StringTablesTest {
     }
 
     @Test
+    fun fillerNowSingingLineKeepsThePrefix() {
+        // v1.0.66: a filler song has no orderer to credit,
+        // but its now-singing line still opens with the
+        // prefix — the user ruled it always stands there.
+        assertEquals(
+            "正在唱：任贤齐 - 心太软",
+            TvStrings.get(UiLang.ZH, TvKey.NOW_SINGING_FILLER, "任贤齐 - 心太软"),
+        )
+        assertEquals(
+            "Now singing: Richie Jen - Heart Too Soft",
+            TvStrings.get(UiLang.EN, TvKey.NOW_SINGING_FILLER, "Richie Jen - Heart Too Soft"),
+        )
+    }
+
+    @Test
     fun serverOrderMessagesInBothLanguages() {
         assertEquals("马上开唱！", ServerStrings.get(UiLang.ZH, ServerKey.ORDER_START_NOW))
         assertEquals("You're up — singing now!", ServerStrings.get(UiLang.EN, ServerKey.ORDER_START_NOW))

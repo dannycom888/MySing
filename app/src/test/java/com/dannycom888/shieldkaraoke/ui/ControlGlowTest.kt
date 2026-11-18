@@ -26,12 +26,15 @@ import java.io.File
  *
  * The glow: layered silhouettes (see ControlGlow) — pins
  * for the layer table, the highlight boost, the no-blur
- * rule, and the wiring (exactly the six control-bar chips
- * glow; the banner's language chips and every other chip
- * do not). Colours per the user's final word (v1.0.65,
- * superseding the v1.0.64 per-chip-colour halo): WHITE at
- * rest for every chip; the highlighted chip (remote focus
- * or a pressing finger) grows a notch and glows PINK.
+ * rule, and the wiring. Colours per the user's final word
+ * (v1.0.65, superseding the v1.0.64 per-chip-colour
+ * halo): WHITE at rest for every chip; the highlighted
+ * chip (remote focus or a pressing finger) grows a notch
+ * and glows PINK. v1.0.66 extends the same wiring past
+ * the control bar: the banner's two language chips and
+ * the gear join in (the user: the top buttons didn't
+ * change colour), and the now-singing line gets the text
+ * form of the halo (TextGlow).
  */
 class ControlGlowTest {
 
@@ -130,30 +133,87 @@ class ControlGlowTest {
     }
 
     @Test
-    fun exactlyTheSixControlChipsGlow() {
+    fun glowCoversControlBarBannerChipsAndGear() {
         val src = mainActivitySource()
         assertTrue(
             "the chip takes the glow switch, default off",
             src.contains("glow: Boolean = false"),
         )
         assertEquals(
-            "one wiring point inside the chip",
-            1,
+            "two halo wiring points: the chip and the gear",
+            2,
             Regex("""controlGlow\(""").findAll(src).count(),
         )
         assertEquals(
-            "exactly six chips glow",
-            6,
+            "eight chips glow: six in the control bar, two in the banner",
+            8,
             Regex("""glow = true""").findAll(src).count(),
         )
-        // …and all six stand in the control bar: every
-        // "glow = true" sits after the control bar's marker
-        // comment (the banner's language chips, the browse
-        // filters and the admin chips all stay dark).
+        // Six stand in the control bar (after its marker
+        // comment); the other two are the banner's language
+        // chips (v1.0.66), which stand before it. The browse
+        // filters and the admin chips still stay dark.
         val barStart = src.indexOf("// --- control bar")
         assertTrue("control bar found", barStart >= 0)
         val glows = Regex("""glow = true""").findAll(src).map { it.range.first }
-        assertTrue(glows.all { it > barStart })
+        assertEquals("six in the bar", 6, glows.count { it > barStart })
+        assertEquals("two in the banner", 2, glows.count { it < barStart })
+        // The gear (v1.0.66): not a Chip, so it wires the
+        // halo itself — same white/pink choice, same scale.
+        val gearStart = src.indexOf("private fun GearButton")
+        assertTrue("gear found", gearStart >= 0)
+        val gear = src.substring(gearStart, minOf(gearStart + 3200, src.length))
+        assertTrue(gear.contains("controlGlow("))
+        assertTrue(
+            gear.contains(
+                "if (highlighted) ControlGlow.FOCUS_COLOR else ControlGlow.NORMAL_COLOR",
+            ),
+        )
+        assertTrue(gear.contains("ControlGlow.FOCUS_SCALE"))
+        // The language chips' selected fill is untouched by
+        // the halo wiring: selected still paints gold inside
+        // the chip (the fill says "active", the halo says
+        // "the remote is here").
+        assertTrue(src.contains("if (selected) gold else cardBg"))
+    }
+
+    @Test
+    fun textGlowLayersFormASoftSymmetricHalo() {
+        // v1.0.66: the now-singing line's pink bloom — the
+        // text form of the halo. Same discipline as the
+        // chip table: layered, falling, capped, and even
+        // on every side (offsets in mirrored pairs).
+        val layers = TextGlow.LAYERS
+        assertTrue("several silhouette passes", layers.size >= 8)
+        for ((dx, dy, alpha) in layers) {
+            assertTrue("every pass is a whisper", alpha in 0.05f..0.35f)
+            assertTrue(
+                "offset ($dx, $dy) has its mirror",
+                layers.any { it.first == -dx && it.second == -dy },
+            )
+        }
+        val inner = layers.maxOf { it.third }
+        val outer = layers.filter {
+            maxOf(kotlin.math.abs(it.first), kotlin.math.abs(it.second)) >= 2f
+        }
+        assertTrue("an outer ring exists", outer.isNotEmpty())
+        assertTrue(
+            "the outer ring is fainter than the inner",
+            outer.all { it.third < inner },
+        )
+        assertTrue(
+            "the bloom stays a skirt around the glyphs",
+            TextGlow.REACH_DP in 2f..3.5f,
+        )
+        // Wiring: the now-singing line draws its halo from
+        // this table, in the buttons' focus pink.
+        val src = mainActivitySource()
+        val start = src.indexOf("private fun NowSingingLine")
+        assertTrue("now-singing line found", start >= 0)
+        val body = src.substring(start, minOf(start + 2600, src.length))
+        assertTrue(body.contains("TextGlow.LAYERS"))
+        assertTrue(body.contains("ControlGlow.FOCUS_COLOR"))
+        assertTrue(body.contains("LyricFit.scaleFor"))
     }
 
     @Test

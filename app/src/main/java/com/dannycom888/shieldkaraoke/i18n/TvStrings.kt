@@ -14,6 +14,10 @@ enum class TvKey {
     FILTER_ANY_GENDER, FILTER_MALE, FILTER_FEMALE, SINGER_CHIP,
     // Player
     NEXT_UP, INTERLUDE_COUNTDOWN, NOW_SINGING_LINE,
+    // The now-singing line for a filler song (v1.0.66): no
+    // orderer to credit, but the 正在唱 prefix stays — the
+    // user ruled the line always carries it.
+    NOW_SINGING_FILLER,
     PAUSE, RESUME, REPLAY, ACCOMP_ON, ACCOMP_OFF,
     DANCERS_ON, DANCERS_OFF,
     QUIT, GO_ORDER, QUIT_TITLE, QUIT_TEXT, QUIT_CONFIRM, QUIT_CANCEL,
@@ -98,6 +102,7 @@ object TvStrings {
         TvKey.NEXT_UP to "下一首：%2\$s点的 %1\$s",
         TvKey.INTERLUDE_COUNTDOWN to "%d 秒后开始",
         TvKey.NOW_SINGING_LINE to "正在唱：%1\$s（%2\$s点的）",
+        TvKey.NOW_SINGING_FILLER to "正在唱：%1\$s",
         TvKey.PAUSE to "⏸ 暂停",
         TvKey.RESUME to "▶ 继续",
         TvKey.REPLAY to "↺ 重唱",
@@ -189,6 +194,7 @@ object TvStrings {
         TvKey.NEXT_UP to "Next up: %1\$s (ordered by %2\$s)",
         TvKey.INTERLUDE_COUNTDOWN to "Starting in %d s",
         TvKey.NOW_SINGING_LINE to "Now singing: %1\$s (ordered by %2\$s)",
+        TvKey.NOW_SINGING_FILLER to "Now singing: %1\$s",
         TvKey.PAUSE to "⏸ Pause",
         TvKey.RESUME to "▶ Resume",
         TvKey.REPLAY to "↺ Replay",

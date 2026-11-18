@@ -40,7 +40,12 @@ import java.io.File
  * user: "做成一个形状" / "一半一半发光") — the pill
  * halves wire the per-corner form of the halo themselves,
  * so the banner's glow = true chips are gone — and the
- * control bar takes its second slimming notch.
+ * control bar takes its second slimming notch. v1.0.69
+ * reverses the pill (the user: the capsule shape looks
+ * odd — split it back): the banner's two language buttons
+ * are separate glow = true chips again, now fixed-diameter
+ * CIRCLES of one identical size, and the per-corner halo
+ * form is retired with the pill.
  */
 class ControlGlowTest {
 
@@ -139,34 +144,36 @@ class ControlGlowTest {
     }
 
     @Test
-    fun glowCoversControlBarAndGear() {
+    fun glowCoversControlBarBannerAndGear() {
         val src = mainActivitySource()
         assertTrue(
             "the chip takes the glow switch, default off",
             src.contains("glow: Boolean = false"),
         )
         assertEquals(
-            "three halo wiring points: the chip, the gear, the pill half",
-            3,
+            "two halo wiring points: the chip and the gear " +
+                "(the v1.0.67 pill half wired its own; the pill is gone)",
+            2,
             Regex("""controlGlow\(""").findAll(src).count(),
         )
         assertEquals(
-            "six chips glow, all of them in the control bar",
-            6,
+            "eight chips glow: six in the control bar, two in the banner",
+            8,
             Regex("""glow = true""").findAll(src).count(),
         )
-        // All six stand in the control bar (after its marker
-        // comment). The banner's two language chips stood
-        // before it until v1.0.66; in v1.0.67 they merge
-        // into the language pill, whose halves wire their
-        // own halo (pinned in the pill test below), so no
-        // glow = true remains outside the bar. The browse
-        // filters and the admin chips still stay dark.
+        // Six stand in the control bar (after its marker
+        // comment); the other two are the banner's language
+        // buttons, before it. They stood there until v1.0.66,
+        // merged into the language pill in v1.0.67 (whose
+        // halves wired their own halo), and are separate
+        // chips again in v1.0.69 — circles now, pinned in
+        // the language test below. The browse filters and
+        // the admin chips still stay dark.
         val barStart = src.indexOf("// --- control bar")
         assertTrue("control bar found", barStart >= 0)
         val glows = Regex("""glow = true""").findAll(src).map { it.range.first }
         assertEquals("six in the bar", 6, glows.count { it > barStart })
-        assertEquals("none outside the bar", 0, glows.count { it < barStart })
+        assertEquals("two outside the bar (the banner)", 2, glows.count { it < barStart })
         // The gear (v1.0.66): not a Chip, so it wires the
         // halo itself — same white/pink choice, same scale.
         val gearStart = src.indexOf("private fun GearButton")
@@ -180,9 +187,9 @@ class ControlGlowTest {
         )
         assertTrue(gear.contains("ControlGlow.FOCUS_SCALE"))
         // The selected fill is untouched by the halo wiring:
-        // selected still paints gold inside the chip and
-        // the pill half (the fill says "active", the halo
-        // says "the remote is here").
+        // selected still paints gold inside the chip (the
+        // fill says "active", the halo says "the remote is
+        // here").
         assertTrue(src.contains("if (selected) gold else cardBg"))
     }
 
@@ -237,81 +244,96 @@ class ControlGlowTest {
     }
 
     @Test
-    fun languagePillIsOneCapsuleWhoseHalvesGlowSeparately() {
-        // v1.0.67 (the user: "上方中英按钮做成一个形状" —
-        // the top Chinese/English buttons become one shape —
-        // "一半一半发光" — the halves glow one at a time).
+    fun languageButtonsAreTwoSeparateEqualCircles() {
+        // v1.0.69 (the user, on the v1.0.67/68 pill: "胶囊
+        // 形状太怪异了，还是把它分开嘛" — the capsule shape
+        // looks odd, split it back — "中文那边只写中" — the
+        // Chinese side writes just 中 — and the steering:
+        // "形状做成一样的圆形" — both buttons circles of
+        // the same shape and size).
         val src = mainActivitySource()
-        // The banner calls the pill; the two chip calls are
-        // gone (the phone page keeps its own switch — a
-        // different surface, untouched).
-        assertTrue("the banner calls the pill", src.contains("LangPill(compact)"))
-        assertTrue("the old zh chip is gone", !src.contains("Chip(\"中文\""))
-        assertTrue("the old en chip is gone", !src.contains("Chip(\"EN\""))
-        val start = src.indexOf("private fun LangPill")
-        val end = src.indexOf("private fun EntryCard")
-        assertTrue("pill found", start >= 0 && end > start)
-        val pill = src.substring(start, end)
-        // One capsule: a single outlined, rounded container.
-        // v1.0.68: the capsule radius steps 16 -> 13dp with
-        // the pill's one-notch shrink.
+        // The pill is gone, composables and call alike.
+        assertTrue("the pill composable is gone", !src.contains("LangPill"))
+        assertTrue("the pill half is gone", !src.contains("LangHalf"))
+        // Two separate chip calls in the banner, one per
+        // language, each switching to its own language,
+        // each wearing the glow and the circle tier.
         assertTrue(
-            "one capsule outline",
-            pill.contains(".border(2.dp, soft.copy(alpha = 0.45f), RoundedCornerShape(13.dp))"),
+            "the zh button is its own chip",
+            src.contains("Chip(\"中\", uiLang == UiLang.ZH, compact = compact, glow = true, circle = true) { switchUiLang(UiLang.ZH) }"),
         )
-        // Two halves (one shared half composable, called
-        // once per language), each its own focusable
-        // control switching to its own language.
+        assertTrue(
+            "the en button is its own chip",
+            src.contains("Chip(\"EN\", uiLang == UiLang.EN, compact = compact, glow = true, circle = true) { switchUiLang(UiLang.EN) }"),
+        )
         assertEquals(
-            "one focusable in the shared half definition",
-            1,
-            Regex("""\.focusable\(\)""").findAll(pill).count(),
+            "exactly two circle chips (the two language buttons)",
+            2,
+            Regex("""circle = true""").findAll(src).count(),
         )
-        assertTrue(pill.contains("selected = uiLang == UiLang.ZH"))
-        assertTrue(pill.contains("selected = uiLang == UiLang.EN"))
-        assertTrue(pill.contains("switchUiLang(UiLang.ZH)"))
-        assertTrue(pill.contains("switchUiLang(UiLang.EN)"))
-        // A divider stands between the halves.
-        assertTrue("a divider between the halves", pill.contains(".width(2.dp)"))
-        // v1.0.68: the pill's shape shrinks one notch —
-        // divider height 18 -> 14dp (compact 14 -> 10dp),
-        // half padding horizontal 12 -> 10dp (compact
-        // 8 -> 6dp) and vertical 4 -> 3dp — while the half
-        // type HOLDS at .67's 13sp (compact 12sp): the
-        // user's correction was that font sizes don't move.
+        // The Chinese label is the single character 中,
+        // never the two-character label the pill half wore.
+        assertTrue("no two-character zh label", !src.contains("Chip(\"中文\""))
+        // An 8dp gap stands between the two buttons.
+        val zh = src.indexOf("Chip(\"中\"")
+        val en = src.indexOf("Chip(\"EN\"")
+        assertTrue("zh stands before en", zh >= 0 && en > zh)
         assertTrue(
-            "divider height 18 -> 14dp, compact 14 -> 10dp",
-            pill.contains(".height(if (compact) 10.dp else 14.dp)"),
+            "an 8dp spacer between the buttons",
+            src.substring(zh, en).contains("Spacer(Modifier.width(8.dp))"),
+        )
+        // The circle itself, in Chip: one shared diameter
+        // definition (32dp, compact 28dp — the pill's
+        // height tier, no re-enlarging), applied as a
+        // fixed size with the circle shape on border and
+        // fill alike, so both buttons are the same size
+        // by construction, whatever their labels' widths.
+        assertTrue(src.contains("circle: Boolean = false"))
+        assertTrue(
+            "one shared diameter for both buttons",
+            src.contains("val circleDiameter = if (compact) 28.dp else 32.dp"),
         )
         assertTrue(
-            "half padding one notch down",
-            pill.contains(".padding(horizontal = if (compact) 6.dp else 10.dp, vertical = 3.dp)"),
+            "the fixed size is applied",
+            src.contains(".then(if (circle) Modifier.size(circleDiameter) else Modifier)"),
         )
         assertTrue(
-            "half type holds at 13sp, compact 12sp",
-            pill.contains("fontSize = (if (compact) 12 else 13).sp"),
+            "border and fill share the circle shape",
+            src.contains("val chipShape = if (circle) CircleShape else RoundedCornerShape(16.dp)") &&
+                src.contains(".border(2.dp, if (focused) Color.White else Color.Transparent, chipShape)") &&
+                src.contains(".background(if (selected) gold else cardBg, chipShape)"),
         )
-        // Per-half glow: the four-corner halo form, in the
-        // chips' white/pink language, hugging each half's
-        // own shape (rounded outside, square at the seam).
-        assertTrue(pill.contains("topStartDp = glowTopStart"))
         assertTrue(
-            pill.contains(
+            "the label centres in the circle",
+            src.contains("contentAlignment = if (circle) Alignment.Center else Alignment.TopStart"),
+        )
+        assertTrue(
+            "the halo's corner is half the diameter — a true circle silhouette",
+            src.contains("cornerDp = if (circle) circleDiameter.value / 2f else 16f"),
+        )
+        // The type does NOT move (the standing correction):
+        // the buttons read on the chip's standard tier,
+        // 13sp (compact 12sp).
+        assertTrue(
+            "type holds at 13sp, compact 12sp",
+            src.contains("compact -> 12.sp") && src.contains("else -> 13.sp"),
+        )
+        // Selected vs focus stay divided as ever: gold fill
+        // for the current language, white border + pink
+        // halo + growth for the focus.
+        assertTrue(src.contains("if (selected) gold else cardBg"))
+        assertTrue(src.contains("if (focused) Color.White else Color.Transparent"))
+        assertTrue(
+            src.contains(
                 "if (highlighted) ControlGlow.FOCUS_COLOR else ControlGlow.NORMAL_COLOR",
             ),
         )
-        assertTrue(pill.contains("ControlGlow.FOCUS_SCALE"))
-        assertTrue("left half rounded on the left", pill.contains("topStart = 11.dp"))
-        assertTrue("right half rounded on the right", pill.contains("topEnd = 11.dp"))
-        // Selected vs focus stay divided as ever: gold fill
-        // for the current language, white border for focus.
-        assertTrue(pill.contains("if (selected) gold else cardBg"))
-        assertTrue(pill.contains("if (focused) Color.White else Color.Transparent"))
-        // The per-corner halo itself lives in ControlGlow
-        // (path-drawn, still no blur anywhere).
+        assertTrue(src.contains("ControlGlow.FOCUS_SCALE"))
+        // The per-corner halo form existed only for the
+        // pill's halves; it is retired with the pill.
         val glow = controlGlowSource()
-        assertTrue("per-corner overload exists", glow.contains("bottomStartDp: Float"))
-        assertTrue("drawn as a per-corner path", glow.contains("addRoundRect"))
+        assertTrue("per-corner overload retired", !glow.contains("bottomStartDp: Float"))
+        assertTrue("no per-corner path drawing left", !glow.contains("addRoundRect"))
     }
 
     @Test

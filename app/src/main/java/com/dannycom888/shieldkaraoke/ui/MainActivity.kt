@@ -1994,7 +1994,7 @@ class MainActivity : ComponentActivity() {
                     BrandLogo(compact)
                     Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
                     // Language switch (v1.0.13, moved here in
-                    // v1.0.31): the two halves label themselves
+                    // v1.0.31): the two buttons label themselves
                     // in their own language, so the switch is
                     // findable from either side; the choice
                     // persists.
@@ -2007,13 +2007,20 @@ class MainActivity : ComponentActivity() {
                     // halo never touches: fill says "this one is
                     // active", halo says "the remote is here" —
                     // the two stay tellable apart.
-                    // v1.0.67: the two chips become ONE pill
-                    // (the user: "上方中英按钮做成一个形状"),
-                    // its halves glowing one at a time ("一半
-                    // 一半发光") — see LangPill. The glow and
-                    // gold-fill division above carries over
-                    // unchanged, per half.
-                    LangPill(compact)
+                    // v1.0.67 merged the two chips into ONE pill;
+                    // v1.0.69 splits them apart again (the user,
+                    // on the pill: the capsule shape looks odd —
+                    // split it back) as two separate buttons,
+                    // each a CIRCLE of one fixed diameter, the
+                    // same for both languages ("形状做成一样的
+                    // 圆形" — see Chip's circle tier), and the
+                    // Chinese button's label is the single
+                    // character 中 ("中文那边只写中"). The glow
+                    // and gold-fill division above carries over
+                    // unchanged.
+                    Chip("中", uiLang == UiLang.ZH, compact = compact, glow = true, circle = true) { switchUiLang(UiLang.ZH) }
+                    Spacer(Modifier.width(8.dp))
+                    Chip("EN", uiLang == UiLang.EN, compact = compact, glow = true, circle = true) { switchUiLang(UiLang.EN) }
                     Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
                     Box(
                         modifier = Modifier.weight(1f)
@@ -3920,138 +3927,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * The banner's language switch as ONE pill (v1.0.67; two
-     * separate chips since v1.0.13). The user's words: "上方
-     * 中英按钮做成一个形状" — make the top Chinese/English
-     * buttons into one shape — and "一半一半发光" — the
-     * halves glow one half at a time. So: a single capsule
-     * outline holds both halves (中 on the left, EN on the
-     * right, a hairline divider between them), each half is
-     * its own focusable control, and the focus glow hugs
-     * THAT half's own shape — rounded on the pill's outside,
-     * square where the halves meet. The v1.0.66 signal
-     * division carries over per half: the current language's
-     * half keeps the gold selected fill (fill says "active"),
-     * the focused half wears the white border + pink halo +
-     * ×1.10 growth (halo says "the remote is here"); the two
-     * stay tellable apart in all four combinations. The
-     * halves sit 2dp inside the capsule outline, so a half's
-     * outer corner radius is the capsule's radius minus the
-     * inset. Defined beside Chip/GearButton, outside
-     * PlayerScreen's span (the no-background invariant).
-     * v1.0.68: the whole pill shrinks one notch (the user,
-     * on .67: the capsule is still too big) — capsule
-     * radius 16 -> 13, half outer corners 14 -> 11 (still
-     * radius − inset), divider 18 -> 14 (compact 14 -> 10),
-     * and LangHalf's padding steps down with it (its type
-     * stays — the user's correction: font sizes don't move).
-     */
-    @Composable
-    private fun LangPill(compact: Boolean) {
-        Box(
-            modifier = Modifier
-                .border(2.dp, soft.copy(alpha = 0.45f), RoundedCornerShape(13.dp))
-                .background(cardBg, RoundedCornerShape(13.dp))
-                .padding(2.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                LangHalf(
-                    label = "中文",
-                    selected = uiLang == UiLang.ZH,
-                    compact = compact,
-                    shape = RoundedCornerShape(
-                        topStart = 11.dp, topEnd = 0.dp,
-                        bottomEnd = 0.dp, bottomStart = 11.dp,
-                    ),
-                    glowTopStart = 11f, glowTopEnd = 0f,
-                    glowBottomEnd = 0f, glowBottomStart = 11f,
-                ) { switchUiLang(UiLang.ZH) }
-                Box(
-                    modifier = Modifier
-                        .width(2.dp)
-                        .height(if (compact) 10.dp else 14.dp)
-                        .background(soft.copy(alpha = 0.45f)),
-                )
-                LangHalf(
-                    label = "EN",
-                    selected = uiLang == UiLang.EN,
-                    compact = compact,
-                    shape = RoundedCornerShape(
-                        topStart = 0.dp, topEnd = 11.dp,
-                        bottomEnd = 11.dp, bottomStart = 0.dp,
-                    ),
-                    glowTopStart = 0f, glowTopEnd = 11f,
-                    glowBottomEnd = 11f, glowBottomStart = 0f,
-                ) { switchUiLang(UiLang.EN) }
-            }
-        }
-    }
-
-    /**
-     * One half of [LangPill]: a Chip's worth of behaviour —
-     * focus/press highlight, white-at-rest halo turning pink
-     * and growing a notch while highlighted, white focus
-     * border, gold selected fill — drawn in the half's own
-     * shape (see the per-corner [controlGlow] overload) so
-     * the glow belongs to this half alone.
-     */
-    @Composable
-    private fun LangHalf(
-        label: String,
-        selected: Boolean,
-        compact: Boolean,
-        shape: RoundedCornerShape,
-        glowTopStart: Float,
-        glowTopEnd: Float,
-        glowBottomEnd: Float,
-        glowBottomStart: Float,
-        onClick: () -> Unit,
-    ) {
-        var focused by remember { mutableStateOf(false) }
-        val interactionSource = remember { MutableInteractionSource() }
-        val pressed by interactionSource.collectIsPressedAsState()
-        val highlighted = focused || pressed
-        Box(
-            modifier = Modifier
-                .graphicsLayer {
-                    val s = if (highlighted) ControlGlow.FOCUS_SCALE else 1f
-                    scaleX = s
-                    scaleY = s
-                }
-                .controlGlow(
-                    if (highlighted) ControlGlow.FOCUS_COLOR else ControlGlow.NORMAL_COLOR,
-                    highlighted,
-                    topStartDp = glowTopStart,
-                    topEndDp = glowTopEnd,
-                    bottomEndDp = glowBottomEnd,
-                    bottomStartDp = glowBottomStart,
-                )
-                .border(2.dp, if (focused) Color.White else Color.Transparent, shape)
-                .background(if (selected) gold else cardBg, shape)
-                .focusable()
-                .onFocusChanged { focused = it.isFocused }
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = LocalIndication.current,
-                ) { onClick() }
-                // v1.0.68: one notch smaller with the pill —
-                // horizontal 12 -> 10dp (compact 8 -> 6dp),
-                // vertical 4 -> 3dp. The type does NOT
-                // change (the user's correction: font sizes
-                // stay at .67's 13/12sp).
-                .padding(horizontal = if (compact) 6.dp else 10.dp, vertical = 3.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                label,
-                color = if (selected) Color.Black else Color.White,
-                fontSize = (if (compact) 12 else 13).sp,
-                maxLines = 1,
-            )
-        }
-    }
-
     @Composable
     private fun EntryCard(
         label: String,
@@ -4117,6 +3992,12 @@ class MainActivity : ComponentActivity() {
          *  24/18dp, so the gaps grow by what the chips
          *  shed. */
         inControlBar: Boolean = false,
+        /** v1.0.69: the banner's language buttons pass
+         *  this — a fixed-diameter CIRCLE, not a
+         *  content-sized rect (the user, on the v1.0.67
+         *  pill: the capsule looks odd — split it back
+         *  into two identical circles, one diameter). */
+        circle: Boolean = false,
         onClick: () -> Unit,
     ) {
         var focused by remember { mutableStateOf(false) }
@@ -4131,7 +4012,13 @@ class MainActivity : ComponentActivity() {
         } else {
             Modifier.clickable { onClick() }
         }
+        // v1.0.69: ONE shared diameter for both language
+        // buttons (32dp, compact 28dp: the pill's height
+        // tier); the halo corner follows at half of it.
+        val circleDiameter = if (compact) 28.dp else 32.dp
+        val chipShape = if (circle) CircleShape else RoundedCornerShape(16.dp)
         Box(
+            contentAlignment = if (circle) Alignment.Center else Alignment.TopStart,
             modifier = modifier
                 .then(
                     if (glow) {
@@ -4144,13 +4031,15 @@ class MainActivity : ComponentActivity() {
                             .controlGlow(
                                 if (highlighted) ControlGlow.FOCUS_COLOR else ControlGlow.NORMAL_COLOR,
                                 highlighted,
+                                cornerDp = if (circle) circleDiameter.value / 2f else 16f,
                             )
                     } else {
                         Modifier
                     },
                 )
-                .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(16.dp))
-                .background(if (selected) gold else cardBg, RoundedCornerShape(16.dp))
+                .then(if (circle) Modifier.size(circleDiameter) else Modifier)
+                .border(2.dp, if (focused) Color.White else Color.Transparent, chipShape)
+                .background(if (selected) gold else cardBg, chipShape)
                 .focusable()
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
                 .then(clickMod)
@@ -4165,15 +4054,23 @@ class MainActivity : ComponentActivity() {
                 // 3 -> 2dp; compact follows one notch under,
                 // as it did in .66). v1.0.68: a third notch
                 // (horizontal 8 -> 6dp, compact 6 -> 5dp,
-                // vertical 2 -> 1dp).
-                .padding(
-                    horizontal = when {
-                        inControlBar && compact -> 5.dp
-                        inControlBar -> 6.dp
-                        compact -> 8.dp
-                        else -> 12.dp
+                // vertical 2 -> 1dp). v1.0.69: a circle chip
+                // takes no padding at all — its fixed size
+                // governs and the label sits centred.
+                .then(
+                    if (circle) {
+                        Modifier
+                    } else {
+                        Modifier.padding(
+                            horizontal = when {
+                                inControlBar && compact -> 5.dp
+                                inControlBar -> 6.dp
+                                compact -> 8.dp
+                                else -> 12.dp
+                            },
+                            vertical = if (inControlBar) 1.dp else 4.dp,
+                        )
                     },
-                    vertical = if (inControlBar) 1.dp else 4.dp,
                 ),
         ) {
             // maxLines = 1 is a hard rule, not a style choice: a

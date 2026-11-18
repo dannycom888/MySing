@@ -2598,3 +2598,27 @@ Chip 新增 `inControlBar` 尺寸档（仅控制排六钮传入）：字号 13�
 - APK：`MySing-1.0.68.apk`，33,554,229 B，SHA-256 `1e5d0cca6a479417418963948835e5db6f6ed924332f678b8db3cc0da4db00bb`，versionCode 68，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测），ZIP 清单 804 文件。
 - 单元测试 **523 个，0 失败**（总数与 .67 持平：ControlGlowTest 的 `controlBarTierAndSpacingTookTheSecondNotch` 改写为 `controlBarTierTookTheThirdNotchAndSpacingHeld`——字号钉改为「保持 .67 值」、内边距/排距钉取新值，并新增齿轮直径钉与字形保持钉；`languagePillIsOneCapsuleWhoseHalvesGlowSeparately` 的半径钉 16→13/14→11，并新增分隔线高、半身内边距钉与字号保持钉；删 test-results 后强制实跑，非缓存）。
 - 设备侧待验（**未验**）：沙发距离 + 只用遥控走一遍——缩了一档的胶囊与齿轮在横幅行里是否顺眼、两半发光是否仍逐半分明；底部六钮在字号不变、钮身更小的情况下是否仍好瞄好按、24dp 间隔观感；紧凑横屏一行是否仍从容。
+
+## v1.0.69 — 胶囊拆回两个按钮：圆形、同大
+
+（2026-11-18。用户装 .67/.68 后反馈：「中英文的胶囊形状太怪异了，还是把它分开嘛。中文那边只写中」——胶囊拆回两个独立按钮；随即追加定调：「形状做成一样的圆形」——两钮做成同样大小的圆形。本章不声称已验，设备侧待真机验收。）
+
+### 一、胶囊拆除，两钮独立
+
+- 删除 `LangPill`/`LangHalf`：胶囊容器、分隔线、两半的逐角光晕接线一并退役。横幅行原位改回两个独立 `Chip`（.66 的形态），中间 8dp 间隔；位置与焦点顺序不变（齿轮 → 中 → EN → 横幅余下部分）。
+- 中文钮标签只写「中」（用户明示）；英文钮保持「EN」。
+- 行为全不变：各自独立聚焦；选中金填充 + 黑字；焦点/按下粉红 #FF6FA5 晕 + ×1.10 + 白框；常态白晕。`switchUiLang` 与持久化不动，手机点歌页自己的语言开关不碰。
+
+### 二、圆形、同大（Chip 新增 circle 档）
+
+- Chip 新增 `circle` 开关：固定直径 32dp（compact 28dp）——胶囊的高度档，不放大；字号不动（标准档 13sp，compact 12sp），「EN」在 32dp 圆内左右各余约 8dp，居中从容。
+- 两钮共用同一直径定义（`circleDiameter` 一处），大小由构造相同，不随标签宽窄变；边框与填充同用 `CircleShape`，标签居中；circle 档不吃档位内边距（固定尺寸说了算）。
+- 光晕轮廓跟随：`controlGlow` 的 corner 取直径之半，晕影同为正圆。.67 为胶囊两半加的逐角 `controlGlow` 重载随胶囊退役删除（`ControlGlow.kt`，全仓再无调用方）。
+
+### 三、未动与交付
+
+未动：底部控制排六钮及其档位/排距、齿轮、二维码及其四处避让、正在唱行、上沿留白、队列面板与选舞弹窗、浏览/后台其余控件、手机点歌页、播放器分档、伴舞素材与几何、舞台灯光、歌词与扫光、服务端全部端点，以及**全部字号**。
+
+- APK：`MySing-1.0.69.apk`，33,554,220 B，SHA-256 `b477777d7d7627a757a5e148c7c82f8a1b298e7089fd8dee969a111843bd54cc`，versionCode 69，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测），ZIP 清单 804 文件。
+- 单元测试 **523 个，0 失败**（删 test-results 后强制实跑，非缓存；总数与 .68 持平：一增一改名净零）。ControlGlowTest：`languagePillIsOneCapsuleWhoseHalvesGlowSeparately` 改写为 `languageButtonsAreTwoSeparateEqualCircles`（胶囊已删、两钮各自独立成 Chip、标签「中」/「EN」、8dp 间隔、共用直径 + CircleShape + 居中 + 晕角半直径诸钉、逐角重载退役钉）；`glowCoversControlBarAndGear` 改名 `glowCoversControlBarBannerAndGear`（`glow = true` 计数 6→8：横幅两钮回归，6 在控制排、2 在横幅；`controlGlow(` 接线点 3→2：Chip 与齿轮）。另注：Chip 的 circle 文档注释两度压缩——FocusNavigationTest 以 4500 字窗口扫 Chip 的 `.focusable()`，注释膨胀会把它顶出窗口（实测偏移 5011→4346），功能零影响，完整设计说明在本章与横幅调用点。
+- 设备侧待验（**未验**）：沙发距离 + 只用遥控走一遍——两个圆形语言钮是否顺眼、是否同大如愿、逐个聚焦时粉红发光是否分明、金/粉分工是否仍一眼可辨；紧凑横屏下 28dp 圆在 36dp 横幅行里是否从容；两圆间隔 8dp、焦点 ×1.10 后是否相碰（计算每侧长大 ≈1.6dp，不碰）。

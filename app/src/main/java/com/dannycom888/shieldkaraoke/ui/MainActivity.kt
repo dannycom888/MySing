@@ -1994,9 +1994,10 @@ class MainActivity : ComponentActivity() {
                     BrandLogo(compact)
                     Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
                     // Language switch (v1.0.13, moved here in
-                    // v1.0.31): the two chips label themselves in
-                    // their own language, so the switch is findable
-                    // from either side; the choice persists.
+                    // v1.0.31): the two halves label themselves
+                    // in their own language, so the switch is
+                    // findable from either side; the choice
+                    // persists.
                     // v1.0.66: the language chips wear the same
                     // glow as the control bar now (the user: the
                     // top buttons didn't change colour) — white
@@ -2006,9 +2007,13 @@ class MainActivity : ComponentActivity() {
                     // halo never touches: fill says "this one is
                     // active", halo says "the remote is here" —
                     // the two stay tellable apart.
-                    Chip("中文", uiLang == UiLang.ZH, compact = compact, glow = true) { switchUiLang(UiLang.ZH) }
-                    Spacer(Modifier.width(4.dp))
-                    Chip("EN", uiLang == UiLang.EN, compact = compact, glow = true) { switchUiLang(UiLang.EN) }
+                    // v1.0.67: the two chips become ONE pill
+                    // (the user: "上方中英按钮做成一个形状"),
+                    // its halves glowing one at a time ("一半
+                    // 一半发光") — see LangPill. The glow and
+                    // gold-fill division above carries over
+                    // unchanged, per half.
+                    LangPill(compact)
                     Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
                     Box(
                         modifier = Modifier.weight(1f)
@@ -2784,8 +2789,15 @@ class MainActivity : ComponentActivity() {
                     // and a focused chip's ×1.10 growth (a few dp
                     // a side) lands inside the gap, never on its
                     // neighbour.
+                    // v1.0.67: still too tight, still too big
+                    // (the user, after a night on .66) — the
+                    // chips slim one more notch and the gaps grow
+                    // again, to 24dp (compact 18dp). The growth
+                    // math only gets safer: a focused chip grows
+                    // ≈3dp a side against a 12dp (compact 9dp)
+                    // half-gap.
                     horizontalArrangement = Arrangement.spacedBy(
-                        if (compact) 12.dp else 16.dp, Alignment.CenterHorizontally,
+                        if (compact) 18.dp else 24.dp, Alignment.CenterHorizontally,
                     ),
                 ) {
                     Chip(
@@ -3903,6 +3915,127 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * The banner's language switch as ONE pill (v1.0.67; two
+     * separate chips since v1.0.13). The user's words: "上方
+     * 中英按钮做成一个形状" — make the top Chinese/English
+     * buttons into one shape — and "一半一半发光" — the
+     * halves glow one half at a time. So: a single capsule
+     * outline holds both halves (中 on the left, EN on the
+     * right, a hairline divider between them), each half is
+     * its own focusable control, and the focus glow hugs
+     * THAT half's own shape — rounded on the pill's outside,
+     * square where the halves meet. The v1.0.66 signal
+     * division carries over per half: the current language's
+     * half keeps the gold selected fill (fill says "active"),
+     * the focused half wears the white border + pink halo +
+     * ×1.10 growth (halo says "the remote is here"); the two
+     * stay tellable apart in all four combinations. The
+     * halves sit 2dp inside the capsule outline, so a half's
+     * outer corner radius is the capsule's 16 minus the
+     * inset. Defined beside Chip/GearButton, outside
+     * PlayerScreen's span (the no-background invariant).
+     */
+    @Composable
+    private fun LangPill(compact: Boolean) {
+        Box(
+            modifier = Modifier
+                .border(2.dp, soft.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+                .background(cardBg, RoundedCornerShape(16.dp))
+                .padding(2.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LangHalf(
+                    label = "中文",
+                    selected = uiLang == UiLang.ZH,
+                    compact = compact,
+                    shape = RoundedCornerShape(
+                        topStart = 14.dp, topEnd = 0.dp,
+                        bottomEnd = 0.dp, bottomStart = 14.dp,
+                    ),
+                    glowTopStart = 14f, glowTopEnd = 0f,
+                    glowBottomEnd = 0f, glowBottomStart = 14f,
+                ) { switchUiLang(UiLang.ZH) }
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .height(if (compact) 14.dp else 18.dp)
+                        .background(soft.copy(alpha = 0.45f)),
+                )
+                LangHalf(
+                    label = "EN",
+                    selected = uiLang == UiLang.EN,
+                    compact = compact,
+                    shape = RoundedCornerShape(
+                        topStart = 0.dp, topEnd = 14.dp,
+                        bottomEnd = 14.dp, bottomStart = 0.dp,
+                    ),
+                    glowTopStart = 0f, glowTopEnd = 14f,
+                    glowBottomEnd = 14f, glowBottomStart = 0f,
+                ) { switchUiLang(UiLang.EN) }
+            }
+        }
+    }
+
+    /**
+     * One half of [LangPill]: a Chip's worth of behaviour —
+     * focus/press highlight, white-at-rest halo turning pink
+     * and growing a notch while highlighted, white focus
+     * border, gold selected fill — drawn in the half's own
+     * shape (see the per-corner [controlGlow] overload) so
+     * the glow belongs to this half alone.
+     */
+    @Composable
+    private fun LangHalf(
+        label: String,
+        selected: Boolean,
+        compact: Boolean,
+        shape: RoundedCornerShape,
+        glowTopStart: Float,
+        glowTopEnd: Float,
+        glowBottomEnd: Float,
+        glowBottomStart: Float,
+        onClick: () -> Unit,
+    ) {
+        var focused by remember { mutableStateOf(false) }
+        val interactionSource = remember { MutableInteractionSource() }
+        val pressed by interactionSource.collectIsPressedAsState()
+        val highlighted = focused || pressed
+        Box(
+            modifier = Modifier
+                .graphicsLayer {
+                    val s = if (highlighted) ControlGlow.FOCUS_SCALE else 1f
+                    scaleX = s
+                    scaleY = s
+                }
+                .controlGlow(
+                    if (highlighted) ControlGlow.FOCUS_COLOR else ControlGlow.NORMAL_COLOR,
+                    highlighted,
+                    topStartDp = glowTopStart,
+                    topEndDp = glowTopEnd,
+                    bottomEndDp = glowBottomEnd,
+                    bottomStartDp = glowBottomStart,
+                )
+                .border(2.dp, if (focused) Color.White else Color.Transparent, shape)
+                .background(if (selected) gold else cardBg, shape)
+                .focusable()
+                .onFocusChanged { focused = it.isFocused }
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = LocalIndication.current,
+                ) { onClick() }
+                .padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                label,
+                color = if (selected) Color.Black else Color.White,
+                fontSize = (if (compact) 12 else 13).sp,
+                maxLines = 1,
+            )
+        }
+    }
+
     @Composable
     private fun EntryCard(
         label: String,
@@ -3955,7 +4088,10 @@ class MainActivity : ComponentActivity() {
          *  below) now that the bar's spacing has room to
          *  breathe; the user, on the real TV: the bottom
          *  buttons smaller, the gaps between them bigger.
-         *  No other chip shrinks. */
+         *  No other chip shrinks. v1.0.67: one notch further
+         *  still (the user, after a night on .66: the
+         *  buttons are still too big) — see the tier values
+         *  below; the bar's spacing grows again to match. */
         inControlBar: Boolean = false,
         onClick: () -> Unit,
     ) {
@@ -4000,14 +4136,18 @@ class MainActivity : ComponentActivity() {
                 // control bar's own chips sit one notch tighter
                 // still (inControlBar) — the bar's wider spacing
                 // is what the eye reads, not chip bulk.
+                // v1.0.67: the control bar tier tightens one
+                // more notch (horizontal 10 -> 8dp, vertical
+                // 3 -> 2dp; compact follows one notch under,
+                // as it did in .66).
                 .padding(
                     horizontal = when {
-                        inControlBar && compact -> 7.dp
-                        inControlBar -> 10.dp
+                        inControlBar && compact -> 6.dp
+                        inControlBar -> 8.dp
                         compact -> 8.dp
                         else -> 12.dp
                     },
-                    vertical = if (inControlBar) 3.dp else 4.dp,
+                    vertical = if (inControlBar) 2.dp else 4.dp,
                 ),
         ) {
             // maxLines = 1 is a hard rule, not a style choice: a
@@ -4019,8 +4159,8 @@ class MainActivity : ComponentActivity() {
                 label,
                 color = if (selected) Color.Black else Color.White,
                 fontSize = when {
-                    inControlBar && compact -> 11.sp
-                    inControlBar -> 12.sp
+                    inControlBar && compact -> 10.sp
+                    inControlBar -> 11.sp
                     compact -> 12.sp
                     else -> 13.sp
                 },

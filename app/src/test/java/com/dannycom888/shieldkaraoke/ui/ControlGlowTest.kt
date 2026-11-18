@@ -34,7 +34,13 @@ import java.io.File
  * the control bar: the banner's two language chips and
  * the gear join in (the user: the top buttons didn't
  * change colour), and the now-singing line gets the text
- * form of the halo (TextGlow).
+ * form of the halo (TextGlow). v1.0.67 reshapes the
+ * banner end of that wiring: the two language chips merge
+ * into ONE pill whose halves glow one at a time (the
+ * user: "做成一个形状" / "一半一半发光") — the pill
+ * halves wire the per-corner form of the halo themselves,
+ * so the banner's glow = true chips are gone — and the
+ * control bar takes its second slimming notch.
  */
 class ControlGlowTest {
 
@@ -133,31 +139,34 @@ class ControlGlowTest {
     }
 
     @Test
-    fun glowCoversControlBarBannerChipsAndGear() {
+    fun glowCoversControlBarAndGear() {
         val src = mainActivitySource()
         assertTrue(
             "the chip takes the glow switch, default off",
             src.contains("glow: Boolean = false"),
         )
         assertEquals(
-            "two halo wiring points: the chip and the gear",
-            2,
+            "three halo wiring points: the chip, the gear, the pill half",
+            3,
             Regex("""controlGlow\(""").findAll(src).count(),
         )
         assertEquals(
-            "eight chips glow: six in the control bar, two in the banner",
-            8,
+            "six chips glow, all of them in the control bar",
+            6,
             Regex("""glow = true""").findAll(src).count(),
         )
-        // Six stand in the control bar (after its marker
-        // comment); the other two are the banner's language
-        // chips (v1.0.66), which stand before it. The browse
+        // All six stand in the control bar (after its marker
+        // comment). The banner's two language chips stood
+        // before it until v1.0.66; in v1.0.67 they merge
+        // into the language pill, whose halves wire their
+        // own halo (pinned in the pill test below), so no
+        // glow = true remains outside the bar. The browse
         // filters and the admin chips still stay dark.
         val barStart = src.indexOf("// --- control bar")
         assertTrue("control bar found", barStart >= 0)
         val glows = Regex("""glow = true""").findAll(src).map { it.range.first }
         assertEquals("six in the bar", 6, glows.count { it > barStart })
-        assertEquals("two in the banner", 2, glows.count { it < barStart })
+        assertEquals("none outside the bar", 0, glows.count { it < barStart })
         // The gear (v1.0.66): not a Chip, so it wires the
         // halo itself — same white/pink choice, same scale.
         val gearStart = src.indexOf("private fun GearButton")
@@ -170,11 +179,98 @@ class ControlGlowTest {
             ),
         )
         assertTrue(gear.contains("ControlGlow.FOCUS_SCALE"))
-        // The language chips' selected fill is untouched by
-        // the halo wiring: selected still paints gold inside
-        // the chip (the fill says "active", the halo says
-        // "the remote is here").
+        // The selected fill is untouched by the halo wiring:
+        // selected still paints gold inside the chip and
+        // the pill half (the fill says "active", the halo
+        // says "the remote is here").
         assertTrue(src.contains("if (selected) gold else cardBg"))
+    }
+
+    @Test
+    fun controlBarTierAndSpacingTookTheSecondNotch() {
+        // v1.0.67 (the user, after a night on .66: the
+        // buttons are still too big, the gaps still too
+        // tight): the inControlBar tier slims one more
+        // notch and the row spacing grows again. Only the
+        // control bar tier moves — the plain and compact
+        // chip tiers keep their .66 values.
+        val src = mainActivitySource()
+        assertTrue(
+            "control bar type 12sp -> 11sp, compact one notch under",
+            src.contains("inControlBar && compact -> 10.sp") &&
+                src.contains("inControlBar -> 11.sp"),
+        )
+        assertTrue(
+            "control bar horizontal padding 10dp -> 8dp, compact one notch under",
+            src.contains("inControlBar && compact -> 6.dp") &&
+                src.contains("inControlBar -> 8.dp"),
+        )
+        assertTrue(
+            "control bar vertical padding 3dp -> 2dp",
+            src.contains("vertical = if (inControlBar) 2.dp else 4.dp"),
+        )
+        assertTrue(
+            "row spacing 16dp -> 24dp (compact 12dp -> 18dp)",
+            src.contains("if (compact) 18.dp else 24.dp, Alignment.CenterHorizontally"),
+        )
+    }
+
+    @Test
+    fun languagePillIsOneCapsuleWhoseHalvesGlowSeparately() {
+        // v1.0.67 (the user: "上方中英按钮做成一个形状" —
+        // the top Chinese/English buttons become one shape —
+        // "一半一半发光" — the halves glow one at a time).
+        val src = mainActivitySource()
+        // The banner calls the pill; the two chip calls are
+        // gone (the phone page keeps its own switch — a
+        // different surface, untouched).
+        assertTrue("the banner calls the pill", src.contains("LangPill(compact)"))
+        assertTrue("the old zh chip is gone", !src.contains("Chip(\"中文\""))
+        assertTrue("the old en chip is gone", !src.contains("Chip(\"EN\""))
+        val start = src.indexOf("private fun LangPill")
+        val end = src.indexOf("private fun EntryCard")
+        assertTrue("pill found", start >= 0 && end > start)
+        val pill = src.substring(start, end)
+        // One capsule: a single outlined, rounded container.
+        assertTrue(
+            "one capsule outline",
+            pill.contains(".border(2.dp, soft.copy(alpha = 0.45f), RoundedCornerShape(16.dp))"),
+        )
+        // Two halves (one shared half composable, called
+        // once per language), each its own focusable
+        // control switching to its own language.
+        assertEquals(
+            "one focusable in the shared half definition",
+            1,
+            Regex("""\.focusable\(\)""").findAll(pill).count(),
+        )
+        assertTrue(pill.contains("selected = uiLang == UiLang.ZH"))
+        assertTrue(pill.contains("selected = uiLang == UiLang.EN"))
+        assertTrue(pill.contains("switchUiLang(UiLang.ZH)"))
+        assertTrue(pill.contains("switchUiLang(UiLang.EN)"))
+        // A divider stands between the halves.
+        assertTrue("a divider between the halves", pill.contains(".width(2.dp)"))
+        // Per-half glow: the four-corner halo form, in the
+        // chips' white/pink language, hugging each half's
+        // own shape (rounded outside, square at the seam).
+        assertTrue(pill.contains("topStartDp = glowTopStart"))
+        assertTrue(
+            pill.contains(
+                "if (highlighted) ControlGlow.FOCUS_COLOR else ControlGlow.NORMAL_COLOR",
+            ),
+        )
+        assertTrue(pill.contains("ControlGlow.FOCUS_SCALE"))
+        assertTrue("left half rounded on the left", pill.contains("topStart = 14.dp"))
+        assertTrue("right half rounded on the right", pill.contains("topEnd = 14.dp"))
+        // Selected vs focus stay divided as ever: gold fill
+        // for the current language, white border for focus.
+        assertTrue(pill.contains("if (selected) gold else cardBg"))
+        assertTrue(pill.contains("if (focused) Color.White else Color.Transparent"))
+        // The per-corner halo itself lives in ControlGlow
+        // (path-drawn, still no blur anywhere).
+        val glow = controlGlowSource()
+        assertTrue("per-corner overload exists", glow.contains("bottomStartDp: Float"))
+        assertTrue("drawn as a per-corner path", glow.contains("addRoundRect"))
     }
 
     @Test

@@ -4,8 +4,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.unit.dp
 
 /**
@@ -153,6 +155,56 @@ fun Modifier.controlGlow(
             topLeft = Offset(-outset, -outset),
             size = Size(size.width + outset * 2f, size.height + outset * 2f),
             cornerRadius = CornerRadius(corner.x + outset, corner.y + outset),
+            alpha = ControlGlow.alphaFor(alpha, highlighted),
+        )
+    }
+}
+
+/**
+ * The per-corner form of [controlGlow] (v1.0.67), for the
+ * language pill's halves: a half is rounded on the pill's
+ * outside and square where the two halves meet, so its
+ * halo needs a different radius per corner. Same layer
+ * table, same white-at-rest / pink-when-highlighted rule —
+ * only the silhouette differs. Each corner's radius grows
+ * by the layer's outset, exactly like the single-radius
+ * form (a square corner's offset contour is an arc of the
+ * outset's own radius, so a 0 base grows to the outset —
+ * the geometry of an outward offset, not a fudge).
+ *
+ * drawRoundRect takes one radius for all four corners,
+ * so the silhouette goes through a [Path] built on a
+ * per-corner [RoundRect] instead.
+ */
+fun Modifier.controlGlow(
+    color: Color,
+    highlighted: Boolean,
+    topStartDp: Float,
+    topEndDp: Float,
+    bottomEndDp: Float,
+    bottomStartDp: Float,
+): Modifier = drawBehind {
+    for ((outsetDp, alpha) in ControlGlow.LAYERS.asReversed()) {
+        val outset = outsetDp.dp.toPx()
+        fun corner(baseDp: Float) =
+            CornerRadius((baseDp + outsetDp).dp.toPx(), (baseDp + outsetDp).dp.toPx())
+        val path = Path().apply {
+            addRoundRect(
+                RoundRect(
+                    left = -outset,
+                    top = -outset,
+                    right = size.width + outset,
+                    bottom = size.height + outset,
+                    topLeftCornerRadius = corner(topStartDp),
+                    topRightCornerRadius = corner(topEndDp),
+                    bottomRightCornerRadius = corner(bottomEndDp),
+                    bottomLeftCornerRadius = corner(bottomStartDp),
+                ),
+            )
+        }
+        drawPath(
+            path = path,
+            color = color,
             alpha = ControlGlow.alphaFor(alpha, highlighted),
         )
     }

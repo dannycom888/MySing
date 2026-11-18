@@ -187,31 +187,52 @@ class ControlGlowTest {
     }
 
     @Test
-    fun controlBarTierAndSpacingTookTheSecondNotch() {
-        // v1.0.67 (the user, after a night on .66: the
-        // buttons are still too big, the gaps still too
-        // tight): the inControlBar tier slims one more
-        // notch and the row spacing grows again. Only the
+    fun controlBarTierTookTheThirdNotchAndSpacingHeld() {
+        // v1.0.67 slimmed the inControlBar tier a second
+        // notch (type 12 -> 11sp, horizontal 10 -> 8dp,
+        // vertical 3 -> 2dp) and grew the row spacing to
+        // 24/18dp. v1.0.68 (the user, on .67: the buttons
+        // are STILL too big — then his correction: the
+        // font sizes do NOT change, he misspoke): the
+        // SHAPES take a third notch while the type HOLDS
+        // at .67's 11/10sp — and the spacing holds too, so
+        // the gaps grow by what the chips shed. Only the
         // control bar tier moves — the plain and compact
-        // chip tiers keep their .66 values.
+        // chip tiers keep their values. The gear's circle
+        // shrinks in the same pass, its glyph size held.
         val src = mainActivitySource()
         assertTrue(
-            "control bar type 12sp -> 11sp, compact one notch under",
+            "control bar type holds at 11sp, compact 10sp",
             src.contains("inControlBar && compact -> 10.sp") &&
                 src.contains("inControlBar -> 11.sp"),
         )
         assertTrue(
-            "control bar horizontal padding 10dp -> 8dp, compact one notch under",
-            src.contains("inControlBar && compact -> 6.dp") &&
-                src.contains("inControlBar -> 8.dp"),
+            "control bar horizontal padding 8dp -> 6dp, compact one notch under",
+            src.contains("inControlBar && compact -> 5.dp") &&
+                src.contains("inControlBar -> 6.dp"),
         )
         assertTrue(
-            "control bar vertical padding 3dp -> 2dp",
-            src.contains("vertical = if (inControlBar) 2.dp else 4.dp"),
+            "control bar vertical padding 2dp -> 1dp",
+            src.contains("vertical = if (inControlBar) 1.dp else 4.dp"),
         )
         assertTrue(
-            "row spacing 16dp -> 24dp (compact 12dp -> 18dp)",
+            "row spacing holds at 24dp (compact 18dp)",
             src.contains("if (compact) 18.dp else 24.dp, Alignment.CenterHorizontally"),
+        )
+        // The gear (v1.0.68): the circle shrinks ~15%
+        // (46 -> 39dp, compact 36 -> 31dp); the glyph's
+        // size holds at 24sp (compact 18sp) — font sizes
+        // don't move this version.
+        val gearStart = src.indexOf("private fun GearButton")
+        assertTrue("gear found", gearStart >= 0)
+        val gear = src.substring(gearStart, minOf(gearStart + 3200, src.length))
+        assertTrue(
+            "gear circle 46 -> 39dp, compact 36 -> 31dp",
+            gear.contains("val sizeDp = if (compact) 31 else 39"),
+        )
+        assertTrue(
+            "gear glyph holds at 24sp, compact 18sp",
+            gear.contains("fontSize = (if (compact) 18 else 24).sp"),
         )
     }
 
@@ -232,9 +253,11 @@ class ControlGlowTest {
         assertTrue("pill found", start >= 0 && end > start)
         val pill = src.substring(start, end)
         // One capsule: a single outlined, rounded container.
+        // v1.0.68: the capsule radius steps 16 -> 13dp with
+        // the pill's one-notch shrink.
         assertTrue(
             "one capsule outline",
-            pill.contains(".border(2.dp, soft.copy(alpha = 0.45f), RoundedCornerShape(16.dp))"),
+            pill.contains(".border(2.dp, soft.copy(alpha = 0.45f), RoundedCornerShape(13.dp))"),
         )
         // Two halves (one shared half composable, called
         // once per language), each its own focusable
@@ -250,6 +273,24 @@ class ControlGlowTest {
         assertTrue(pill.contains("switchUiLang(UiLang.EN)"))
         // A divider stands between the halves.
         assertTrue("a divider between the halves", pill.contains(".width(2.dp)"))
+        // v1.0.68: the pill's shape shrinks one notch —
+        // divider height 18 -> 14dp (compact 14 -> 10dp),
+        // half padding horizontal 12 -> 10dp (compact
+        // 8 -> 6dp) and vertical 4 -> 3dp — while the half
+        // type HOLDS at .67's 13sp (compact 12sp): the
+        // user's correction was that font sizes don't move.
+        assertTrue(
+            "divider height 18 -> 14dp, compact 14 -> 10dp",
+            pill.contains(".height(if (compact) 10.dp else 14.dp)"),
+        )
+        assertTrue(
+            "half padding one notch down",
+            pill.contains(".padding(horizontal = if (compact) 6.dp else 10.dp, vertical = 3.dp)"),
+        )
+        assertTrue(
+            "half type holds at 13sp, compact 12sp",
+            pill.contains("fontSize = (if (compact) 12 else 13).sp"),
+        )
         // Per-half glow: the four-corner halo form, in the
         // chips' white/pink language, hugging each half's
         // own shape (rounded outside, square at the seam).
@@ -260,8 +301,8 @@ class ControlGlowTest {
             ),
         )
         assertTrue(pill.contains("ControlGlow.FOCUS_SCALE"))
-        assertTrue("left half rounded on the left", pill.contains("topStart = 14.dp"))
-        assertTrue("right half rounded on the right", pill.contains("topEnd = 14.dp"))
+        assertTrue("left half rounded on the left", pill.contains("topStart = 11.dp"))
+        assertTrue("right half rounded on the right", pill.contains("topEnd = 11.dp"))
         // Selected vs focus stay divided as ever: gold fill
         // for the current language, white border for focus.
         assertTrue(pill.contains("if (selected) gold else cardBg"))

@@ -2566,3 +2566,35 @@ Chip 新增 `inControlBar` 尺寸档（仅控制排六钮传入）：字号 13�
 - APK：`MySing-1.0.67.apk`，33,554,225 B，SHA-256 `3bca4d1c2d63efda8b48eeebb1674ac6e912ab1fc2b4f72236a8cbcfa6d1e7db`，versionCode 67，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测），ZIP 清单 804 文件。
 - 单元测试 **523 个，0 失败**（.66 基线 521 之上净增 2：ControlGlowTest 新增 `controlBarTierAndSpacingTookTheSecondNotch`（inControlBar 档位 + 排距钉）与 `languagePillIsOneCapsuleWhoseHalvesGlowSeparately`（胶囊单容器/两半接线/逐半发光/金粉分工/逐角重载存在钉）；`glowCoversControlBarBannerChipsAndGear` 改写为 `glowCoversControlBarAndGear`——`glow = true` 仅剩控制排 6 枚、`controlGlow(` 接线点 3 处（Chip/齿轮/胶囊半）；删 test-results 后强制实跑，非缓存）。
 - 设备侧待验（**未验**）：沙发距离 + 只用遥控走一遍——底部六钮的大小与 24dp 间隔观感、紧凑横屏一行是否仍从容；胶囊左右移动时两半是否逐半发光（未聚焦半无光）、当前语言的金填充与聚焦的粉红晕在四种组合下是否都分得清；齿轮 ↔ 胶囊 ↔ 舞台之间的焦点进出是否顺。
+
+## v1.0.68 — 按钮形状再缩一档，字号不动
+
+（2026-11-18。用户装 .67 后反馈：「胶囊形状的按钮太大了，其他的按钮的形状也太大了」——播放页所有按钮的**形状**再缩一档。期间用户先说「字体大小变」，随即纠正「字体大小不变，我说错了」——故本版**所有字号一字不动**，只缩形状：内边距、圆角、分隔线、齿轮直径。本章不声称已验，设备侧待真机验收。）
+
+### 一、语言胶囊缩一档
+
+- 胶囊半径 16→13dp；两半外侧圆角 14→11dp（仍是半径 − 2dp 内衬的等式，接缝方角不变）；逐角光晕半径同步 14f→11f。
+- 分隔线高 18→14dp（compact 14→10dp）。
+- 半身内边距：横向 12→10dp（compact 8→6dp）、纵向 4→3dp。
+- **字号不动**：半身字保持 .67 的 13sp（compact 12sp）。行为全不变：两半独立聚焦、选中金填充、焦点粉红 #FF6FA5 晕 + ×1.10 + 白框、常态白晕，四种组合可区分如前。
+
+### 二、底部控制排六钮缩一档（仅形状）
+
+- `inControlBar` 档：横向内边距 8→6dp（compact 6→5dp）、纵向 2→1dp。
+- **字号不动**：保持 .67 的 11sp（compact 10sp）。排距**不动**：24dp（compact 18dp）——钮身省下的全变成间隔，焦点 ×1.10 每侧长大 ≈3dp 仍远在 12/9dp 半间隔内。
+
+### 三、齿轮缩一圈
+
+- 圆直径 46→39dp（compact 36→31dp，约 −15%）；**字形不动**：⚙ 保持 24sp（compact 18sp），在 39dp 圆内每侧仍有约 7dp 余量。发光/金环/焦点行为不变。齿轮是共用组件，播放页与浏览页（及后台若有）同尺寸。
+
+### 四、字号不动与贴合复核
+
+字号不变、内边距变小，逐处核过贴合：Compose 的盒按内容定尺寸，内边距不会裁字；标签都是 2–5 字短词且 `maxLines = 1` 硬规则在，控制排钮高约 21dp（11sp 字 + 纵向 2×1dp + 描边）紧凑但不裁；胶囊半身 13sp 字 + 横向 10dp/纵向 3dp 从容；齿轮字形见上。没有任何一档需要为此回退内边距。
+
+### 五、未动与交付
+
+未动：二维码及其四处避让、正在唱行、上沿留白、队列面板与选舞弹窗、浏览/后台其余控件、手机点歌页、播放器分档、伴舞素材与几何、舞台灯光、歌词与扫光、服务端全部端点，以及**全部字号**。
+
+- APK：`MySing-1.0.68.apk`，33,554,229 B，SHA-256 `1e5d0cca6a479417418963948835e5db6f6ed924332f678b8db3cc0da4db00bb`，versionCode 68，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测），ZIP 清单 804 文件。
+- 单元测试 **523 个，0 失败**（总数与 .67 持平：ControlGlowTest 的 `controlBarTierAndSpacingTookTheSecondNotch` 改写为 `controlBarTierTookTheThirdNotchAndSpacingHeld`——字号钉改为「保持 .67 值」、内边距/排距钉取新值，并新增齿轮直径钉与字形保持钉；`languagePillIsOneCapsuleWhoseHalvesGlowSeparately` 的半径钉 16→13/14→11，并新增分隔线高、半身内边距钉与字号保持钉；删 test-results 后强制实跑，非缓存）。
+- 设备侧待验（**未验**）：沙发距离 + 只用遥控走一遍——缩了一档的胶囊与齿轮在横幅行里是否顺眼、两半发光是否仍逐半分明；底部六钮在字号不变、钮身更小的情况下是否仍好瞄好按、24dp 间隔观感；紧凑横屏一行是否仍从容。

@@ -3886,7 +3886,12 @@ class MainActivity : ComponentActivity() {
         val interactionSource = remember { MutableInteractionSource() }
         val pressed by interactionSource.collectIsPressedAsState()
         val highlighted = focused || pressed
-        val sizeDp = if (compact) 36 else 46
+        // v1.0.68: the circle shrinks ~15% (the user, on
+        // .67: the buttons up top are still too big) —
+        // 46 -> 39, compact 36 -> 31. The glyph's size
+        // does NOT change (the user's correction: font
+        // sizes stay) — 24sp still fits the 39dp circle.
+        val sizeDp = if (compact) 31 else 39
         Box(
             modifier = Modifier
                 .size(sizeDp.dp)
@@ -3932,16 +3937,22 @@ class MainActivity : ComponentActivity() {
      * ×1.10 growth (halo says "the remote is here"); the two
      * stay tellable apart in all four combinations. The
      * halves sit 2dp inside the capsule outline, so a half's
-     * outer corner radius is the capsule's 16 minus the
+     * outer corner radius is the capsule's radius minus the
      * inset. Defined beside Chip/GearButton, outside
      * PlayerScreen's span (the no-background invariant).
+     * v1.0.68: the whole pill shrinks one notch (the user,
+     * on .67: the capsule is still too big) — capsule
+     * radius 16 -> 13, half outer corners 14 -> 11 (still
+     * radius − inset), divider 18 -> 14 (compact 14 -> 10),
+     * and LangHalf's padding steps down with it (its type
+     * stays — the user's correction: font sizes don't move).
      */
     @Composable
     private fun LangPill(compact: Boolean) {
         Box(
             modifier = Modifier
-                .border(2.dp, soft.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
-                .background(cardBg, RoundedCornerShape(16.dp))
+                .border(2.dp, soft.copy(alpha = 0.45f), RoundedCornerShape(13.dp))
+                .background(cardBg, RoundedCornerShape(13.dp))
                 .padding(2.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -3950,16 +3961,16 @@ class MainActivity : ComponentActivity() {
                     selected = uiLang == UiLang.ZH,
                     compact = compact,
                     shape = RoundedCornerShape(
-                        topStart = 14.dp, topEnd = 0.dp,
-                        bottomEnd = 0.dp, bottomStart = 14.dp,
+                        topStart = 11.dp, topEnd = 0.dp,
+                        bottomEnd = 0.dp, bottomStart = 11.dp,
                     ),
-                    glowTopStart = 14f, glowTopEnd = 0f,
-                    glowBottomEnd = 0f, glowBottomStart = 14f,
+                    glowTopStart = 11f, glowTopEnd = 0f,
+                    glowBottomEnd = 0f, glowBottomStart = 11f,
                 ) { switchUiLang(UiLang.ZH) }
                 Box(
                     modifier = Modifier
                         .width(2.dp)
-                        .height(if (compact) 14.dp else 18.dp)
+                        .height(if (compact) 10.dp else 14.dp)
                         .background(soft.copy(alpha = 0.45f)),
                 )
                 LangHalf(
@@ -3967,11 +3978,11 @@ class MainActivity : ComponentActivity() {
                     selected = uiLang == UiLang.EN,
                     compact = compact,
                     shape = RoundedCornerShape(
-                        topStart = 0.dp, topEnd = 14.dp,
-                        bottomEnd = 14.dp, bottomStart = 0.dp,
+                        topStart = 0.dp, topEnd = 11.dp,
+                        bottomEnd = 11.dp, bottomStart = 0.dp,
                     ),
-                    glowTopStart = 0f, glowTopEnd = 14f,
-                    glowBottomEnd = 14f, glowBottomStart = 0f,
+                    glowTopStart = 0f, glowTopEnd = 11f,
+                    glowBottomEnd = 11f, glowBottomStart = 0f,
                 ) { switchUiLang(UiLang.EN) }
             }
         }
@@ -4024,7 +4035,12 @@ class MainActivity : ComponentActivity() {
                     interactionSource = interactionSource,
                     indication = LocalIndication.current,
                 ) { onClick() }
-                .padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 4.dp),
+                // v1.0.68: one notch smaller with the pill —
+                // horizontal 12 -> 10dp (compact 8 -> 6dp),
+                // vertical 4 -> 3dp. The type does NOT
+                // change (the user's correction: font sizes
+                // stay at .67's 13/12sp).
+                .padding(horizontal = if (compact) 6.dp else 10.dp, vertical = 3.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -4091,7 +4107,15 @@ class MainActivity : ComponentActivity() {
          *  No other chip shrinks. v1.0.67: one notch further
          *  still (the user, after a night on .66: the
          *  buttons are still too big) — see the tier values
-         *  below; the bar's spacing grows again to match. */
+         *  below; the bar's spacing grows again to match.
+         *  v1.0.68: the shapes shrink a third notch (the
+         *  user, on .67: still too big) — horizontal
+         *  8 -> 6dp, vertical 2 -> 1dp, compact one notch
+         *  under as ever — but the TYPE does not move (the
+         *  user's correction: font sizes stay at .67's
+         *  11/10sp); the row spacing HOLDS at .67's
+         *  24/18dp, so the gaps grow by what the chips
+         *  shed. */
         inControlBar: Boolean = false,
         onClick: () -> Unit,
     ) {
@@ -4139,15 +4163,17 @@ class MainActivity : ComponentActivity() {
                 // v1.0.67: the control bar tier tightens one
                 // more notch (horizontal 10 -> 8dp, vertical
                 // 3 -> 2dp; compact follows one notch under,
-                // as it did in .66).
+                // as it did in .66). v1.0.68: a third notch
+                // (horizontal 8 -> 6dp, compact 6 -> 5dp,
+                // vertical 2 -> 1dp).
                 .padding(
                     horizontal = when {
-                        inControlBar && compact -> 6.dp
-                        inControlBar -> 8.dp
+                        inControlBar && compact -> 5.dp
+                        inControlBar -> 6.dp
                         compact -> 8.dp
                         else -> 12.dp
                     },
-                    vertical = if (inControlBar) 2.dp else 4.dp,
+                    vertical = if (inControlBar) 1.dp else 4.dp,
                 ),
         ) {
             // maxLines = 1 is a hard rule, not a style choice: a

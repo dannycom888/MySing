@@ -234,6 +234,55 @@ class SpotlightGeomTest {
     }
 
     @Test
+    fun poolGradientFadesSoftlyToTheRim() {
+        // v1.0.64: the pool's radial fade is a raised-cosine
+        // sample table now — the old two-segment line (full
+        // → 0.42 at 0.55 → 0) kinked and ended too abruptly
+        // (the user: the spotlight is not soft enough). The
+        // centre share is exactly 1 (the centre口径 — shared
+        // 0.50, solo effective 0.42 — does not move), the
+        // shares fall strictly and gently (no single drop
+        // over a quarter: no kink), and the last fifth of
+        // the radius carries under a tenth of the centre —
+        // the long soft skirt.
+        val stops = SpotlightGeom.POOL_GRADIENT_STOPS
+        assertEquals(0f, stops.first().first, 0.0001f)
+        assertEquals(1f, stops.first().second, 0.0001f)
+        assertEquals(1f, stops.last().first, 0.0001f)
+        assertEquals(0f, stops.last().second, 0.0001f)
+        for (i in 1 until stops.size) {
+            assertTrue(
+                "fractions strictly rise",
+                stops[i].first > stops[i - 1].first,
+            )
+            assertTrue(
+                "shares strictly fall",
+                stops[i].second < stops[i - 1].second,
+            )
+            assertTrue(
+                "no kink: drop ${stops[i - 1].second - stops[i].second}",
+                stops[i - 1].second - stops[i].second <= 0.25f,
+            )
+        }
+        val at80 = stops.last { it.first <= 0.8f }.second
+        assertTrue("a whisper at 80% of the radius: $at80", at80 <= 0.10f)
+        // The draw site reads the one table, not a restated
+        // copy (source pin on Spotlight.kt).
+        val src = spotlightSource()
+        assertTrue(src.contains("SpotlightGeom.POOL_GRADIENT_STOPS"))
+    }
+
+    private fun spotlightSource(): String {
+        val candidates = listOf(
+            java.io.File("src/main/java/com/dannycom888/shieldkaraoke/ui/Spotlight.kt"),
+            java.io.File("app/src/main/java/com/dannycom888/shieldkaraoke/ui/Spotlight.kt"),
+        )
+        val file = candidates.firstOrNull { it.isFile }
+            ?: throw AssertionError("Spotlight.kt not found")
+        return file.readText()
+    }
+
+    @Test
     fun poolIsWiderThanTheDancerButFlatterThanHer() {
         val h = 200f
         assertTrue(SpotlightGeom.poolWidthDp(h) > SpotlightGeom.dancerWidthDp(h))

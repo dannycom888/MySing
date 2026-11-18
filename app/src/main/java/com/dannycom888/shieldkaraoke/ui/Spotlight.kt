@@ -36,6 +36,33 @@ object SpotlightGeom {
     /** Alpha at the pool's centre (before the caller's own fade). */
     const val CENTRE_ALPHA = 0.50f
 
+    /**
+     * The pool's radial gradient (v1.0.64): (fraction of the
+     * radius) → (share of the centre alpha), drawn by
+     * [spotlightPool]. Samples of a raised-cosine falloff —
+     * flat at the centre, steepest at mid-radius, tangent-
+     * flat at the rim — replacing the old two-segment line
+     * (full → 0.42 at 0.55 → 0) whose kink and short tail
+     * read as a hard edge on the real TV (the user: the
+     * spotlight is not soft enough). The fade now spans the
+     * whole radius and its last fifth carries under a tenth
+     * of the centre: a long, soft skirt. The centre itself
+     * does NOT move — the first stop's share is exactly 1,
+     * so the centre口径 (shared [CENTRE_ALPHA], the solo
+     * placement's effective 0.42 via [SOLO_POOL_ALPHA_SCALE],
+     * the row's 0.50) is untouched.
+     */
+    val POOL_GRADIENT_STOPS: List<Pair<Float, Float>> = listOf(
+        0f to 1f,
+        0.2f to 0.9045f,
+        0.35f to 0.7270f,
+        0.5f to 0.5f,
+        0.65f to 0.2730f,
+        0.8f to 0.0955f,
+        0.9f to 0.0245f,
+        1f to 0f,
+    )
+
     /** The solo placement's pool dimming (v1.0.61): where the
      *  two follow-spot beams land on the solo pool, beam + beam
      *  + pool stacked into the stage's brightest patch — a
@@ -288,8 +315,6 @@ object SpotlightGeom {
 }
 
 private val POOL_CENTRE = Color(SpotlightGeom.POOL_COLOR_ARGB)
-private val POOL_MID = Color(SpotlightGeom.POOL_COLOR_ARGB)
-private val POOL_EDGE = Color(SpotlightGeom.POOL_COLOR_ARGB).copy(alpha = 0f)
 
 /**
  * Draws the spotlight pool behind the content of the node this is
@@ -321,11 +346,9 @@ fun Modifier.spotlightPool(alphaScale: Float = 1f): Modifier = drawBehind {
     withTransform({ scale(1f, ry / rx, Offset(cx, cy)) }) {
         drawCircle(
             brush = Brush.radialGradient(
-                colorStops = arrayOf(
-                    0f to POOL_CENTRE.copy(alpha = a),
-                    0.55f to POOL_MID.copy(alpha = a * 0.42f),
-                    1f to POOL_EDGE,
-                ),
+                colorStops = SpotlightGeom.POOL_GRADIENT_STOPS.map { (f, share) ->
+                    f to POOL_CENTRE.copy(alpha = a * share)
+                }.toTypedArray(),
                 center = Offset(cx, cy),
                 radius = rx,
             ),

@@ -4,9 +4,13 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.graphicsLayer
 
 /**
  * Stage dressing (v1.0.57): the approved mock
@@ -76,6 +80,20 @@ import androidx.compose.ui.graphics.Path
  * outside the one pool, the beam alpha is identically
  * zero. The tests pin that with a sampled proof over the
  * same primitives the backdrop draws with.
+ *
+ * v1.0.64: the user, on the .63 stage, ruled the spotlight
+ * "不够柔和" (not soft enough) and then fixed the endpoint
+ * once and for all — "聚光到光圈边缘就消失", the light is
+ * gone AT the pool's edge. So the peak retreats to 70% of
+ * the run to the edge and rolls off to zero AT the edge
+ * (the pool's interior is beam-free by law and by mask —
+ * see [StageBeams.axialProfile] and the backdrop's seam);
+ * the cones gain a true lateral feather (sixteen nested
+ * shells, no step edges); and the pool's own radial fade
+ * becomes a raised cosine with a long soft skirt (see
+ * [SpotlightGeom.POOL_GRADIENT_STOPS]). The .63 guarantee
+ * stands and widens: outside the pool the ground is dark,
+ * and now inside the pool the beams add nothing either.
  *
  * Pure numbers live in [StageFloor] / [StageBeams] so unit
  * tests can pin them; the drawing is two small composables.
@@ -274,9 +292,12 @@ object StageBeams {
      *  reads only a little brighter than the beam itself,
      *  with the pool's own glow doing the rest. v1.0.63: the
      *  peak's VALUE does not move — where it sits does: it
-     *  stood at the pool centre, and now stands where the
-     *  cone's axis crosses into the pool (see [peakStop]),
-     *  the light fading from there to nothing at the centre. */
+     *  stood at the pool centre, and then where the cone's
+     *  axis crosses into the pool. v1.0.64: the peak moves
+     *  once more, to [PEAK_ENTRY_FRACTION] of the way to
+     *  that crossing, and the light rolls off from there to
+     *  zero AT the crossing (see [axialProfile]) — the
+     *  value itself still does not move. */
     const val PEAK_ALPHA = 0.10f
 
     /** Alpha at the lamp end: the beam strengthens as it
@@ -284,15 +305,34 @@ object StageBeams {
      *  toward the source). */
     const val SOURCE_ALPHA = 0.05f
 
-    /** The bright core cone's width, as a fraction of the
-     *  outer cone's: each beam is drawn twice — a wide faint
-     *  wash and a narrower core over it — which softens the
-     *  cone's edges without any blur (the Shield is API 30;
-     *  no RenderEffect). */
-    const val CORE_WIDTH_RATIO = 0.55f
+    /** Where the axial profile peaks, as a fraction of the
+     *  lamp → pool-entry segment (v1.0.64): the beam
+     *  brightens over the first stretch of its run, peaks
+     *  here, then rolls off across the remaining stretch to
+     *  zero exactly at the pool's edge (see [axialProfile]).
+     *  0.70 leaves a long, gentle landing roll — the soft
+     *  follow-spot feel the user asked for ("聚光灯不够柔和"). */
+    const val PEAK_ENTRY_FRACTION = 0.70f
 
-    /** The outer wash's share of the cone's gradient alphas. */
-    const val WASH_ALPHA_RATIO = 0.45f
+    /** How many nested shells the lateral feather is built
+     *  from (v1.0.64): the cone is drawn [FEATHER_SHELLS]
+     *  times, each copy narrower than the last (see
+     *  [lateralShells]), so the brightness falls from the
+     *  cone's axis to its sides in fine steps — the largest
+     *  step is under a hundredth of alpha, no visible rim.
+     *  (The pre-.64 two-pass wash/core was this same idea
+     *  with two shells; its two step edges were exactly the
+     *  hardness the user ruled out.) */
+    const val FEATHER_SHELLS = 16
+
+    /** How far beyond the pool's ellipse the pool-edge mask
+     *  takes to open fully, in pool radii (v1.0.64): inside
+     *  the ellipse the mask is shut (the beams contribute
+     *  nothing there — the ground's only light is the pool's
+     *  own gradient), and it rises smoothly across this band
+     *  outside the rim, so beam and pool meet at the edge
+     *  with no cut line and no brightness step. */
+    const val POOL_EDGE_FADE_BAND = 0.35f
 
     /** The pool's own colour (v1.0.60): beam and pool are the
      *  same lamp, so the beam colour IS
@@ -314,7 +354,9 @@ object StageBeams {
      * side's lamp segment at the stage's top edge, converging
      * on [targetCentre] — the pool's centre — and landing
      * [targetHalfWidthPx] wide around it. [widthRatio] scales
-     * both ends for the core pass (see [CORE_WIDTH_RATIO]).
+     * both ends around the cone's own axis — the feather
+     * shells are this same cone at decreasing ratios (see
+     * [lateralShells]).
      * Both sides are fed the SAME target, so the two cones'
      * landing segments coincide exactly: the alignment is by
      * construction, and the tests pin it.
@@ -348,7 +390,8 @@ object StageBeams {
      * vertical one, always between the two. Measured BACK
      * from the centre along a cone's axis, this is the point
      * where the axis crosses INTO the pool: where the beam's
-     * gradient peaks (see [peakStop]). (The .61 design ran a
+     * light ends (see [entryStop] and [axialProfile]). (The
+     * .61 design ran a
      * tail FORWARD past the centre instead; measured, its
      * far corner left the ellipse below the pool at
      * near-peak alpha, so the tail is retired, not
@@ -376,22 +419,188 @@ object StageBeams {
         return if (len > 0f) Offset(dx / len, dy / len) else Offset(0f, 1f)
     }
 
-    /** Where the gradient's peak stop sits, as a fraction of
-     *  the lamp → pool-centre axis (v1.0.63): the gradient
-     *  spans the lamp to the CENTRE and dies there — its end
-     *  point is the centre itself — and the peak sits where
-     *  the axis crosses INTO the pool ellipse, one
-     *  [poolBoundaryDistancePx] before the centre. The light
-     *  reaches full strength exactly as it reaches the pool,
-     *  then fades across the pool to nothing at its centre:
-     *  it never shines past the pool, and below the centre
-     *  line the cone paints nothing at all. */
-    fun peakStop(src: Offset, centre: Offset, radiusPx: Float): Float {
+    /** Where the beam's light ENDS along its axis, as a
+     *  fraction of the lamp → pool-centre axis: the point
+     *  where the axis crosses INTO the pool ellipse, one
+     *  [poolBoundaryDistancePx] before the centre. v1.0.63
+     *  put the gradient's PEAK here and let the light fade
+     *  across the pool to the centre; v1.0.64 (the user,
+     *  verbatim: "聚光到光圈边缘就消失" — the light is gone
+     *  AT the pool's edge) makes this the zero point instead:
+     *  the axial profile peaks earlier, at
+     *  [PEAK_ENTRY_FRACTION] of this stop, and rolls off to
+     *  exactly zero here (see [axialProfile]). Inside the
+     *  ellipse the beams contribute nothing at all (the
+     *  pool-edge mask below sees to the off-axis corners the
+     *  axial law alone cannot reach). */
+    fun entryStop(src: Offset, centre: Offset, radiusPx: Float): Float {
         val axis = (centre - src).getDistance()
         if (axis <= 0f) return 0f
         val entry = axis - poolBoundaryDistancePx(axisDirection(src, centre), radiusPx)
         return (entry / axis).coerceIn(0f, 1f)
     }
+
+    /** A raised cosine over u ∈ [0, 1]: 0 at 0, 1 at 1,
+     *  flat at both ends — the one easing every v1.0.64
+     *  light profile is built from, so joins have no kink
+     *  and landings have no step. */
+    private fun raisedCosine(u: Float): Float {
+        val x = u.coerceIn(0f, 1f).toDouble()
+        return (0.5 * (1.0 - kotlin.math.cos(kotlin.math.PI * x))).toFloat()
+    }
+
+    /**
+     * The beam's ideal axial brightness at axis fraction
+     * [f], for a beam whose pool entry sits at [entry]
+     * (see [entryStop]): [SOURCE_ALPHA] at the lamp, rising
+     * on a raised cosine to [PEAK_ALPHA] at
+     * [PEAK_ENTRY_FRACTION] × [entry], then rolling off on
+     * the same easing to EXACTLY zero at [entry] — and zero
+     * everywhere past it, the pool's interior included. The
+     * drawn gradient samples this curve (see
+     * [gradientStops]); the tests pin the samples and the
+     * curve together.
+     */
+    fun axialProfile(f: Float, entry: Float): Float {
+        if (f <= 0f) return SOURCE_ALPHA
+        if (entry <= 0f || f >= entry) return 0f
+        val peakAbs = entry * PEAK_ENTRY_FRACTION
+        return if (f <= peakAbs) {
+            SOURCE_ALPHA + (PEAK_ALPHA - SOURCE_ALPHA) * raisedCosine(f / peakAbs)
+        } else {
+            PEAK_ALPHA * (1f - raisedCosine((f - peakAbs) / (entry - peakAbs)))
+        }
+    }
+
+    /**
+     * The gradient stops the backdrop actually draws for a
+     * beam entering its pool at [entry]: [axialProfile]
+     * sampled densely (24 slices of the lamp → entry run,
+     * the peak point itself, the entry at zero) plus the
+     * closing stop at the centre, also zero. A Brush
+     * interpolates linearly between stops, so the drawn
+     * light is the piecewise-linear reading of these stops
+     * — which is exactly what [sampleStops] evaluates and
+     * the tests pin. No stop exceeds [PEAK_ALPHA].
+     */
+    fun gradientStops(entry: Float): List<Pair<Float, Float>> {
+        if (entry <= 0f) return listOf(0f to SOURCE_ALPHA, 1f to 0f)
+        val pts = sortedMapOf<Float, Float>()
+        pts[0f] = axialProfile(0f, entry)
+        val slices = 24
+        for (i in 1..slices) {
+            val f = entry * i / slices
+            pts[f] = axialProfile(f, entry)
+        }
+        val peakAbs = entry * PEAK_ENTRY_FRACTION
+        pts[peakAbs] = axialProfile(peakAbs, entry)
+        pts[entry] = 0f
+        pts[1f] = 0f
+        return pts.entries.map { it.key to it.value }
+    }
+
+    /** Piecewise-linear evaluation of a stop list (the
+     *  reading a Brush gives the same stops), clamped to
+     *  the end values outside the list's span. Shared by the
+     *  axial gradient and the pool-edge mask so the tests
+     *  model the drawn light with the drawn numbers. */
+    fun sampleStops(stops: List<Pair<Float, Float>>, f: Float): Float {
+        if (stops.isEmpty()) return 0f
+        if (f <= stops.first().first) return stops.first().second
+        if (f >= stops.last().first) return stops.last().second
+        for (i in 1 until stops.size) {
+            val (f1, a1) = stops[i]
+            if (f <= f1) {
+                val (f0, a0) = stops[i - 1]
+                if (f1 <= f0) return a1
+                return a0 + (a1 - a0) * ((f - f0) / (f1 - f0))
+            }
+        }
+        return stops.last().second
+    }
+
+    /**
+     * The beam's ideal lateral brightness at normalised
+     * distance [s] from its axis (0 on the axis, 1 at the
+     * cone's side edge): a raised cosine lying on its side —
+     * full on the axis, tangent-flat at the edge, zero at
+     * and beyond it. This is the profile the feather shells
+     * approximate (see [lateralShells]).
+     */
+    fun lateralProfile(s: Float): Float {
+        if (s >= 1f) return 0f
+        return 1f - raisedCosine(s)
+    }
+
+    /**
+     * The feather shells: [FEATHER_SHELLS] copies of the
+     * cone, from the innermost (width ratio 1/K) to the
+     * cone itself (ratio 1), each carrying the share of the
+     * axial alpha that belongs to its band of the lateral
+     * profile — shell m's share is [lateralProfile] at its
+     * inner edge minus at its outer edge, so the shares
+     * telescope: stacked source-over, the shells composite
+     * to the lateral profile read as a staircase with
+     * [FEATHER_SHELLS] steps, the largest under a hundredth
+     * of alpha. Outside the widest shell there is no beam
+     * at all — the side edge is feathered to nothing, not
+     * lined.
+     */
+    fun lateralShells(): List<Pair<Float, Float>> {
+        val k = FEATHER_SHELLS
+        return (1..k).map { m ->
+            val ratio = m.toFloat() / k
+            val share = lateralProfile((m - 1).toFloat() / k) -
+                lateralProfile(ratio)
+            ratio to share
+        }
+    }
+
+    /**
+     * The pool-edge mask's ideal openness at
+     * ellipse-normalised distance [rho] from the pool's
+     * centre (rho = 1 on the rim): shut (0) at and inside
+     * the rim — the beams contribute NOTHING inside the
+     * pool, the ground's only light there is the pool's own
+     * gradient — then rising on a raised cosine across
+     * [POOL_EDGE_FADE_BAND] of a radius to fully open (1).
+     * Drawn as a DstIn mask over the composited beams (see
+     * the backdrop), sampled into stops by
+     * [poolEdgeMaskStops].
+     */
+    fun poolEdgeFactor(rho: Float): Float {
+        if (rho <= 1f) return 0f
+        if (rho >= 1f + POOL_EDGE_FADE_BAND) return 1f
+        return raisedCosine((rho - 1f) / POOL_EDGE_FADE_BAND)
+    }
+
+    /**
+     * The mask's gradient stops, as fractions of the mask
+     * radius (the pool radius × (1 + [POOL_EDGE_FADE_BAND])):
+     * flat zero out to the rim's own fraction, the rise
+     * sampled in ten slices, fully open at the mask's edge.
+     * [poolEdgeFactorAt] reads them back the way the drawn
+     * gradient behaves.
+     */
+    fun poolEdgeMaskStops(): List<Pair<Float, Float>> {
+        val scale = 1f + POOL_EDGE_FADE_BAND
+        val pts = sortedMapOf<Float, Float>()
+        pts[0f] = 0f
+        pts[1f / scale] = 0f
+        val slices = 10
+        for (i in 1..slices) {
+            val rho = 1f + POOL_EDGE_FADE_BAND * i / slices
+            pts[rho / scale] = poolEdgeFactor(rho)
+        }
+        pts[1f] = 1f
+        return pts.entries.map { it.key to it.value }
+    }
+
+    /** The drawn mask's openness at [rho]: the stop list
+     *  of [poolEdgeMaskStops] interpolated, at the fraction
+     *  [rho] maps to inside the mask radius. */
+    fun poolEdgeFactorAt(rho: Float): Float =
+        sampleStops(poolEdgeMaskStops(), rho / (1f + POOL_EDGE_FADE_BAND))
 }
 
 /**
@@ -399,41 +608,72 @@ object StageBeams {
  * top corners; v1.0.60 re-aimed): drawn as the player stage's
  * bottom layer (the root composes this under the bubble
  * field, and every screen element draws over both). Each beam
- * is now a cone from its top lamp CONVERGING on the solo
- * dancer's spotlight pool ([target] — the pool's centre and
- * radius in screen pixels, kept current by the solo
- * placement's own layout): two stage follow-spots crossing
- * onto one pool of light, in the pool's own colour. The fill
- * is a linear gradient along the cone's axis — faint at the
- * lamp, strongest where the axis reaches the pool — drawn as
- * a wide wash plus a narrower core for soft edges without
- * blur. Until the first solo placement has been laid out
- * there is no target and the backdrop draws nothing.
+ * is a cone from its top lamp CONVERGING on the solo dancer's
+ * spotlight pool ([target] — the pool's centre and radius in
+ * screen pixels, kept current by the solo placement's own
+ * layout): two stage follow-spots crossing onto one pool of
+ * light, in the pool's own colour. Until the first solo
+ * placement has been laid out there is no target and the
+ * backdrop draws nothing.
  *
- * v1.0.63: the beam ENDS at the pool. The path is the plain
- * cone — its lowest points are the landing segment ON the
- * pool centre, inside the pool's ellipse — and the gradient
- * runs lamp → centre with THREE stops: the source alpha at
- * the lamp, the peak where the axis crosses into the pool
- * ([StageBeams.peakStop]), and zero AT the centre. The beam
- * fades as it crosses the pool and is gone by its middle;
- * below the centre line it paints nothing anywhere, so the
- * only light on the ground is the pool itself — never a
- * bright wedge running past it to the bottom edge.
+ * v1.0.63: the beam ENDS at the pool — the cone stops at its
+ * landing segment on the pool centre and the gradient died
+ * at the centre, so no beam light reached the ground past
+ * the pool.
+ *
+ * v1.0.64 (the user, on the .63 stage: "聚光灯不够柔和" —
+ * the spotlight is not soft enough — and then, verbatim,
+ * "聚光到光圈边缘就消失": the light is gone AT the pool's
+ * edge): three softenings, one mechanism each.
+ *
+ * 1. AXIAL: the gradient is [StageBeams.axialProfile]
+ *    sampled into stops — up from the lamp, peaking at
+ *    [StageBeams.PEAK_ENTRY_FRACTION] of the run to the
+ *    pool's edge, then a long raised-cosine roll-off to
+ *    EXACTLY zero where the axis crosses into the pool
+ *    ([StageBeams.entryStop]). The light no longer crosses
+ *    the pool at all.
+ * 2. LATERAL: each cone is drawn as [StageBeams.lateralShells]
+ *    — sixteen nested copies of itself, each narrower and
+ *    fainter — so the brightness melts from the axis to the
+ *    side edges with no hard line (the old two-pass wash /
+ *    core left two visible step edges; sixteen shells leave
+ *    none). Still no blur anywhere: the Shield is API 30.
+ * 3. THE SEAM: after both beams are composited, a DstIn
+ *    mask in the pool's own ellipse space (the
+ *    [SpotlightGeom.FLATTEN] squash, the same transform the
+ *    pool itself is drawn with) multiplies the beam layer
+ *    by [StageBeams.poolEdgeFactorAt]: shut inside the rim,
+ *    opening smoothly across a third of a radius outside
+ *    it. The axial law alone cannot promise "inside the
+ *    pool, zero" — a wide flat ellipse's side points sit
+ *    closer to the lamp, in projection, than the axis's own
+ *    entry point — so the mask makes it exact: inside the
+ *    pool the beams contribute nothing, beam and pool meet
+ *    at the rim with no cut line and no brightness step,
+ *    and the ground's only light is the pool itself. The
+ *    DstIn is confined to this backdrop's own layer (the
+ *    offscreen compositing strategy — the same pattern the
+ *    dancer reflection's fade uses), so nothing outside the
+ *    beams is touched.
  */
 @Composable
 fun StageBeamBackdrop(target: PoolTarget?, modifier: Modifier = Modifier) {
     val beamColor = Color(StageBeams.COLOR_ARGB)
-    Canvas(modifier = modifier) {
+    Canvas(
+        modifier = modifier.graphicsLayer {
+            compositingStrategy = CompositingStrategy.Offscreen
+        },
+    ) {
         val t = target ?: return@Canvas
         val landingHalf = t.radiusPx * StageBeams.TARGET_RADIUS_RATIO
+        val shells = StageBeams.lateralShells()
         for (right in listOf(false, true)) {
             val src = StageBeams.sourceCentre(size.width, right)
-            val peak = StageBeams.peakStop(src, t.centrePx, t.radiusPx)
-            for ((ratio, alphaScale) in listOf(
-                1f to StageBeams.WASH_ALPHA_RATIO,
-                StageBeams.CORE_WIDTH_RATIO to 1f,
-            )) {
+            val stops = StageBeams.gradientStops(
+                StageBeams.entryStop(src, t.centrePx, t.radiusPx),
+            )
+            for ((ratio, share) in shells) {
                 val pts = StageBeams.cone(
                     size.width, t.centrePx, landingHalf, right, ratio,
                 )
@@ -445,21 +685,33 @@ fun StageBeamBackdrop(target: PoolTarget?, modifier: Modifier = Modifier) {
                 drawPath(
                     path = path,
                     brush = Brush.linearGradient(
-                        colorStops = arrayOf(
-                            0f to beamColor.copy(
-                                alpha = StageBeams.SOURCE_ALPHA * alphaScale,
-                            ),
-                            peak to beamColor.copy(
-                                alpha = StageBeams.PEAK_ALPHA * alphaScale,
-                            ),
-                            1f to beamColor.copy(alpha = 0f),
-                        ),
+                        colorStops = stops.map { (f, a) ->
+                            f to beamColor.copy(alpha = a * share)
+                        }.toTypedArray(),
                         start = src,
                         end = t.centrePx,
                     ),
                 )
             }
         }
+        // The pool-edge seam (v1.0.64, mechanism 3 above):
+        // shut inside the pool's rim, opening smoothly
+        // outside it — drawn in the pool's squashed space so
+        // the mask's rim IS the pool's rim.
+        val maskRadius = t.radiusPx * (1f + StageBeams.POOL_EDGE_FADE_BAND)
+        withTransform({ scale(1f, SpotlightGeom.FLATTEN, t.centrePx) }) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colorStops = StageBeams.poolEdgeMaskStops().map { (f, a) ->
+                        f to Color.Black.copy(alpha = a)
+                    }.toTypedArray(),
+                    center = t.centrePx,
+                    radius = maskRadius,
+                ),
+                center = t.centrePx,
+                radius = maskRadius,
+                blendMode = BlendMode.DstIn,
+            )
+        }
     }
 }
-

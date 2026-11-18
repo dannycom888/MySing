@@ -2563,12 +2563,14 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.focusRequester(controlRequester),
                         onFocused = { panelFocused = false },
                         compact = compact,
+                        glow = true,
                     ) { controller.togglePlayPause() }
-                    Chip(s(TvKey.REPLAY), false, onFocused = { panelFocused = false }, compact = compact) { controller.replay() }
+                    Chip(s(TvKey.REPLAY), false, onFocused = { panelFocused = false }, compact = compact, glow = true) { controller.replay() }
                     Chip(
                         if (accompaniment) s(TvKey.ACCOMP_ON) else s(TvKey.ACCOMP_OFF), accompaniment,
                         onFocused = { panelFocused = false },
                         compact = compact,
+                        glow = true,
                     ) {
                         accompaniment = !accompaniment; controller.setAccompaniment(accompaniment)
                     }
@@ -2576,13 +2578,14 @@ class MainActivity : ComponentActivity() {
                         if (dancersOn) s(TvKey.DANCERS_ON) else s(TvKey.DANCERS_OFF), dancersOn,
                         onFocused = { panelFocused = false },
                         compact = compact,
+                        glow = true,
                     ) {
                         dancersOn = !dancersOn; app.prefs.dancersEnabled = dancersOn
                     }
                     // v1.0.31: no 🎲 filler chip any more — filler
                     // is unconditional (nobody orders, it starts).
-                    Chip(s(TvKey.QUIT), false, onFocused = { panelFocused = false }, compact = compact) { confirmQuit = true }
-                    Chip(s(TvKey.GO_ORDER), false, onFocused = { panelFocused = false }, compact = compact) { screen = Screen.BROWSE }
+                    Chip(s(TvKey.QUIT), false, onFocused = { panelFocused = false }, compact = compact, glow = true) { confirmQuit = true }
+                    Chip(s(TvKey.GO_ORDER), false, onFocused = { panelFocused = false }, compact = compact, glow = true) { screen = Screen.BROWSE }
                 }
             }
         }
@@ -3616,11 +3619,26 @@ class MainActivity : ComponentActivity() {
          *  the old fit overflowed and the last chip wrapped
          *  vertically, inflating the whole bar). */
         compact: Boolean = false,
+        /** v1.0.64: the player control bar's chips pass this —
+         *  an outer glow in the chip's own colour behind the
+         *  chip (see ControlGlow), brighter while focused.
+         *  Every other chip (browse filters, the banner's
+         *  language switch, admin) leaves it off. */
+        glow: Boolean = false,
         onClick: () -> Unit,
     ) {
         var focused by remember { mutableStateOf(false) }
         Box(
             modifier = modifier
+                .then(
+                    if (glow) {
+                        Modifier.controlGlow(
+                            if (selected) gold else cardBg, focused,
+                        )
+                    } else {
+                        Modifier
+                    },
+                )
                 .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(16.dp))
                 .background(if (selected) gold else cardBg, RoundedCornerShape(16.dp))
                 .focusable()

@@ -32,6 +32,26 @@ object PhonePage {
      * ONE combined filter (language × gender × favorites/recent
      * × search text) rendered locally from the single catalog
      * fetch: lighting a combination lists every match at once.
+     *
+     * v1.0.65: two guest-facing changes. (1) The search box
+     * moves UP — directly under the queue panel — grows
+     * taller with a magnifier, and its frame breathes a slow
+     * gold glow (searchGlow, 2.4 s ease-in-out) so the eye
+     * lands on it first; several guests could not find it at
+     * all. (2) Ordering gains the TV flow ON TOP of the
+     * standing picker: tapping a song now pops the dancer
+     * box up (askDancerForOrder) and tapping a card places
+     * the order with that dancer in one step; cancel queues
+     * nothing. The standing picker STAYS (the user: keep it,
+     * it is the easy place to change one's mind) — both are
+     * entrances to the ONE per-orderer state, myDancer: the
+     * box opens on whatever the standing picker shows, and a
+     * pick in the box repaints the standing picker to match.
+     * The main block's order is now: queue panel, search,
+     * dancer picker, filter chips, song list. The queue
+     * rows' change-dancer box (v1.0.56) is a separate overlay
+     * and untouched, as are the suggestions and the combined
+     * filter.
      */
     fun html(bootId: String = "", customNames: Map<String, String> = emptyMap()): String {
         val customNamesJson = customNamesJson(customNames)
@@ -61,9 +81,9 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 #qlist div{padding:6px 4px;border-bottom:1px solid #223}
 #qlist .mine{background:#4a3a08;border-left:4px solid #FFD54F}
 #qlist .qmine{cursor:pointer}
-#dpick{position:fixed;inset:0;background:rgba(4,8,24,.85);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:18px 10px;overflow-y:auto;box-sizing:border-box}
-#dpick.hidden{display:none}
-#dpickBox{background:#0d1b3e;border:1px solid #446;border-radius:12px;padding:12px;max-width:520px;width:100%;box-sizing:border-box}
+#dpick,#opick{position:fixed;inset:0;background:rgba(4,8,24,.85);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:18px 10px;overflow-y:auto;box-sizing:border-box}
+#dpick.hidden,#opick.hidden{display:none}
+#dpickBox,#opickBox{background:#0d1b3e;border:1px solid #446;border-radius:12px;padding:12px;max-width:520px;width:100%;box-sizing:border-box}
 .badge{background:#FFD54F;color:#111;border-radius:8px;padding:1px 6px;font-size:12px;font-weight:bold;white-space:nowrap}
 .del{background:#a33;color:#fff}
 .hidden{display:none}
@@ -74,6 +94,11 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 .dcard.on{border-color:#FFD54F;background:#4a3a08}
 #langBar{text-align:right;margin-bottom:2px}
 #langBar .chip{padding:5px 12px;font-size:14px}
+#searchWrap{display:flex;align-items:center;gap:8px;background:#16295c;border:2px solid #FFD54F;border-radius:12px;padding:2px 12px;margin:12px 0 2px;animation:searchGlow 2.4s ease-in-out infinite}
+#searchWrap .mag{font-size:22px}
+#q{flex:1;min-width:0;width:auto;border:none;background:transparent;font-size:19px;padding:13px 2px}
+@keyframes searchGlow{0%,100%{box-shadow:0 0 5px 1px rgba(255,213,79,.30)}50%{box-shadow:0 0 18px 7px rgba(255,213,79,.70)}}
+@media (prefers-reduced-motion:reduce){#searchWrap{animation:none;box-shadow:0 0 10px 3px rgba(255,213,79,.45)}}
 </style></head><body>
 <div id="langBar"><button class="chip" id="langZh">中文</button><button class="chip" id="langEn">EN</button></div>
 <div id="nameGate">
@@ -89,6 +114,8 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <div id="qsummary" class="small"></div>
 <div id="qlist"></div>
 </div>
+<div id="searchWrap"><span class="mag">🔍</span><input id="q" data-iph="searchPh" placeholder="输入歌手或歌名（或拼音首字母）"></div>
+<div id="sug" class="hidden"></div>
 <h1 data-i="dancerTitle">💃 选伴舞</h1>
 <p class="small" data-i="dancerHint">点歌时选的伴舞就配这首歌；开唱之前，点你排队里的歌可以换一位。</p>
 <div id="dancers" class="dcards">
@@ -99,8 +126,6 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <div class="dcard" data-who="baby"><img src="/dancer-anim/baby" onerror="this.onerror=null;this.src='/dancer-img/baby'" alt="哪吒"><span data-dancer="baby">哪吒</span></div>
 <div class="dcard" data-who="robot"><img src="/dancer-anim/robot" onerror="this.onerror=null;this.src='/dancer-img/robot'" alt="瓦力"><span data-dancer="robot">瓦力</span></div>
 </div>
-<input id="q" data-iph="searchPh" placeholder="搜歌名/歌手，或拼音首字母（如 fh cq）">
-<div id="sug" class="hidden"></div>
 <div style="margin:8px 0">
 <button class="chip on" data-lang="" data-i="fAll">全部</button>
 <button class="chip" data-lang="zh" data-i="fZh">中文</button>
@@ -129,6 +154,22 @@ button{background:#FFD54F;color:#111;border:none;font-weight:bold}
 <p><button id="dpickCancel" data-i="cancel" style="width:100%">取消</button></p>
 </div>
 </div>
+<div id="opick" class="hidden">
+<div id="opickBox">
+<h1 data-i="dancerTitle">💃 选伴舞</h1>
+<div id="opickSong" class="small"></div>
+<p class="small" data-i="dancerHint">点歌时选的伴舞就配这首歌；开唱之前，点你排队里的歌可以换一位。</p>
+<div class="dcards">
+<div class="dcard" data-opick="modern"><img src="/dancer-anim/modern" onerror="this.onerror=null;this.src='/dancer-img/modern'" alt="Amy"><span data-dancer="modern">Amy</span></div>
+<div class="dcard" data-opick="ancient"><img src="/dancer-anim/ancient" onerror="this.onerror=null;this.src='/dancer-img/ancient'" alt="秀颖"><span data-dancer="ancient">秀颖</span></div>
+<div class="dcard" data-opick="sumo"><img src="/dancer-anim/sumo" onerror="this.onerror=null;this.src='/dancer-img/sumo'" alt="姿三四郎"><span data-dancer="sumo">姿三四郎</span></div>
+<div class="dcard" data-opick="ancient_girl"><img src="/dancer-anim/ancient_girl" onerror="this.onerror=null;this.src='/dancer-img/ancient_girl'" alt="汉娜"><span data-dancer="ancient_girl">汉娜</span></div>
+<div class="dcard" data-opick="baby"><img src="/dancer-anim/baby" onerror="this.onerror=null;this.src='/dancer-img/baby'" alt="哪吒"><span data-dancer="baby">哪吒</span></div>
+<div class="dcard" data-opick="robot"><img src="/dancer-anim/robot" onerror="this.onerror=null;this.src='/dancer-img/robot'" alt="瓦力"><span data-dancer="robot">瓦力</span></div>
+</div>
+<p><button id="opickCancel" data-i="cancel" style="width:100%">取消</button></p>
+</div>
+</div>
 <script>
 var CUSTOM_DANCER_NAMES = $customNamesJson;
 var I18N = {
@@ -141,7 +182,7 @@ zh: {
   myNext: '我点的下一首在第 {n} 位', myPlaying: '正在唱的就是我点的 🎤', myNone: '我还没点歌',
   nowPlaying: '▶ 正在唱：{song}（{by}点的）', waitingRow: '{song}（{by}点的）',
   mine: '我点的', minePos: '我点的 · 第 {n} 位', del: '删', queueEmpty: '还没有人点歌',
-  searchPh: '搜歌名/歌手，或拼音首字母（如 fh cq）',
+  searchPh: '输入歌手或歌名（或拼音首字母）',
   fAll: '全部', fZh: '中文', fEn: '英文', fAny: '男女不限', fM: '男歌手', fF: '女歌手',
   fFav: '❤ 收藏', fRecent: '🕘 最近唱过',
   dancerTitle: '💃 选伴舞',
@@ -163,7 +204,7 @@ en: {
   myNext: 'Your next song is #{n} in line', myPlaying: 'Your song is playing now 🎤', myNone: "You haven't ordered yet",
   nowPlaying: '▶ Now playing: {song} (ordered by {by})', waitingRow: '{song} (ordered by {by})',
   mine: 'Mine', minePos: 'Mine · #{n}', del: 'Del', queueEmpty: 'No songs queued yet',
-  searchPh: 'Search title/artist, or pinyin initials (e.g. fh cq)',
+  searchPh: 'Enter singer or song title (or pinyin initials)',
   fAll: 'All', fZh: 'Chinese', fEn: 'English', fAny: 'Any singer', fM: 'Male', fF: 'Female',
   fFav: '❤ Favorites', fRecent: '🕘 Recent',
   dancerTitle: '💃 Pick a dancer',
@@ -268,7 +309,7 @@ function loadSongs(){
     row.innerHTML='<span>'+s.artist+' - '+s.title+'</span>' +
       (s.acc ? ' <span class="badge">'+t('accBadge')+'</span>' : '');
     var b=document.createElement('button'); b.textContent=t('order');
-    b.onclick=function(){ order(s.id); };
+    b.onclick=function(){ askDancerForOrder(s.id, s.artist + ' - ' + s.title); };
     var f=document.createElement('button'); f.textContent=fav?'❤':'🤍';
     f.onclick=function(){ toggleFav(s.id, !fav); };
     var wrap=document.createElement('span'); wrap.appendChild(f); wrap.appendChild(b);
@@ -344,10 +385,10 @@ function updateSuggest(){
   box.classList.remove('hidden');
 }
 function pickSuggest(s){
-  order(s.id);
   document.getElementById('q').value = '';
   hideSuggest();
   loadSongs();
+  askDancerForOrder(s.id, s.artist ? (s.artist + ' - ' + s.title) : s.title);
 }
 function toggleFav(id, fav){
   fetch('/api/fav',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -377,6 +418,33 @@ function openDancerPicker(idx, e){
 function closeDancerPicker(){
   document.getElementById('dpick').classList.add('hidden');
   pickTarget = null;
+}
+// --- Order-time dancer pick (v1.0.65: the TV flow) -------------
+// Tapping a song no longer orders it on the spot: like the TV,
+// the dancer box pops up first, preselected with this orderer's
+// current dancer — myDancer, the ONE per-orderer state the
+// standing picker above also shows (this phone's localStorage,
+// reconciled with the server's /api/dancer record on every
+// queue poll). Tapping a card IS the order: the pick becomes
+// the state (the standing picker repaints to match, and the
+// pick is posted back to /api/dancer) and rides /api/order as
+// who, frozen into the queue entry server-side. Cancel closes
+// the box and nothing is queued.
+var orderTarget = null;
+function askDancerForOrder(id, label){
+  orderTarget = {id: id};
+  document.getElementById('opickSong').textContent = label || '';
+  paintOrderPicker();
+  document.getElementById('opick').classList.remove('hidden');
+}
+function paintOrderPicker(){
+  document.querySelectorAll('[data-opick]').forEach(function(c){
+    c.classList.toggle('on', c.getAttribute('data-opick') === myDancer);
+  });
+}
+function closeOrderPicker(){
+  document.getElementById('opick').classList.add('hidden');
+  orderTarget = null;
 }
 function renderQueue(d){
   var waiting = d.waiting || [];
@@ -462,6 +530,17 @@ document.querySelectorAll('[data-who]').forEach(function(c){ c.onclick=function(
     body: JSON.stringify({name:name, who:myDancer, lang:ui})}).catch(netErr);
 }; });
 document.getElementById('dpickCancel').onclick = closeDancerPicker;
+document.getElementById('opickCancel').onclick = closeOrderPicker;
+document.querySelectorAll('[data-opick]').forEach(function(c){ c.onclick=function(){
+  if(!orderTarget) return;
+  var target = orderTarget;
+  var who = c.getAttribute('data-opick');
+  closeOrderPicker();
+  myDancer = who; localStorage.setItem('sk_dancer', myDancer); paintDancers();
+  fetch('/api/dancer',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name:name, who:myDancer, lang:ui})}).catch(netErr);
+  order(target.id);
+}; });
 document.querySelectorAll('[data-pick]').forEach(function(c){ c.onclick=function(){
   if(!pickTarget) return;
   var target = pickTarget;

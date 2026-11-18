@@ -23,6 +23,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
@@ -286,8 +290,26 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 BoxWithConstraints(
                     modifier = Modifier.fillMaxSize().background(bg)
+                        // v1.0.65: track whether the composition
+                        // holds focus anywhere, for the rescue
+                        // net below (onFocusEvent reports the
+                        // aggregated hasFocus of the subtree).
+                        .onFocusEvent { hasAnyFocus = it.hasFocus }
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown) {
+                                // v1.0.65 rescue net (FocusRescue):
+                                // a navigation key that finds the
+                                // app focus-less is spent landing
+                                // focus on the current screen's
+                                // anchor, never dropped — no
+                                // transition or dismissal can
+                                // strand the remote any more.
+                                if (FocusRescue.shouldRescue(hasAnyFocus) &&
+                                    FocusRescue.isNavigationKey(event.key)
+                                ) {
+                                    rescueFocus()
+                                    return@onKeyEvent true
+                                }
                                 if (event.key == Key.MediaPlayPause) controller.togglePlayPause()
                             }
                             false
@@ -392,11 +414,19 @@ class MainActivity : ComponentActivity() {
                             song = song,
                             compact = compact,
                             onPick = { dancer ->
+                                // v1.0.65: focus returns to the
+                                // song row that opened the dialog.
+                                browseRowFocusSongId = song.id
+                                browseRowFocusTick++
                                 pendingTvOrder = null
                                 app.prefs.setDancer(s(TvKey.TV_ORDERER), dancer.key)
                                 orderFromTv(song, dancer.key)
                             },
-                            onCancel = { pendingTvOrder = null },
+                            onCancel = {
+                                browseRowFocusSongId = song.id
+                                browseRowFocusTick++
+                                pendingTvOrder = null
+                            },
                         )
                     }
                 }
@@ -967,6 +997,18 @@ class MainActivity : ComponentActivity() {
         // up, a slower local ticker keeps the same positionMs /
         // durationMs state fresh from the (still singing) player.
         var diagTick by remember { mutableStateOf(0L) }
+        // v1.0.65: entering this page requests its anchor —
+        // the folder-picker card. Like the browse page, this
+        // page used to request no initial focus at all, so a
+        // remote arriving from the gear had nowhere to land.
+        LaunchedEffect(Unit) {
+            try {
+                adminInitialRequester.requestFocus()
+            } catch (e: Exception) {
+                // Cards not composed yet; the root rescue net
+                // re-anchors on the first D-pad press.
+            }
+        }
         LaunchedEffect(Unit) {
             while (true) {
                 positionMs = try { controller.player.currentPosition } catch (e: Exception) { 0L }
@@ -1026,7 +1068,11 @@ class MainActivity : ComponentActivity() {
             }
             Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                EntryCard(s(TvKey.PICK_FOLDER_BTN), compact) { picker.launch(null) }
+                EntryCard(
+                    s(TvKey.PICK_FOLDER_BTN), compact,
+                    // v1.0.65: the page's initial-focus anchor.
+                    Modifier.focusRequester(adminInitialRequester),
+                ) { picker.launch(null) }
                 EntryCard(s(TvKey.RESCAN), compact) {
                     app.prefs.libraryTreeUri?.let { rescan(Uri.parse(it)) }
                 }
@@ -1253,6 +1299,25 @@ class MainActivity : ComponentActivity() {
      *  composable — is what asks for the moves. */
     private val voiceButtonRequester = FocusRequester()
     private val firstResultRequester = FocusRequester()
+    // v1.0.65: one initial-focus anchor per screen, held here
+    // (not remember) so the root's rescue net can re-anchor
+    // focus to the CURRENT screen's first control whenever a
+    // navigation key arrives and nothing holds focus (see
+    // FocusRescue). Each screen also requests its own anchor
+    // on entry — the anchor being shared is what lets the
+    // net and the entry effects aim at the same control.
+    private val playerControlRequester = FocusRequester()
+    private val browseInitialRequester = FocusRequester()
+    private val adminInitialRequester = FocusRequester()
+    /** Whether ANY node in the composition currently holds
+     *  focus; fed by the root's onFocusEvent (hasFocus). */
+    private var hasAnyFocus by mutableStateOf(false)
+    /** The TV dancer dialog's focus return: when it closes
+     *  (pick or cancel), focus goes back to the song row that
+     *  opened it — the browse screen performs the move when
+     *  this tick bumps, after the dialog has left. */
+    private var browseRowFocusTick by mutableStateOf(0)
+    private var browseRowFocusSongId: String? = null
     /** Bumped by [applyBrowseQuery]; a LaunchedEffect on the
      *  browse page performs the actual focus move once the
      *  filtered list has recomposed. */
@@ -1278,6 +1343,21 @@ class MainActivity : ComponentActivity() {
         }
         voiceHint = null
         focusFirstResultTick++
+    }
+
+    /** v1.0.65: land focus on the current screen's anchor —
+     *  the rescue net's one move (see FocusRescue). */
+    private fun rescueFocus() {
+        try {
+            when (screen) {
+                Screen.PLAYER -> playerControlRequester.requestFocus()
+                Screen.BROWSE -> browseInitialRequester.requestFocus()
+                Screen.ADMIN -> adminInitialRequester.requestFocus()
+            }
+        } catch (e: Exception) {
+            // Anchor not composed yet (mid-transition): the
+            // next navigation press retries.
+        }
     }
 
     private fun refocusVoiceButton() {
@@ -1385,6 +1465,35 @@ class MainActivity : ComponentActivity() {
                 refocusVoiceButton()
             }
         }
+        // v1.0.65: entering this page requests its anchor —
+        // the first entry card. Until this version the page
+        // requested NO initial focus: the player screen's
+        // focused chip is disposed on the way in, its focus
+        // owner dies with it, and the remote lands nowhere.
+        LaunchedEffect(Unit) {
+            try {
+                browseInitialRequester.requestFocus()
+            } catch (e: Exception) {
+                // Entries not composed yet; the root rescue
+                // net re-anchors on the first D-pad press.
+            }
+        }
+        // Per-song focus anchors, so the dancer dialog can
+        // hand focus back to the exact row that opened it.
+        val browseRowRequesters = remember { mutableStateMapOf<String, FocusRequester>() }
+        LaunchedEffect(browseRowFocusTick) {
+            if (browseRowFocusTick > 0) {
+                val id = browseRowFocusSongId
+                if (id != null) {
+                    try {
+                        browseRowRequesters[id]?.requestFocus()
+                    } catch (e: Exception) {
+                        // Row scrolled off / filtered out: the
+                        // rescue net covers the next press.
+                    }
+                }
+            }
+        }
         // A fresh query (voice result or typed save) asks for
         // focus on the first result row; the move runs here, after
         // the filtered list has recomposed with the new query.
@@ -1461,8 +1570,18 @@ class MainActivity : ComponentActivity() {
                 s(TvKey.ENTRY_RECENTS) to { openBrowse(ListType.SONGS, null, null, Special.RECENTS) },
             )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(entries) { (label, action) ->
-                    EntryCard(label, compact, action)
+                itemsIndexed(entries) { index, (label, action) ->
+                    EntryCard(
+                        label, compact,
+                        // v1.0.65: the page's initial-focus
+                        // anchor rides the first entry card.
+                        if (index == 0) {
+                            Modifier.focusRequester(browseInitialRequester)
+                        } else {
+                            Modifier
+                        },
+                        action,
+                    )
                 }
             }
             Spacer(Modifier.height(if (compact) 6.dp else 10.dp))
@@ -1557,6 +1676,13 @@ class MainActivity : ComponentActivity() {
                     items(singers) { singer ->
                         ListRow("🎤 $singer", compact) {
                             filterArtist = singer; listType = ListType.SONGS
+                            // v1.0.65: this row is disposed by
+                            // the switch to the songs list — hand
+                            // focus to the first song row (the
+                            // focusFirstResultTick effect performs
+                            // the move after recomposition)
+                            // instead of leaving it nowhere.
+                            focusFirstResultTick++
                         }
                     }
                 }
@@ -1579,11 +1705,21 @@ class MainActivity : ComponentActivity() {
                             "🎵 ${song.displayName}" +
                                 if (song.hasAccompanimentFile) " · ${s(TvKey.ACCOMP_BADGE)}" else "",
                             compact,
-                            if (index == 0) {
-                                Modifier.focusRequester(firstResultRequester)
-                            } else {
-                                Modifier
-                            },
+                            // v1.0.65: every song row also
+                            // carries its own anchor, so the
+                            // dancer dialog can return focus to
+                            // the row that opened it; index 0
+                            // additionally carries the first-
+                            // result anchor, as before.
+                            Modifier.focusRequester(
+                                browseRowRequesters.getOrPut(song.id) { FocusRequester() },
+                            ).then(
+                                if (index == 0) {
+                                    Modifier.focusRequester(firstResultRequester)
+                                } else {
+                                    Modifier
+                                },
+                            ),
                         ) { pendingTvOrder = song }
                     }
                 }
@@ -1698,7 +1834,11 @@ class MainActivity : ComponentActivity() {
         val playNowRequester = remember { FocusRequester() }
         val promoteRequester = remember { FocusRequester() }
         val deleteRequester = remember { FocusRequester() }
-        val controlRequester = remember { FocusRequester() }
+        // v1.0.65: the control-bar anchor is the activity's
+        // shared playerControlRequester now, so the root's
+        // rescue net re-anchors to the very chip this screen
+        // focuses on entry.
+        val controlRequester = playerControlRequester
         // The stage is the launch screen now (v1.0.31): whenever
         // it is entered, D-pad focus starts on the control bar —
         // the pause chip — never on the banner's gear or title.
@@ -2679,8 +2819,20 @@ class MainActivity : ComponentActivity() {
      */
     @Composable
     private fun CornerQrCard(ip: String, port: Int, compact: Boolean, modifier: Modifier = Modifier) {
-        val qrDp = if (compact) 44.dp else 56.dp
-        val bitmap = remember(ip, port) { Qr.encode("http://$ip:$port/", 220) }
+        // v1.0.65: the code grows a moderate notch — 56 -> 82dp
+        // (compact 44 -> 60dp), about 1.46x — so a guest can
+        // scan it from the couch without walking up to the TV,
+        // while the card stays a corner card, not a billboard
+        // (the user's word: not double, too big spoils the
+        // picture). Every clearance was re-checked at this
+        // size and none needed to move: the card (88/66dp
+        // wide) still sits inside the queue panel's reserve
+        // band, the banner's next-up text reserve (114/90dp)
+        // still clears its left edge, the browse/admin end
+        // reserve (112/88dp) still clears it, and the panel's
+        // topPad (88/70dp) still clears its bottom edge.
+        val qrDp = if (compact) 60.dp else 82.dp
+        val bitmap = remember(ip, port) { Qr.encode("http://$ip:$port/", 330) }
         Column(
             modifier = modifier
                 .border(1.dp, Color.Black.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
@@ -2711,7 +2863,9 @@ class MainActivity : ComponentActivity() {
      */
     @Composable
     private fun CornerQrPlaceholderCard(compact: Boolean, modifier: Modifier = Modifier) {
-        val qrDp = if (compact) 44.dp else 56.dp
+        // Same code size as CornerQrCard (v1.0.65: 60/82dp) —
+        // the two cards must stay the exact same geometry.
+        val qrDp = if (compact) 60.dp else 82.dp
         val ink = Color(0xFF26325E).copy(alpha = 0.72f)
         Column(
             modifier = modifier
@@ -3590,10 +3744,17 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun EntryCard(label: String, compact: Boolean, onClick: () -> Unit) {
+    private fun EntryCard(
+        label: String,
+        compact: Boolean,
+        // v1.0.65: lets a screen pin its initial-focus anchor
+        // on its first card (same pattern as ListRow's).
+        modifier: Modifier = Modifier,
+        onClick: () -> Unit,
+    ) {
         var focused by remember { mutableStateOf(false) }
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .height(if (compact) 54.dp else 84.dp)
                 .border(2.dp, if (focused) gold else Color.Transparent, RoundedCornerShape(12.dp))
                 .background(cardBg, RoundedCornerShape(12.dp))
@@ -3620,21 +3781,43 @@ class MainActivity : ComponentActivity() {
          *  vertically, inflating the whole bar). */
         compact: Boolean = false,
         /** v1.0.64: the player control bar's chips pass this —
-         *  an outer glow in the chip's own colour behind the
-         *  chip (see ControlGlow), brighter while focused.
+         *  an outer halo behind the chip (see ControlGlow).
+         *  v1.0.65 (the user's final word on the halo): WHITE
+         *  at rest for every chip; the highlighted chip —
+         *  holding the remote's focus, or pressed by a
+         *  finger — grows a notch and glows PINK, which on
+         *  the TV doubles as the primary focus indicator.
          *  Every other chip (browse filters, the banner's
          *  language switch, admin) leaves it off. */
         glow: Boolean = false,
         onClick: () -> Unit,
     ) {
         var focused by remember { mutableStateOf(false) }
+        val interactionSource = remember { MutableInteractionSource() }
+        val pressed by interactionSource.collectIsPressedAsState()
+        val highlighted = focused || pressed
+        val clickMod = if (glow) {
+            Modifier.clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+            ) { onClick() }
+        } else {
+            Modifier.clickable { onClick() }
+        }
         Box(
             modifier = modifier
                 .then(
                     if (glow) {
-                        Modifier.controlGlow(
-                            if (selected) gold else cardBg, focused,
-                        )
+                        Modifier
+                            .graphicsLayer {
+                                val s = if (highlighted) ControlGlow.FOCUS_SCALE else 1f
+                                scaleX = s
+                                scaleY = s
+                            }
+                            .controlGlow(
+                                if (highlighted) ControlGlow.FOCUS_COLOR else ControlGlow.NORMAL_COLOR,
+                                highlighted,
+                            )
                     } else {
                         Modifier
                     },
@@ -3643,7 +3826,7 @@ class MainActivity : ComponentActivity() {
                 .background(if (selected) gold else cardBg, RoundedCornerShape(16.dp))
                 .focusable()
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
-                .clickable { onClick() }
+                .then(clickMod)
                 // v1.0.24: chips sit a touch tighter (vertical
                 // 6dp -> 4dp) so the always-on control bar takes
                 // less of the stage's height.

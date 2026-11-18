@@ -77,6 +77,25 @@ class LanIpTrackerTest {
         assertNull(tracker.current)
         assertTrue(tracker.showsPlaceholder)
     }
+
+    @Test
+    fun cornerCardsShareTheModeratelyEnlargedCodeSize() {
+        // v1.0.65 (the user's word: a moderate grow, not
+        // double — too big spoils the picture): the code is
+        // 82dp (compact 60dp), up from 56/44dp, and the QR
+        // card and its waiting-for-network placeholder carry
+        // the EXACT same size line, so the corner never
+        // changes shape when the network comes and goes.
+        val src = java.io.File(
+            "src/main/java/com/dannycom888/shieldkaraoke/ui/MainActivity.kt",
+        ).readText()
+        assertEquals(
+            2,
+            Regex("""val qrDp = if \(compact\) 60\.dp else 82\.dp""")
+                .findAll(src).count(),
+        )
+        assertTrue(!src.contains("if (compact) 44.dp else 56.dp"))
+    }
 }
 
 /** Named null so the launch-without-network case reads clearly. */

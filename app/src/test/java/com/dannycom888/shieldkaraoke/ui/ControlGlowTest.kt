@@ -1,5 +1,6 @@
 package com.dannycom888.shieldkaraoke.ui
 
+import androidx.compose.ui.graphics.Color
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,11 +24,14 @@ import java.io.File
  * browse page's filter chips are a different row with no
  * bar either), so nothing else is touched.
  *
- * The glow: layered silhouettes in the chip's own colour
- * (see ControlGlow) — pins for the layer table, the focus
- * boost, the no-blur rule, and the wiring (exactly the six
- * control-bar chips glow; the banner's language chips and
- * every other chip do not).
+ * The glow: layered silhouettes (see ControlGlow) — pins
+ * for the layer table, the highlight boost, the no-blur
+ * rule, and the wiring (exactly the six control-bar chips
+ * glow; the banner's language chips and every other chip
+ * do not). Colours per the user's final word (v1.0.65,
+ * superseding the v1.0.64 per-chip-colour halo): WHITE at
+ * rest for every chip; the highlighted chip (remote focus
+ * or a pressing finger) grows a notch and glows PINK.
  */
 class ControlGlowTest {
 
@@ -60,7 +64,7 @@ class ControlGlowTest {
     }
 
     @Test
-    fun focusBoostsTheHaloOneNotch() {
+    fun highlightBoostsTheHaloOneNotch() {
         assertTrue(
             "the boost is one clear notch",
             ControlGlow.FOCUS_ALPHA_BOOST in 1.6f..2.4f,
@@ -68,11 +72,11 @@ class ControlGlowTest {
         for ((_, alpha) in ControlGlow.LAYERS) {
             assertEquals(
                 alpha,
-                ControlGlow.alphaFor(alpha, focused = false),
+                ControlGlow.alphaFor(alpha, highlighted = false),
                 0.0001f,
             )
-            val boosted = ControlGlow.alphaFor(alpha, focused = true)
-            assertTrue("focused is stronger", boosted > alpha)
+            val boosted = ControlGlow.alphaFor(alpha, highlighted = true)
+            assertTrue("highlighted is stronger", boosted > alpha)
             assertTrue(
                 "but never a glare",
                 boosted <= ControlGlow.MAX_ALPHA,
@@ -81,9 +85,35 @@ class ControlGlowTest {
         assertEquals(
             "the cap binds",
             ControlGlow.MAX_ALPHA,
-            ControlGlow.alphaFor(0.4f, focused = true),
+            ControlGlow.alphaFor(0.4f, highlighted = true),
             0.0001f,
         )
+    }
+
+    @Test
+    fun whiteAtRestPinkAndBiggerWhenHighlighted() {
+        // The user's final word: white halo for every chip
+        // at rest; the pointed-at chip grows and turns pink.
+        assertEquals(Color.White, ControlGlow.NORMAL_COLOR)
+        val pink = ControlGlow.FOCUS_COLOR
+        assertTrue("pink is red-dominant", pink.red > 0.9f)
+        assertTrue("pink keeps a mid green", pink.green in 0.3f..0.7f)
+        assertTrue("pink keeps a mid-high blue", pink.blue in 0.55f..0.8f)
+        assertTrue(
+            "one notch of growth, no more",
+            ControlGlow.FOCUS_SCALE in 1.06f..1.16f,
+        )
+        // Wiring: the chip picks white at rest, pink when
+        // highlighted, and scales by the same constant; the
+        // v1.0.64 per-chip-colour wiring is gone.
+        val src = mainActivitySource()
+        assertTrue(
+            src.contains(
+                "if (highlighted) ControlGlow.FOCUS_COLOR else ControlGlow.NORMAL_COLOR",
+            ),
+        )
+        assertTrue(src.contains("ControlGlow.FOCUS_SCALE"))
+        assertTrue(!src.contains("gold else cardBg, focused"))
     }
 
     @Test
@@ -110,14 +140,6 @@ class ControlGlowTest {
             "one wiring point inside the chip",
             1,
             Regex("""controlGlow\(""").findAll(src).count(),
-        )
-        // The glow colour is the chip's own background
-        // colour — the same expression feeds both.
-        assertTrue(
-            src.contains(
-                "Modifier.controlGlow(\n" +
-                    "                            if (selected) gold else cardBg, focused,",
-            ),
         )
         assertEquals(
             "exactly six chips glow",

@@ -9,38 +9,52 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /**
- * Outer glow for the player control bar's chips (v1.0.64 —
- * the user: "按钮做成外发光", make the buttons glow). The
- * control bar has no strip behind it — the chips float
- * directly on the stage (pinned in ControlGlowTest) — so
- * each lit chip carries its own halo, like a stage-lit
- * button: the colour is the chip's OWN background colour
- * (the gold selected chips glow warm gold, the dark-blue
- * chips glow blue), passed in by the chip itself.
+ * Outer glow for the player screen's control-bar chips.
  *
- * NO BLUR, deliberately, and the reason is written here so
- * nobody "simplifies" it later: the blur modifier silently
- * no-ops below API 31 and the Shield is API 30 — the brand
- * logo's halo hit exactly that in v1.0.44 and had to be
- * rebuilt as a silhouette underlay. This glow is the same
- * family of trick: the chip's rounded-rect silhouette
- * drawn several times behind it, each pass a little larger
- * and a little fainter (see [LAYERS]) — the stacked soft
- * edges read as one halo. Pure numbers live in
- * [ControlGlow] so the tests can pin them.
+ * The user's final word (v1.0.65, superseding the v1.0.64
+ * per-chip-colour halo): "on the TV the buttons glow WHITE
+ * outward; the one you point at grows bigger and glows
+ * PINK." So every control chip wears the same soft white
+ * halo at rest, and the highlighted chip — the one holding
+ * the remote's focus, or under a touching finger — scales
+ * up a notch and its halo turns pink and brighter. On the
+ * TV the highlight IS the primary focus indicator (the
+ * v1.0.65 focus repair leans on it): bigger + pink reads
+ * from across the room, where the white 2dp focus border
+ * alone could be missed.
  *
- * Focus: with no strip behind the bar, a focused chip is
- * found by its white focus frame (the chip's own border,
- * unchanged) PLUS this halo stepped up one notch — every
- * pass's alpha scaled by [ControlGlow.FOCUS_ALPHA_BOOST],
- * capped by [ControlGlow.MAX_ALPHA] so it reads as a
- * stronger glow, never a glare.
+ * Drawn WITHOUT Modifier.blur: blur is a silent no-op
+ * below API 31 and the Shield runs API 30 (the brand logo's
+ * halo hit exactly that in v1.0.44). The halo is layered
+ * enlarged silhouettes instead — the chip's own rounded
+ * rect redrawn behind it at growing outsets with falling
+ * alpha (see [LAYERS]) — so it renders identically on
+ * every API level.
+ *
+ * Pure arithmetic lives here so unit tests can pin the
+ * falloff table and the highlight boost without a device.
  */
 object ControlGlow {
-    /** Halo passes as (outset dp, alpha), innermost first:
-     *  outsets strictly grow, alphas strictly fall, and the
-     *  outermost pass is a whisper (≤ 0.05) so the halo
-     *  fades out instead of ending on a visible rim. */
+
+    /** The resting halo colour: white for every chip,
+     *  whatever its own background (the user's word). */
+    val NORMAL_COLOR: Color = Color.White
+
+    /** The highlighted halo colour: a clear pink — high red,
+     *  mid green/blue — readable as pink on the navy stage
+     *  even after the layers' low alphas soften it. */
+    val FOCUS_COLOR: Color = Color(0xFFFF6FA5)
+
+    /** How much a highlighted chip grows: one notch — big
+     *  enough to spot from the couch, small enough not to
+     *  shove its neighbours in the packed control bar. */
+    const val FOCUS_SCALE = 1.10f
+
+    /** (outset dp, alpha) per halo layer, innermost first:
+     *  outsets grow while alphas fall, so the halo has a
+     *  bright core hugging the chip and a long soft tail —
+     *  no single layer's edge is visible as a rim (the
+     *  outermost alpha stays at or under 0.05). */
     val LAYERS: List<Pair<Float, Float>> = listOf(
         3f to 0.20f,
         6f to 0.13f,
@@ -48,49 +62,54 @@ object ControlGlow {
         14f to 0.045f,
     )
 
-    /** The focused halo's boost: one clear notch up. */
-    const val FOCUS_ALPHA_BOOST = 2.0f
-
-    /** No halo pass may exceed this alpha, focused or not. */
-    const val MAX_ALPHA = 0.45f
-
-    /** The halo's full reach beyond the chip, in dp. */
+    /** How far the halo reaches past the chip: the
+     *  outermost layer's outset. */
     val REACH_DP: Float get() = LAYERS.last().first
 
-    /** One pass's alpha: the table value, boosted and
-     *  capped when the chip holds the remote's focus. */
-    fun alphaFor(baseAlpha: Float, focused: Boolean): Float =
-        if (focused) {
-            (baseAlpha * FOCUS_ALPHA_BOOST).coerceAtMost(MAX_ALPHA)
-        } else {
-            baseAlpha
-        }
+    /** A highlighted chip's halo runs this much brighter
+     *  (the pink switch is the loud part; this is the lift
+     *  under it). */
+    const val FOCUS_ALPHA_BOOST = 2.0f
+
+    /** No layer ever exceeds this alpha, highlighted or
+     *  not — the halo must stay a glow, never a blob. */
+    const val MAX_ALPHA = 0.45f
+
+    /** The alpha one layer draws at: its table alpha,
+     *  boosted while highlighted, always capped. */
+    fun alphaFor(baseAlpha: Float, highlighted: Boolean): Float {
+        val boosted = if (highlighted) baseAlpha * FOCUS_ALPHA_BOOST else baseAlpha
+        return boosted.coerceAtMost(MAX_ALPHA)
+    }
 }
 
 /**
- * Draws the [ControlGlow] halo behind the chip this is
- * applied to: [color] is the chip's own background colour,
- * [cornerDp] its corner radius (each pass's corner grows
- * with its outset, so the halo hugs the silhouette).
- * Applied ahead of the chip's border and background in its
- * modifier chain — the chip's own face then covers the
- * halo's inner part and only the skirt outside the
- * silhouette shows. Nothing clips it: the halo spills onto
- * the stage around the chip, which is the point.
+ * The halo itself: the chip's rounded-rect silhouette
+ * drawn behind the chip once per [ControlGlow.LAYERS]
+ * entry, in [color] — white at rest, [ControlGlow]'s pink
+ * while highlighted (the caller picks; the scale-up that
+ * goes with the highlight is also the caller's, a
+ * graphicsLayer on the same branch).
+ *
+ * [cornerDp] matches the chip's own corner radius so the
+ * halo hugs the chip's shape instead of rounding past it.
  */
 fun Modifier.controlGlow(
     color: Color,
-    focused: Boolean,
+    highlighted: Boolean,
     cornerDp: Float = 16f,
 ): Modifier = drawBehind {
-    val corner = cornerDp.dp.toPx()
-    for ((outsetDp, alpha) in ControlGlow.LAYERS) {
-        val o = outsetDp.dp.toPx()
+    val corner = CornerRadius(cornerDp.dp.toPx(), cornerDp.dp.toPx())
+    // Outermost first, so the brighter inner layers land on
+    // top of the faint tail.
+    for ((outsetDp, alpha) in ControlGlow.LAYERS.asReversed()) {
+        val outset = outsetDp.dp.toPx()
         drawRoundRect(
-            color = color.copy(alpha = ControlGlow.alphaFor(alpha, focused)),
-            topLeft = Offset(-o, -o),
-            size = Size(size.width + 2f * o, size.height + 2f * o),
-            cornerRadius = CornerRadius(corner + o, corner + o),
+            color = color,
+            topLeft = Offset(-outset, -outset),
+            size = Size(size.width + outset * 2f, size.height + outset * 2f),
+            cornerRadius = CornerRadius(corner.x + outset, corner.y + outset),
+            alpha = ControlGlow.alphaFor(alpha, highlighted),
         )
     }
 }

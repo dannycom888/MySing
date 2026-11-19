@@ -35,6 +35,16 @@ data class AmyClip(
      *  every clip, so chaining no longer changes Amy's size
      *  mid-song. 1.0 when the packaged JSON predates it. */
     val figureScale: Double = 1.0,
+    /** The clip's foot baseline, as a texture v fraction
+     *  measured UP from the frame's bottom edge (v1.0.73,
+     *  tools/measure_feet.py): the wide-shot framing keeps
+     *  a green margin below the boots — 0.035..0.120 across
+     *  the pack — so the stage anchors the GL sampling on
+     *  this row: the feet land exactly on the stage
+     *  baseline and the reflection mirrors from the same
+     *  row, closing the gap that made her float. The pack
+     *  median when the packaged JSON predates the field. */
+    val feetV: Double = AmyVideoSizing.DEFAULT_FEET_V,
 )
 
 /**
@@ -89,6 +99,7 @@ object AmyVideoPack {
             impliedBpm = json.optDouble("implied_bpm", 0.0),
             figureHeight = json.optDouble("figure_height", 0.0),
             figureScale = json.optDouble("figure_scale", 1.0),
+            feetV = json.optDouble("feet_v", AmyVideoSizing.DEFAULT_FEET_V),
         )
     }
 
@@ -145,11 +156,103 @@ object AmyVideoPack {
      * fewer than two clips (nothing to chain to) or the
      * current clip is not in the pool — the caller then
      * simply loops the current clip, as the pilot did.
+     *
+     * v1.0.73: the dance driver no longer walks with this —
+     * it rotates with [DanceRotation] (shuffle-with-
+     * exhaustion). chainNext stays as the stateless fallback
+     * for a driver that has no rotation to consult.
      */
     fun chainNext(pool: List<AmyClip>, currentName: String): AmyClip? {
         if (pool.size < 2) return null
         val index = pool.indexOfFirst { it.name == currentName }
         if (index < 0) return null
         return pool[(index + 1) % pool.size]
+    }
+}
+
+/**
+ * One song's dance rotation (v1.0.73): shuffle-with-
+ * exhaustion over the song's tempo pool — EVERY clip of
+ * the group dances before any clip repeats (the user's
+ * ruling: the group's ten clips are enough for one song;
+ * what read as repetition was the walk, not the pool).
+ *
+ * The rotation is created in startSong and held in
+ * MainActivity state, NOT inside the video figure: the
+ * figure's own remembered state re-keys and dies with
+ * composition, and a walk that restarts from the song's
+ * pick every time the stage recomposes is a walk that
+ * keeps serving the same first clips. Held here, the
+ * walk survives the figure entirely — if the figure is
+ * disposed and rebuilt mid-song it re-reads [current]
+ * and continues where the song left off.
+ *
+ * The song's pick plays first (startSong chose it for
+ * tempo fit); the rest of the cycle is shuffled. When a
+ * cycle is exhausted the next one is pre-shuffled so
+ * [peekNext] is always defined, and its first clip is
+ * never the clip that just played (pool size > 1), so
+ * no clip ever plays twice in a row — not even across
+ * the cycle seam. [shuffle] is injectable for tests.
+ */
+class DanceRotation(
+    private val pool: List<AmyClip>,
+    first: AmyClip,
+    private val shuffle: (List<AmyClip>) -> List<AmyClip> = { it.shuffled() },
+) {
+    private var order: List<AmyClip>
+    private var nextOrder: List<AmyClip>
+    private var index: Int = 0
+
+    init {
+        val rest = pool.filter { it.name != first.name }
+        order = listOf(first) + shuffle(rest)
+        nextOrder = shuffledCycle(after = order.last())
+    }
+
+    /** A fresh shuffled cycle whose first clip differs
+     *  from [after] (the clip playing as the seam is
+     *  crossed), so the seam never repeats a clip. */
+    private fun shuffledCycle(after: AmyClip): List<AmyClip> {
+        if (pool.size <= 1) return pool
+        val candidate = shuffle(pool)
+        if (candidate.first().name != after.name) return candidate
+        // Rotate the repeat away: the pool has another
+        // clip, and it leads the new cycle instead.
+        return candidate.drop(1) + candidate.first()
+    }
+
+    /** The clip dancing now. */
+    fun current(): AmyClip = order[index]
+
+    /**
+     * The clip that dances after [current] — what
+     * [advance] will land on. The driver preloads exactly
+     * this clip, so the pass boundary is a swap to a
+     * ready player, never a guess. Null when the pool has
+     * fewer than two clips (nothing to rotate to — the
+     * driver loops the current clip, as the pilot did).
+     */
+    fun peekNext(): AmyClip? = when {
+        pool.size < 2 -> null
+        index + 1 < order.size -> order[index + 1]
+        else -> nextOrder.first()
+    }
+
+    /**
+     * Move the walk to [peekNext]'s clip and return it.
+     * With a one-clip pool this is a no-op returning the
+     * same clip.
+     */
+    fun advance(): AmyClip {
+        if (pool.size < 2) return current()
+        if (index + 1 < order.size) {
+            index++
+        } else {
+            order = nextOrder
+            index = 0
+            nextOrder = shuffledCycle(after = order.last())
+        }
+        return current()
     }
 }

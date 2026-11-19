@@ -77,6 +77,46 @@ class BeatSliceSchedulerTest {
     }
 
     @Test
+    fun `audit - the full tempo group stays usable at representative song tempos`() {
+        // v1.0.73 chaining audit, first half: does the
+        // [0.7, 1.6] speed guard shrink the song's rotation
+        // at real-world tempos? Measured answer: NO — the
+        // scheduler has no eligibility filter to begin with;
+        // gluing plus beat-count adjustment absorbs the
+        // whole tempo difference, so the pool the rotation
+        // walks is the full group (10/10) at every tempo
+        // below. (The repetition the user saw was the walk,
+        // not the pool — see the v1.0.73 chapter.)
+        val clips = shippedClips()
+        val cases = listOf(
+            80.0 to AmyVideoPack.GROUP_SLOW,
+            96.0 to AmyVideoPack.GROUP_SLOW,
+            120.0 to AmyVideoPack.GROUP_FAST,
+            140.0 to AmyVideoPack.GROUP_FAST,
+        )
+        for ((bpm, group) in cases) {
+            val pool = AmyVideoPack.dancePool(clips, bpm)
+            assertEquals("pool at $bpm", 10, pool.size)
+            assertTrue(pool.all { it.group == group })
+            val period = 60.0 / bpm
+            var usable = 0
+            for (clip in pool) {
+                val pass = BeatSliceScheduler.plan(
+                    clip.accentsS, clip.durationS, period,
+                )
+                if (pass.segments.isNotEmpty() && pass.segments.all {
+                        it.speed >= BeatSliceScheduler.MIN_SPEED - 1e-9 &&
+                            it.speed <= BeatSliceScheduler.MAX_SPEED + 1e-9
+                    }
+                ) {
+                    usable++
+                }
+            }
+            assertEquals("usable clips at $bpm BPM", 10, usable)
+        }
+    }
+
+    @Test
     fun `slow song glues short segments until they can hold a beat`() {
         val clip = fast01()
         val period = 60.0 / 50.0

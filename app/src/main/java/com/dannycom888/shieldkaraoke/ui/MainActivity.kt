@@ -137,6 +137,7 @@ import com.dannycom888.shieldkaraoke.video.AmyVideoFigure
 import com.dannycom888.shieldkaraoke.video.AmyVideoMode
 import com.dannycom888.shieldkaraoke.video.AmyVideoPack
 import com.dannycom888.shieldkaraoke.video.AmyVideoStatus
+import com.dannycom888.shieldkaraoke.video.DanceRotation
 import com.dannycom888.shieldkaraoke.video.loadAmyCatalogue
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
@@ -240,6 +241,13 @@ class MainActivity : ComponentActivity() {
     // through it at pass boundaries instead of looping the
     // pick (see AmyVideoFigure).
     private var amyDancePool by mutableStateOf<List<AmyClip>>(emptyList())
+    // v1.0.73: the song's dance rotation — shuffle-with-
+    // exhaustion over the pool, created with the pick in
+    // startSong. It lives HERE, not inside the video
+    // figure, so the walk survives the figure's own
+    // recompositions and rebuilds: every clip of the group
+    // dances before any repeats (see DanceRotation).
+    private var amyDanceRotation by mutableStateOf<DanceRotation?>(null)
     private var amyVideoFallback by mutableStateOf(false)
     private var videoRotation by mutableStateOf(0)
     private var videoLastClipName by mutableStateOf<String?>(null)
@@ -643,6 +651,7 @@ class MainActivity : ComponentActivity() {
             if (pick != null) {
                 amyDanceClip = pick
                 amyDancePool = pool
+                amyDanceRotation = DanceRotation(pool, pick)
                 videoLastClipName = pick.name
                 videoRotation++
             }
@@ -2438,6 +2447,7 @@ class MainActivity : ComponentActivity() {
                                             mode = soloVideoMode,
                                             clip = soloVideoClip,
                                             chainPool = amyDancePool,
+                                            danceRotation = amyDanceRotation,
                                             songPositionMs = positionMs,
                                             playing = songPlaying &&
                                                 dancerPhase != DancerActivity.Phase.OUTRO_HOLD,

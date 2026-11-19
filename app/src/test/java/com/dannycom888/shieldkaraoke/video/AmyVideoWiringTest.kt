@@ -111,29 +111,40 @@ class AmyVideoWiringTest {
     @Test
     fun `the video figure matches the frame figure's standing height`() {
         val src = videoStage()
-        // v1.0.71: the video figure (and its GL reflection,
-        // same unit) is sized so her standing height equals
-        // the frame figure's (0.837 / 0.879 ≈ 0.952 — the
-        // derivation lives on the constant), offset so her
-        // feet stay on the zone baseline; her width follows
-        // the clip's own aspect; the pool/shadow are not
-        // scaled.
+        // v1.0.71: the video box is sized so her standing
+        // height equals the frame figure's (0.837 / 0.879 ≈
+        // 0.952 — the derivation lives on the constant),
+        // offset so her feet stay on the zone baseline; the
+        // pool/shadow are not scaled.
+        // v1.0.73: the box is the SCALE-1 box on the wider
+        // canvas aspect and never resizes mid-song — the
+        // per-clip factor moved into the GL draw (see the
+        // slot-scale test below), so this pin no longer
+        // expects the clip aspect or a per-clip multiplier
+        // in the box math.
         assertTrue(src.contains("const val VIDEO_FIGURE_SCALE = 0.952f"))
         assertTrue(src.contains("heightDp * VIDEO_FIGURE_SCALE"))
         assertTrue(src.contains("reflectionDepthDp * VIDEO_FIGURE_SCALE"))
-        assertTrue(src.contains("videoHeightDp.value * VIDEO_CLIP_ASPECT"))
+        assertTrue(src.contains("videoHeightDp.value * VIDEO_CANVAS_ASPECT"))
         assertTrue(src.contains("offset(y = heightDp - videoHeightDp)"))
+        assertFalse(src.contains("VIDEO_FIGURE_SCALE * clipFigureScale"))
     }
 
     @Test
-    fun `the gl stage keys the packaged green off one texture`() {
+    fun `the gl stage keys the packaged green off the slot textures`() {
         val src = videoStage()
         assertTrue(src.contains("GL_TEXTURE_EXTERNAL_OES"))
         assertTrue(src.contains("updateTexImage()"))
         assertTrue(src.contains("setVideoSurface"))
-        // One player, released with the composition.
+        // v1.0.73: TWO players exist, but only for the dance
+        // ping-pong — each figure still renders off its own
+        // single texture in a single pass; the second player
+        // is the NEXT clip preloading, never a second view
+        // of the same figure. Both released with the
+        // composition.
         assertTrue(src.contains("ExoPlayer.Builder(context)"))
-        assertTrue(src.contains("player.release()"))
+        assertTrue(src.contains("playerA.release()"))
+        assertTrue(src.contains("playerB.release()"))
         // The key colour is the packaged green #0af20a,
         // sourced from ChromaKeyMath (v1.0.72) so the JVM
         // port the key gate runs and the shader uniform can
@@ -143,18 +154,18 @@ class AmyVideoWiringTest {
         assertTrue(src.contains("KEY_BLUE = ChromaKeyMath.KEY_BLUE"))
         assertTrue(src.contains("smoothstep(0.20, 0.34, d)"))
         // The reflection is the same texture in the same
-        // pass — never a second player.
+        // pass as its figure.
         assertTrue(src.contains("reflectionTopAlpha"))
-        assertEqualsCount(src, "ExoPlayer.Builder", 1)
+        assertEqualsCount(src, "ExoPlayer.Builder", 2)
     }
 
     @Test
     fun `the dance is steered by the beat-sliced plan with a session fallback`() {
         val src = videoStage()
-        // v1.0.71: the plan is built on the ACTIVE clip (the
-        // song's pick first, then the chain's) — the pin's
-        // needle follows the rename.
-        assertTrue(src.contains("BeatSliceScheduler.plan(activeClip.accentsS, activeClip.durationS, beatPeriodS)"))
+        // v1.0.73: the plan is built on the FRONT clip (the
+        // rotation's current — the song's pick first, then
+        // the walk's) — the pin's needle follows the rename.
+        assertTrue(src.contains("BeatSliceScheduler.plan(frontClip.accentsS, frontClip.durationS, beatPeriodS)"))
         assertTrue(src.contains("override fun onPlayerError"))
         assertTrue(src.contains("FIRST_FRAME_WATCHDOG_MS"))
         assertTrue(src.contains("Player.REPEAT_MODE_ONE"))
@@ -164,21 +175,40 @@ class AmyVideoWiringTest {
     }
 
     @Test
-    fun `the dance chains clips at pass boundaries and never seeks mid-pass`() {
+    fun `the dance rotates by shuffle-with-exhaustion and swaps by ping-pong crossfade`() {
         val src = videoStage()
         val main = mainActivity()
-        // v1.0.71: the song's tempo pool is stored at pick
-        // time and handed to the solo figure…
+        // The song's tempo pool and its rotation are created
+        // at pick time in startSong and handed to the solo
+        // figure — the walk lives in MainActivity state, not
+        // in the figure's remembered state (v1.0.73).
         assertTrue(main.contains("amyDancePool = pool"))
         assertTrue(main.contains("chainPool = amyDancePool"))
-        // …which swaps the active clip when a pass completes.
-        assertTrue(src.contains("AmyVideoPack.chainNext(chainPool, activeClip.name)"))
-        assertTrue(src.contains("activeClip = chained"))
-        // Drift is a speed nudge now; the ONLY seek left in
-        // the driver is the pass-start seek.
+        assertTrue(main.contains("amyDanceRotation = DanceRotation(pool, pick)"))
+        assertTrue(main.contains("danceRotation = amyDanceRotation"))
+        // The driver consults the rotation: the front starts
+        // on its current, the preload is its peek, and the
+        // boundary advances it.
+        assertTrue(src.contains("danceRotation?.current() ?: clip"))
+        assertTrue(src.contains("danceRotation?.peekNext()"))
+        assertTrue(src.contains("danceRotation?.advance()"))
+        // The switch itself: the preloaded back player is
+        // started and the renderer crossfades the textures —
+        // the visible player never swaps its media item at a
+        // boundary (setMediaItem on the front happens only
+        // at dance entry, keyed by the song).
+        assertTrue(src.contains("glView.beginCrossfade(1 - frontSlot)"))
+        assertTrue(src.contains("const val CROSSFADE_MS = 150L"))
+        assertTrue(src.contains("backPlayer.playbackState == Player.STATE_READY"))
+        // Drift is a speed nudge; seeks exist ONLY at pass
+        // starts (front) and on the preload slot (back /
+        // entry) — never mid-pass on the visible player.
         assertTrue(src.contains("DRIFT_NUDGE_FRACTION"))
         assertTrue(src.contains("segmentSpeed * nudge"))
-        assertEqualsCount(src, "player.seekTo(", 1)
+        assertEqualsCount(src, "frontPlayer.seekTo(", 2)
+        assertEqualsCount(src, "backPlayer.seekTo(", 1)
+        assertEqualsCount(src, "playerB.seekTo(", 1)
+        assertEqualsCount(src, "player.seekTo(", 0)
     }
 
     @Test
@@ -197,15 +227,37 @@ class AmyVideoWiringTest {
     }
 
     @Test
-    fun `the video figure scales by the active clip's measured factor`() {
+    fun `each texture slot is drawn at its clip's measured factor`() {
         val src = videoStage()
-        // v1.0.72: the ACTIVE clip's figureScale multiplies
-        // the pack-wide anchor for both the figure height
-        // and the reflection depth, so a chain switch to a
-        // wider- or tighter-shot clip keeps Amy one size.
-        assertTrue(src.contains("val clipFigureScale = activeClip.figureScale.toFloat()"))
-        assertTrue(src.contains("heightDp * VIDEO_FIGURE_SCALE * clipFigureScale"))
-        assertTrue(src.contains("reflectionDepthDp * VIDEO_FIGURE_SCALE * clipFigureScale"))
+        // v1.0.73: the per-clip factor is applied INSIDE the
+        // GL draw, per texture slot, through the production
+        // sizing computation (AmyVideoSizing — the same one
+        // AmyVideoSizingTest exercises): the dance front at
+        // entry, the preload at entry and at its post-swap
+        // reload, and the specials' slot. The renderer scales
+        // the figure around the foot baseline by the slot's
+        // factor, in the wider canvas.
+        assertTrue(src.contains("AmyVideoSizing.slotScale(start)"))
+        assertTrue(src.contains("AmyVideoSizing.slotScale(next)"))
+        assertTrue(src.contains("AmyVideoSizing.slotScale(following)"))
+        assertTrue(src.contains("AmyVideoSizing.slotScale(clip)"))
+        assertTrue(src.contains("VIDEO_CLIP_ASPECT / VIDEO_CANVAS_ASPECT"))
+        assertTrue(src.contains("depthFraction / scale"))
+        // The v1.0.72 Compose-box multiplication is gone —
+        // the box no longer resizes at a chain switch.
+        assertFalse(src.contains("clipFigureScale"))
+        // v1.0.73 feet anchoring rides the same four load
+        // sites: each slot's foot baseline is set with its
+        // scale, and the draw anchors both the figure and
+        // its reflection on that row (feet meet reflection
+        // at the baseline — no float gap).
+        assertTrue(src.contains("AmyVideoSizing.slotFeetV(start)"))
+        assertTrue(src.contains("AmyVideoSizing.slotFeetV(next)"))
+        assertTrue(src.contains("AmyVideoSizing.slotFeetV(following)"))
+        assertTrue(src.contains("AmyVideoSizing.slotFeetV(clip)"))
+        assertTrue(src.contains("slotFeet[slot]"))
+        assertTrue(src.contains("feet + 1f"))
+        assertTrue(src.contains("feet + reflectionV"))
     }
 
     private fun assertEqualsCount(text: String, needle: String, expected: Int) {

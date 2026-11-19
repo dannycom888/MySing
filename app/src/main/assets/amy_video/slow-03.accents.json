@@ -25,5 +25,6 @@
  "implied_bpm": 96.0,
  "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s",
  "figure_height": 0.8438,
- "figure_scale": 1.034
+ "figure_scale": 1.034,
+ "feet_v": 0.042
 }

@@ -189,6 +189,59 @@ class AmyVideoPackTest {
     }
 
     @Test
+    fun `rotation exhausts the whole pool before any clip repeats`() {
+        // v1.0.73: shuffle-with-exhaustion — the user's
+        // ruling is that the group's ten clips are enough
+        // for one song IF the walk actually visits them all.
+        // Identity shuffle keeps the arithmetic transparent:
+        // cycle 1 is the pick followed by the pool in order,
+        // cycle 2 is the pool in order again.
+        val clips = shippedClips()
+        val pool = AmyVideoPack.dancePool(clips, 120.0)
+        val pick = pool.first { it.name == "fast-03" }
+        val rotation = DanceRotation(pool, pick) { it }
+        assertEquals(pick.name, rotation.current().name)
+        val firstCycle = mutableListOf(rotation.current().name)
+        repeat(pool.size - 1) { firstCycle += rotation.advance().name }
+        assertEquals(
+            "cycle 1 must visit every clip exactly once",
+            pool.map { it.name }.toSet(), firstCycle.toSet(),
+        )
+        assertEquals(pool.size, firstCycle.size)
+        // The seam: cycle 2 also covers the pool, and its
+        // first clip is not the one that just played.
+        val secondCycle = mutableListOf(rotation.advance().name)
+        assertNotEquals(firstCycle.last(), secondCycle.first())
+        repeat(pool.size - 1) { secondCycle += rotation.advance().name }
+        assertEquals(pool.map { it.name }.toSet(), secondCycle.toSet())
+    }
+
+    @Test
+    fun `rotation peekNext always names the clip advance lands on`() {
+        // The driver preloads peekNext and swaps to it at
+        // the boundary — the two must never disagree,
+        // including across the cycle seam.
+        val clips = shippedClips()
+        val pool = AmyVideoPack.dancePool(clips, 80.0)
+        val rotation = DanceRotation(pool, pool[3]) { it.reversed() }
+        repeat(pool.size * 2 + 1) {
+            val peeked = rotation.peekNext()
+            assertNotNull(peeked)
+            assertEquals(peeked!!.name, rotation.advance().name)
+            assertEquals(peeked.name, rotation.current().name)
+        }
+        // Degenerate pools: nothing to rotate to.
+        val single = DanceRotation(listOf(pool[0]), pool[0]) { it }
+        assertNull(single.peekNext())
+        assertEquals(pool[0].name, single.advance().name)
+        // Two clips simply alternate, seam included.
+        val pair = DanceRotation(pool.take(2), pool[0]) { it }
+        assertEquals(pool[1].name, pair.advance().name)
+        assertEquals(pool[0].name, pair.advance().name)
+        assertEquals(pool[1].name, pair.advance().name)
+    }
+
+    @Test
     fun `special finds clips by name and nothing else`() {
         val clips = shippedClips()
         assertEquals("invite", AmyVideoPack.special(clips, "invite")!!.name)

@@ -6,6 +6,7 @@ import android.graphics.SurfaceTexture
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
+import android.os.SystemClock
 import android.view.Surface
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
@@ -93,34 +94,56 @@ fun loadAmyCatalogue(context: Context): List<AmyClip> {
 }
 
 /**
- * Amy's video figure for her solo spots (v1.0.70 pilot): one
- * dedicated ExoPlayer decoding the green-screen clip (the
- * pack's MP4s are video-only streams) in hardware, feeding a
- * [GLSurfaceView] whose chroma-key shader
+ * Amy's video figure for her solo spots (v1.0.70 pilot): a
+ * dedicated muted ExoPlayer decoding the green-screen clip
+ * (the pack's MP4s are video-only streams) in hardware,
+ * feeding a [GLSurfaceView] whose chroma-key shader
  * cuts the green out as it draws — figure and floor
  * reflection in the SAME GL pass off the SAME texture (never
- * a second player), inside the same placement the frame
- * system's solo figure occupies: the spotlight pool and the
- * contact shadow are the stage's own Compose modifiers drawn
- * under the surface, her feet rest on the same baseline, and
- * the reflection band below them is [reflectionDepthDp]
- * deep, fading from [reflectionTopAlpha] at the baseline —
- * StageFloor's law, re-implemented in the shader's fade
- * attribute. Inside that placement the video is sized by
- * [VIDEO_FIGURE_SCALE] (v1.0.71) times the active clip's
- * measured figureScale (v1.0.72 — one on-stage height for
- * every clip in the chain).
+ * a second player FOR THE SAME FIGURE — the renderer's two
+ * slots are two passes of one figure, see below), inside the
+ * same placement the frame system's solo figure occupies:
+ * the spotlight pool and the contact shadow are the stage's
+ * own Compose modifiers drawn under the surface, her feet
+ * rest on the same baseline, and the reflection band below
+ * them is [reflectionDepthDp] deep, fading from
+ * [reflectionTopAlpha] at the baseline — StageFloor's law,
+ * re-implemented in the shader's fade attribute. Inside that
+ * placement the video box is sized by [VIDEO_FIGURE_SCALE]
+ * (v1.0.71) and each clip is drawn at its measured
+ * figureScale INSIDE the GL pass (v1.0.73 — see
+ * [AmyVideoSizing]; the box itself never resizes mid-song).
  *
  * The song drives everything, as with frames: [playing]
  * mirrors the music (pause freezes the video mid-frame), and
  * in [AmyVideoMode.DANCE] the song position maps through the
  * beat-sliced pass plan — per-segment speeds are set at
  * segment boundaries, each pass re-syncs at its first beat,
- * drift is bent back by a temporary speed nudge (never a
- * mid-pass seek, v1.0.71), and at each pass boundary the
- * dance CHAINS to the next clip of the song's tempo pool
- * (v1.0.71) instead of looping one clip all song long. The
- * specials simply loop at natural speed.
+ * and drift is bent back by a temporary speed nudge (never a
+ * mid-pass seek, v1.0.71).
+ *
+ * THE SWITCH (v1.0.73). The pilot swapped ONE player's media
+ * item at every pass boundary, and the device showed both
+ * halves of that bargain: a flash (the load/prepare/first-
+ * frame gap, compounded by the box resizing to the new
+ * clip's figureScale) and passes that never swapped at all
+ * (the player's own STATE_ENDED kept winning the race
+ * against the song-position chain check, re-seeking the
+ * same clip — the user's 重复动作）. The dance now PING-
+ * PONGS: two players, two GL textures. While the front
+ * player dances its pass, the back player has the NEXT
+ * clip of the song's [DanceRotation] loaded, seeked to its
+ * pass start and paused on its first frame. At the boundary
+ * the back player simply starts and the renderer crossfades
+ * the textures over [CROSSFADE_MS] — no media swap on the
+ * visible player, no load gap, no clear frame, no resize.
+ * The outgoing player then becomes the preload slot for the
+ * following clip (reloaded only after the fade, while its
+ * texture is invisible). Rotation is shuffle-with-
+ * exhaustion held by the CALLER (see [DanceRotation]), so
+ * the walk survives this figure entirely. The specials keep
+ * the single-player path on slot 0; the second player is
+ * parked whenever the mode is not DANCE.
  *
  * Any failure — a player error, or no first frame within the
  * watchdog window — reports through [onVideoError] once; the
@@ -133,6 +156,7 @@ fun AmyVideoFigure(
     mode: AmyVideoMode,
     clip: AmyClip,
     chainPool: List<AmyClip> = emptyList(),
+    danceRotation: DanceRotation? = null,
     songPositionMs: Long,
     playing: Boolean,
     beatPeriodS: Double,
@@ -151,70 +175,174 @@ fun AmyVideoFigure(
     val positionState = rememberUpdatedState(songPositionMs)
 
     val glView = remember { AmyGlView(context) }
-    val player = remember {
+    // Slot 0's player: every mode's workhorse, and the dance's
+    // first front player. Slot 1's player exists ONLY for the
+    // dance ping-pong (the preload / next front).
+    val playerA = remember {
+        ExoPlayer.Builder(context).build().apply { volume = 0f }
+    }
+    val playerB = remember {
         ExoPlayer.Builder(context).build().apply { volume = 0f }
     }
 
-    // v1.0.71: the clip actually dancing. In DANCE mode the
-    // song starts on the caller's pick, then CHAINS through
-    // [chainPool] — the sync loop below swaps this at every
-    // pass boundary (never the same clip twice in a row), so
-    // a 3–5 minute song sees varied choreography instead of
-    // one short loop. The specials never chain (nothing ever
-    // assigns this outside the dance steering).
-    var activeClip by remember(clip.name) { mutableStateOf(clip) }
-
-    // The GL surface, once the renderer has a SurfaceTexture.
-    var videoSurface by remember { mutableStateOf<Surface?>(null) }
+    // The GL surface's two textures, once the renderer has
+    // created them (recreated with the GL context — the
+    // players are simply re-pointed at the fresh surfaces).
+    var videoSurfaces by remember {
+        mutableStateOf<List<Surface?>>(listOf(null, null))
+    }
     DisposableEffect(glView) {
-        glView.onSurfaceTextureReady = { texture -> videoSurface = Surface(texture) }
+        glView.onTexturesReady = { textures ->
+            videoSurfaces = textures.map { Surface(it) }
+        }
         glView.onResume()
         onDispose {
-            glView.onSurfaceTextureReady = null
+            glView.onTexturesReady = null
             glView.onPause()
         }
     }
-    LaunchedEffect(player, videoSurface) {
-        videoSurface?.let { player.setVideoSurface(it) }
+    LaunchedEffect(playerA, videoSurfaces[0]) {
+        videoSurfaces[0]?.let { playerA.setVideoSurface(it) }
     }
-    DisposableEffect(player) {
-        onDispose { player.release() }
+    LaunchedEffect(playerB, videoSurfaces[1]) {
+        videoSurfaces[1]?.let { playerB.setVideoSurface(it) }
+    }
+    DisposableEffect(playerA, playerB) {
+        onDispose {
+            playerA.release()
+            playerB.release()
+        }
     }
 
-    // Errors fall the session back to frames.
-    DisposableEffect(player) {
+    // Errors on EITHER player fall the session back to frames.
+    DisposableEffect(playerA, playerB) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 errorState.value.invoke()
             }
         }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
-    }
-
-    // Load the active clip for this mode. Dance passes are
-    // steered by the sync loop below; the specials loop
-    // natively. A chain swap re-runs this for the new clip.
-    LaunchedEffect(player, mode, activeClip.name) {
-        status.mode = mode
-        status.clipName = activeClip.name
-        player.repeatMode =
-            if (mode == AmyVideoMode.DANCE) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
-        if (mode != AmyVideoMode.DANCE) {
-            player.setPlaybackSpeed(1f)
-            status.speed = 1f
+        playerA.addListener(listener)
+        playerB.addListener(listener)
+        onDispose {
+            playerA.removeListener(listener)
+            playerB.removeListener(listener)
         }
-        player.setMediaItem(MediaItem.fromUri("asset:///${activeClip.assetPath}"))
-        player.prepare()
-        if (playingState.value) player.play()
     }
 
-    // First-frame watchdog: a local asset that cannot produce
-    // a frame in this window never will — fall back.
-    LaunchedEffect(player, activeClip.name) {
+    // ---- dance ping-pong state (v1.0.73) ----
+    // Keyed by the song (mode + the pick's name), never by
+    // the walking clip: a chain swap must not reset the walk
+    // it belongs to. The walk itself lives in the caller's
+    // [DanceRotation]; [frontClip] only mirrors where it
+    // currently stands, and re-initializes FROM the rotation
+    // if this figure is rebuilt mid-song.
+    var frontSlot by remember(mode, clip.name) { mutableStateOf(0) }
+    var frontClip by remember(mode, clip.name) {
+        mutableStateOf(danceRotation?.current() ?: clip)
+    }
+    var backClip by remember(mode, clip.name) { mutableStateOf<AmyClip?>(null) }
+    var passStartMs by remember(mode, clip.name, beatPeriodS) {
+        mutableStateOf<Long?>(null)
+    }
+    // Ticks until the post-swap preload of the following clip
+    // into the (now invisible) old front player; -1 = none
+    // pending. The reload waits out the crossfade so the old
+    // texture's frozen last frame can finish fading.
+    var backLoadTicksLeft by remember(mode, clip.name) { mutableStateOf(-1) }
+    // When the back player's current load began (back
+    // watchdog: a preload that never becomes READY is a
+    // failure, exactly like a front that never starts).
+    var backLoadedUptimeMs by remember(mode, clip.name) { mutableStateOf(0L) }
+
+    val frontPlayer = if (frontSlot == 0) playerA else playerB
+    val backPlayer = if (frontSlot == 0) playerB else playerA
+
+    // The front clip's beat-sliced plan (the specials never
+    // read it). Rebuilt when the walking clip or the song's
+    // measured tempo changes.
+    val frontPlan = remember(frontClip.name, beatPeriodS) {
+        BeatSliceScheduler.plan(frontClip.accentsS, frontClip.durationS, beatPeriodS)
+    }
+    val backPlan = remember(backClip?.name, beatPeriodS) {
+        backClip?.let {
+            BeatSliceScheduler.plan(it.accentsS, it.durationS, beatPeriodS)
+        }
+    }
+
+    // ---- specials: the single-player path (unchanged) ----
+    LaunchedEffect(mode, clip.name) {
+        if (mode == AmyVideoMode.DANCE) return@LaunchedEffect
+        status.mode = mode
+        status.clipName = clip.name
+        status.speed = 1f
+        glView.showSingleSlot(0)
+        // The preload player has no job outside the dance.
+        playerB.clearMediaItems()
+        playerA.repeatMode = Player.REPEAT_MODE_ONE
+        playerA.setPlaybackSpeed(1f)
+        playerA.setMediaItem(MediaItem.fromUri("asset:///${clip.assetPath}"))
+        playerA.prepare()
+        if (playingState.value) playerA.play()
+    }
+
+    // ---- dance entry: front on slot 0, next clip preloaded ----
+    LaunchedEffect(mode, clip.name) {
+        if (mode != AmyVideoMode.DANCE) return@LaunchedEffect
+        frontSlot = 0
+        val start = danceRotation?.current() ?: clip
+        frontClip = start
+        passStartMs = null
+        backLoadTicksLeft = -1
+        glView.showSingleSlot(0)
+        status.mode = mode
+        status.clipName = start.name
+        glView.setSlotScale(0, AmyVideoSizing.slotScale(start))
+        glView.setSlotFeet(0, AmyVideoSizing.slotFeetV(start))
+        playerA.repeatMode = Player.REPEAT_MODE_OFF
+        playerA.setMediaItem(MediaItem.fromUri("asset:///${start.assetPath}"))
+        playerA.prepare()
+        val next = danceRotation?.peekNext()
+            ?: AmyVideoPack.chainNext(chainPool, start.name)
+        backClip = next
+        if (next != null) {
+            val plan = BeatSliceScheduler.plan(
+                next.accentsS, next.durationS, beatPeriodS,
+            )
+            glView.setSlotScale(1, AmyVideoSizing.slotScale(next))
+            glView.setSlotFeet(1, AmyVideoSizing.slotFeetV(next))
+            playerB.repeatMode = Player.REPEAT_MODE_OFF
+            playerB.setMediaItem(MediaItem.fromUri("asset:///${next.assetPath}"))
+            playerB.prepare()
+            if (plan.segments.isNotEmpty()) {
+                playerB.seekTo((plan.segments.first().clipStartS * 1000).toLong())
+            }
+            playerB.pause()
+            backLoadedUptimeMs = SystemClock.uptimeMillis()
+        } else {
+            backLoadedUptimeMs = 0L
+        }
+    }
+
+    // Slot 1 draws only while the dance ping-pong owns it;
+    // the specials' slot-0 scale rides the clip (the dance
+    // sets its slots' scales at load time, while they are
+    // invisible or already correct).
+    LaunchedEffect(mode, clip.name) {
+        glView.setSlotEnabled(1, mode == AmyVideoMode.DANCE)
+        if (mode != AmyVideoMode.DANCE) {
+            glView.setSlotScale(0, AmyVideoSizing.slotScale(clip))
+            glView.setSlotFeet(0, AmyVideoSizing.slotFeetV(clip))
+        }
+    }
+
+    // First-frame watchdog on slot 0's player: a local asset
+    // that cannot produce a frame in this window never will
+    // — fall back. (The dance's later fronts are covered by
+    // the steering loop's stall check and the back watchdog.)
+    LaunchedEffect(mode, clip.name) {
         var waitedMs = 0L
         while (true) {
-            val state = player.playbackState
+            val state = playerA.playbackState
             if (state == Player.STATE_READY || state == Player.STATE_ENDED) break
             if (waitedMs >= FIRST_FRAME_WATCHDOG_MS) {
                 errorState.value.invoke()
@@ -225,49 +353,128 @@ fun AmyVideoFigure(
         }
     }
 
-    // Play / pause rides the music.
-    LaunchedEffect(player, playing) {
-        if (playing) player.play() else player.pause()
+    // Play / pause rides the music — the dance's FRONT player,
+    // or slot 0's player for the specials. The back player is
+    // always paused except for the moment a swap starts it.
+    LaunchedEffect(mode, frontSlot, playing) {
+        val target = if (mode == AmyVideoMode.DANCE) {
+            if (frontSlot == 0) playerA else playerB
+        } else {
+            playerA
+        }
+        if (playing) target.play() else target.pause()
     }
 
-    // Beat-sliced steering (dance mode only): keep the video
-    // on the pass plan the song position dictates.
-    val plan = remember(activeClip.name, beatPeriodS) {
-        BeatSliceScheduler.plan(activeClip.accentsS, activeClip.durationS, beatPeriodS)
-    }
-    var passStartMs by remember(activeClip.name, beatPeriodS) { mutableStateOf<Long?>(null) }
-    LaunchedEffect(player, mode, plan) {
+    // ---- dance steering: the front player dances the plan;
+    // at each pass boundary the preloaded back player takes
+    // over under a crossfade (v1.0.73). ----
+    LaunchedEffect(mode, frontSlot, frontClip.name, beatPeriodS) {
         if (mode != AmyVideoMode.DANCE) return@LaunchedEffect
         var lastSongPosMs = -1L
         var lastVideoPosMs = -1L
         var frozenSongAdvanceMs = 0L
         while (true) {
-            if (playingState.value && plan.segments.isNotEmpty()) {
-                val posMs = positionState.value
-                val periodMs = beatPeriodS * 1000.0
-                val passDurationMs = plan.durationS(beatPeriodS) * 1000.0
-                // v1.0.71: a completed pass CHAINS the next
-                // clip of the song's tempo pool instead of
-                // looping this one. Swapping the active clip
-                // re-runs the load effect and rebuilds the
-                // plan; the new clip's first pass starts on
-                // the beat grid like every pass (below).
-                val chained = passStartMs?.let { started ->
-                    if (posMs >= started + passDurationMs) {
-                        AmyVideoPack.chainNext(chainPool, activeClip.name)
-                    } else {
-                        null
+            // The post-swap preload: once the crossfade has
+            // run out, the old front's texture is invisible —
+            // only then may its player be reloaded with the
+            // FOLLOWING clip (the rotation's new peek).
+            if (backLoadTicksLeft > 0) {
+                backLoadTicksLeft--
+                if (backLoadTicksLeft == 0) {
+                    val following = backClip
+                    if (following != null) {
+                        val plan = BeatSliceScheduler.plan(
+                            following.accentsS, following.durationS, beatPeriodS,
+                        )
+                        glView.setSlotScale(
+                            1 - frontSlot, AmyVideoSizing.slotScale(following),
+                        )
+                        glView.setSlotFeet(
+                            1 - frontSlot, AmyVideoSizing.slotFeetV(following),
+                        )
+                        backPlayer.setMediaItem(
+                            MediaItem.fromUri("asset:///${following.assetPath}"),
+                        )
+                        backPlayer.prepare()
+                        if (plan.segments.isNotEmpty()) {
+                            backPlayer.seekTo(
+                                (plan.segments.first().clipStartS * 1000).toLong(),
+                            )
+                        }
+                        backPlayer.pause()
+                        backLoadedUptimeMs = SystemClock.uptimeMillis()
                     }
                 }
-                if (chained != null) {
-                    activeClip = chained
-                    break
+            }
+            // Back watchdog: a preload that never becomes
+            // READY is a stuck decoder — fall back rather
+            // than swap to a black texture at the boundary.
+            if (backClip != null && backLoadedUptimeMs > 0L &&
+                backPlayer.playbackState != Player.STATE_READY &&
+                SystemClock.uptimeMillis() - backLoadedUptimeMs >
+                FIRST_FRAME_WATCHDOG_MS
+            ) {
+                errorState.value.invoke()
+                break
+            }
+            if (playingState.value && frontPlan.segments.isNotEmpty()) {
+                val posMs = positionState.value
+                val periodMs = beatPeriodS * 1000.0
+                val passDurationMs = frontPlan.durationS(beatPeriodS) * 1000.0
+                val started = passStartMs
+                val passEnded = started != null && posMs >= started + passDurationMs
+                val frontEnded =
+                    frontPlayer.playbackState == Player.STATE_ENDED
+                if (started != null && (passEnded || frontEnded)) {
+                    // THE BOUNDARY. The next clip is already
+                    // loaded on the back player: start it and
+                    // crossfade — the visible player is never
+                    // asked to load anything mid-song.
+                    val incoming = backClip
+                    if (incoming != null &&
+                        backPlayer.playbackState == Player.STATE_READY
+                    ) {
+                        frontPlayer.pause()
+                        val inPlan = backPlan
+                        if (inPlan != null && inPlan.segments.isNotEmpty()) {
+                            backPlayer.setPlaybackSpeed(
+                                inPlan.segments.first().speed.toFloat(),
+                            )
+                        }
+                        if (playingState.value) backPlayer.play()
+                        glView.beginCrossfade(1 - frontSlot)
+                        danceRotation?.advance()
+                        passStartMs = if (passEnded) {
+                            (started + passDurationMs).toLong()
+                        } else {
+                            (floor(posMs / periodMs) * periodMs).toLong()
+                        }
+                        frontClip = incoming
+                        frontSlot = 1 - frontSlot
+                        status.clipName = incoming.name
+                        backClip = danceRotation?.peekNext()
+                            ?: AmyVideoPack.chainNext(chainPool, incoming.name)
+                        backLoadedUptimeMs = 0L
+                        backLoadTicksLeft =
+                            if (backClip != null) BACK_LOAD_DELAY_TICKS else -1
+                        break
+                    }
+                    // No ready back (a one-clip pool, or a
+                    // preload still preparing): loop the front
+                    // pass, as the pilot did — the song never
+                    // waits on a load.
+                    passStartMs = if (passEnded) {
+                        (started + passDurationMs).toLong()
+                    } else {
+                        (floor(posMs / periodMs) * periodMs).toLong()
+                    }
+                    frontPlayer.seekTo(
+                        (frontPlan.segments.first().clipStartS * 1000).toLong(),
+                    )
+                    if (playingState.value) frontPlayer.play()
                 }
                 var start = passStartMs
-                if (start == null || posMs < start - PASS_RESYNC_TOLERANCE_MS ||
-                    posMs >= start + passDurationMs ||
-                    player.playbackState == Player.STATE_ENDED
-                ) {
+                if (start == null || posMs < start - PASS_RESYNC_TOLERANCE_MS) {
                     // (Re)start the pass on the song's beat
                     // grid — beats fall on whole multiples of
                     // the period from position 0, the same
@@ -275,11 +482,11 @@ fun AmyVideoFigure(
                     // land on beats from the very first one.
                     start = (floor(posMs / periodMs) * periodMs).toLong()
                     passStartMs = start
-                    player.seekTo(
-                        (plan.segments.first().clipStartS * 1000).toLong(),
+                    frontPlayer.seekTo(
+                        (frontPlan.segments.first().clipStartS * 1000).toLong(),
                     )
                 }
-                val located = plan.locate((posMs - start) / 1000.0, beatPeriodS)
+                val located = frontPlan.locate((posMs - start) / 1000.0, beatPeriodS)
                 if (located != null) {
                     // One speed write per actual change: the
                     // segment's sliced speed, bent by the
@@ -291,27 +498,33 @@ fun AmyVideoFigure(
                     // while a few percent of speed for a
                     // second is invisible and closes the
                     // same drift. Seeks now happen only at
-                    // pass starts (the restart branch above).
+                    // pass starts and on the preload slot,
+                    // where they are invisible either way.
                     val segmentSpeed = located.segment.speed.toFloat()
                     val expectedMs = (located.clipPositionS * 1000).toLong()
-                    val driftMs = player.currentPosition - expectedMs
+                    val driftMs = frontPlayer.currentPosition - expectedMs
                     val nudge = when {
                         driftMs > DRIFT_NUDGE_DEADBAND_MS -> 1f - DRIFT_NUDGE_FRACTION
                         driftMs < -DRIFT_NUDGE_DEADBAND_MS -> 1f + DRIFT_NUDGE_FRACTION
                         else -> 1f
                     }
                     val appliedSpeed = segmentSpeed * nudge
-                    if (abs(player.playbackParameters.speed - appliedSpeed) > 0.01f) {
-                        player.setPlaybackSpeed(appliedSpeed)
+                    if (abs(frontPlayer.playbackParameters.speed - appliedSpeed) > 0.01f) {
+                        frontPlayer.setPlaybackSpeed(appliedSpeed)
                     }
                     status.speed = appliedSpeed
                     // Stall check: the song is advancing but
-                    // the video position is frozen solid while
-                    // the player claims to be ready — treat it
-                    // as a decoder stall and fall back.
-                    if (player.playbackState == Player.STATE_READY && player.isPlaying) {
+                    // the FRONT video position is frozen solid
+                    // while the player claims to be ready —
+                    // treat it as a decoder stall and fall
+                    // back. (The back player is intentionally
+                    // paused and never stall-checked.)
+                    if (frontPlayer.playbackState == Player.STATE_READY &&
+                        frontPlayer.isPlaying
+                    ) {
                         if (lastSongPosMs >= 0 && posMs > lastSongPosMs &&
-                            abs(player.currentPosition - lastVideoPosMs) <= STALL_VIDEO_EPSILON_MS
+                            abs(frontPlayer.currentPosition - lastVideoPosMs) <=
+                            STALL_VIDEO_EPSILON_MS
                         ) {
                             frozenSongAdvanceMs += posMs - lastSongPosMs
                             if (frozenSongAdvanceMs >= STALL_SONG_ADVANCE_MS) {
@@ -321,7 +534,7 @@ fun AmyVideoFigure(
                             frozenSongAdvanceMs = 0L
                         }
                         lastSongPosMs = posMs
-                        lastVideoPosMs = player.currentPosition
+                        lastVideoPosMs = frontPlayer.currentPosition
                     }
                 }
             }
@@ -339,28 +552,22 @@ fun AmyVideoFigure(
     )
 
     val frameWidthDp = SpotlightGeom.dancerWidthDp(heightDp.value).dp
-    // The video figure is sized by VIDEO_FIGURE_SCALE (her
-    // standing height lands exactly where the frame figure's
-    // stands — see the constant) times the ACTIVE clip's own
-    // figureScale (v1.0.72: the pack's clips were shot at
-    // figure heights spanning 0.70–0.88 of the frame, and
-    // chaining through them at one size made Amy grow and
-    // shrink at every switch; each clip now carries the
-    // measured factor that lands it on the common anchor —
-    // see AmyClip.figureScale), the GL reflection scales in
-    // the same unit, and the figure is dropped by exactly
-    // the height difference so her feet stay on the zone's
-    // foot baseline. Her width follows the CLIP's own aspect
-    // — the frame box's wider FRAME_ASPECT would stretch the
-    // texture sideways; the frame system Fits its PNGs
-    // undistorted, and so does the video now. The outer box
-    // (the zone's reservation) and the pool/shadow inside it
-    // keep the unscaled geometry — they key off the zone,
-    // not the figure.
-    val clipFigureScale = activeClip.figureScale.toFloat()
-    val videoHeightDp = heightDp * VIDEO_FIGURE_SCALE * clipFigureScale
-    val videoWidthDp = (videoHeightDp.value * VIDEO_CLIP_ASPECT).dp
-    val videoReflectionDepthDp = reflectionDepthDp * VIDEO_FIGURE_SCALE * clipFigureScale
+    // v1.0.73: the video box NEVER resizes mid-song — it is
+    // the scale-1 box (VIDEO_FIGURE_SCALE off the caller's
+    // height, the wider VIDEO_CANVAS_ASPECT so a scaled-up
+    // clip's widest gesture still fits inside the canvas),
+    // and each clip's figureScale is applied to its texture
+    // inside the GL pass (see AmyVideoSizing), feet on the
+    // same baseline via the same offset. In v1.0.72 the
+    // per-clip factor multiplied THIS box, so every chain
+    // switch relaid out the AndroidView (and churned its
+    // surface) at the very moment the eye was watching. The
+    // outer box (the zone's reservation) and the pool/shadow
+    // inside it keep the unscaled geometry — they key off
+    // the zone, not the figure.
+    val videoHeightDp = heightDp * VIDEO_FIGURE_SCALE
+    val videoWidthDp = (videoHeightDp.value * VIDEO_CANVAS_ASPECT).dp
+    val videoReflectionDepthDp = reflectionDepthDp * VIDEO_FIGURE_SCALE
     Box(
         modifier = modifier.width(frameWidthDp).height(heightDp + reflectionDepthDp),
     ) {
@@ -396,24 +603,23 @@ fun AmyVideoFigure(
  * standing figure (the idle clip — the pack's unified
  * baseline) fills ≈0.879 of the frame height: the wide-shot
  * clips carry more headroom, so the video box runs at
- * 0.837 / 0.879 ≈ 0.952 of the frame box to land her at the
- * same on-stage height. (A first flat guess of 0.88
- * overshot — she read visibly smaller than frame Amy.)
+ * 0.952 of the frame box to land her at the same on-stage
+ * height. (A first flat guess of 0.88 overshot — she read
+ * visibly smaller than frame Amy.)
  * Applied inside [AmyVideoFigure] to the figure box only:
- * the height scales by this factor, the width follows the
- * clip's own aspect, the GL reflection scales in the same
- * unit, and the figure is offset so her feet stay on the
- * zone's foot baseline. The frame dancers keep their size
- * exactly, and the spotlight pool / contact shadow geometry
- * is NOT scaled (they key off the zone). Tune this number
- * after a look on the real stage.
+ * the height scales by this factor, the GL reflection
+ * scales in the same unit, and the figure is offset so her
+ * feet stay on the zone's foot baseline. The frame dancers
+ * keep their size exactly, and the spotlight pool / contact
+ * shadow geometry is NOT scaled (they key off the zone).
+ * Tune this number after a look on the real stage.
  *
- * v1.0.72: this constant is only the pack-wide anchor (it
- * was tuned against the idle clip, whose figureScale is
- * exactly 1.0). Each clip's own measured figureScale
- * multiplies it at playback, so clips shot wider or tighter
- * than idle land on the same on-stage height — see
- * [AmyClip.figureScale].
+ * v1.0.72 multiplied each clip's own measured figureScale
+ * into this box as well; v1.0.73 keeps this constant as the
+ * only box factor and moves the per-clip factor into the
+ * GL draw (see [AmyVideoSizing]) — same rendered figure
+ * heights, but the box (and its surface) no longer resizes
+ * at chain switches.
  */
 const val VIDEO_FIGURE_SCALE = 0.952f
 
@@ -428,6 +634,29 @@ const val VIDEO_CLIP_HEIGHT_PX = 800
 /** The runtime clips' aspect, [VIDEO_CLIP_WIDTH_PX] /
  *  [VIDEO_CLIP_HEIGHT_PX]. */
 const val VIDEO_CLIP_ASPECT = 512f / 800f
+
+/**
+ * The GL canvas's aspect (v1.0.73): wider than the clips'
+ * own aspect, so a clip drawn at its figureScale (up to
+ * 1.242 for slow-08) keeps even its widest gesture inside
+ * the canvas — measured off the shipped assets, the worst
+ * case (fast-01: figure extent 0.922 of the frame width ×
+ * scale 1.163 = 1.072) stays inside the canvas's 1.125
+ * headroom (0.72 ÷ 0.64). The canvas still fits the dancer
+ * zone: 0.952 × 0.72 ≈ 0.685 of the figure height, under
+ * the zone's 0.78. The texture is drawn centred in the
+ * canvas; the side margins are keyed-out transparency.
+ */
+const val VIDEO_CANVAS_ASPECT = 0.72f
+
+/** The dance switch's crossfade (v1.0.73): long enough to
+ *  hide the choreography cut, short enough to stay a cut. */
+const val CROSSFADE_MS = 150L
+
+/** Ticks of the 50 ms sync loop the outgoing player waits
+ *  after a swap before it is reloaded as the next preload
+ *  (5 ticks = 250 ms > the 150 ms crossfade). */
+private const val BACK_LOAD_DELAY_TICKS = 5
 
 /** How long the first frame may take before the session
  *  falls back to frames (local assets: generous). */
@@ -462,8 +691,8 @@ private const val STALL_SONG_ADVANCE_MS = 1_500L
  * (z-order on top) so the Compose-drawn pool and shadow
  * beneath the dancer zone show through wherever the shader
  * keys the green away. The renderer draws figure + reflection
- * in one pass; the surface's pixels outside the figure are
- * fully transparent.
+ * in one pass per texture slot; the surface's pixels outside
+ * the figure are fully transparent.
  *
  * The z-order choice is load-bearing (v1.0.71): the pilot
  * shipped with the media-overlay z-order call, which moves
@@ -485,13 +714,15 @@ private const val STALL_SONG_ADVANCE_MS = 1_500L
  */
 class AmyGlView(context: Context) : GLSurfaceView(context) {
 
-    private val renderer = ChromaKeyRenderer { texture ->
-        onSurfaceTextureReady?.invoke(texture)
+    private val renderer = ChromaKeyRenderer { textures ->
+        onTexturesReady?.invoke(textures)
     }
 
-    /** Fires (on the GL thread) whenever the renderer has a
-     *  fresh SurfaceTexture for the player to draw into. */
-    var onSurfaceTextureReady: ((SurfaceTexture) -> Unit)? = null
+    /** Fires (on the GL thread) whenever the renderer has
+     *  fresh SurfaceTextures for the players to draw into:
+     *  index 0 is the specials / first-front slot, index 1
+     *  the dance preload slot. */
+    var onTexturesReady: ((Array<SurfaceTexture>) -> Unit)? = null
 
     init {
         setEGLContextClientVersion(2)
@@ -511,30 +742,136 @@ class AmyGlView(context: Context) : GLSurfaceView(context) {
         renderer.reflectionTopAlpha = reflectionTopAlpha
         renderer.globalAlpha = globalAlpha
     }
+
+    /** The GL draw scale for one texture slot (the clip's
+     *  measured figureScale, via [AmyVideoSizing]). Set when
+     *  a clip is loaded into the slot — while it is
+     *  invisible, or already correct. Queued onto the GL
+     *  thread: the renderer reads the plain arrays there. */
+    fun setSlotScale(slot: Int, scale: Float) {
+        queueEvent { renderer.setSlotScale(slot, scale) }
+    }
+
+    /** The foot-baseline v for one texture slot (the
+     *  clip's measured feetV, via [AmyVideoSizing]): the
+     *  renderer anchors the slot's sampling on the feet
+     *  row so the boots meet the stage baseline and their
+     *  reflection. Set with the slot's scale, at load. */
+    fun setSlotFeet(slot: Int, feetV: Float) {
+        queueEvent { renderer.setSlotFeet(slot, feetV) }
+    }
+
+    /** Whether a slot may be drawn at all (slot 1 only
+     *  exists while the dance ping-pong owns it). */
+    fun setSlotEnabled(slot: Int, enabled: Boolean) {
+        queueEvent { renderer.setSlotEnabled(slot, enabled) }
+    }
+
+    /** Show exactly one slot, cancelling any crossfade. */
+    fun showSingleSlot(slot: Int) {
+        renderer.showSingleSlot(slot)
+    }
+
+    /** Begin the [CROSSFADE_MS] texture crossfade to [slot]
+     *  (v1.0.73): the dance's pass-boundary switch. */
+    fun beginCrossfade(slot: Int) {
+        renderer.beginCrossfade(slot)
+    }
 }
 
 /**
- * The chroma-key renderer: samples the video texture, cuts
+ * The chroma-key renderer: samples the video textures, cuts
  * the green screen by chroma distance (luma-independent, so
  * shadows on the backdrop don't tear), despills the fringe,
- * and draws the figure's mirror under the foot baseline in
+ * and draws each figure's mirror under the foot baseline in
  * the same pass — the reflection is the same texture sampled
  * back upward, faded by a per-vertex alpha that melts from
  * [reflectionTopAlpha] at the baseline to nothing at the
  * band's bottom edge (StageFloor's reflection law).
+ *
+ * v1.0.73: TWO texture slots for the dance ping-pong. Each
+ * slot has its own SurfaceTexture, transform matrix and
+ * draw scale (its clip's figureScale — the figure is scaled
+ * around the foot baseline inside the draw, so the view
+ * itself never resizes). A crossfade blends the outgoing
+ * slot down and the incoming slot up over [CROSSFADE_MS];
+ * outside a fade exactly one slot is visible.
  */
 private class ChromaKeyRenderer(
-    private val onTextureReady: (SurfaceTexture) -> Unit,
+    private val onTexturesReady: (Array<SurfaceTexture>) -> Unit,
 ) : GLSurfaceView.Renderer {
 
     @Volatile var reflectionDepthFraction: Float = 0f
     @Volatile var reflectionTopAlpha: Float = 0.75f
     @Volatile var globalAlpha: Float = 1f
 
+    private val slotScales = floatArrayOf(1f, 1f)
+    // Per-slot foot baselines (texture v of the feet row):
+    // the wide-shot clips keep a green margin below the
+    // boots, so each slot's sampling is anchored on its
+    // own clip's measured feet row (v1.0.73). Defaults to
+    // the pack median until a clip load sets it.
+    private val slotFeet = floatArrayOf(
+        AmyVideoSizing.DEFAULT_FEET_V.toFloat(),
+        AmyVideoSizing.DEFAULT_FEET_V.toFloat(),
+    )
+    // Slot 0 is the workhorse (specials + first dance front)
+    // and always draws; slot 1 exists only while the dance
+    // ping-pong owns it.
+    private val slotEnabled = booleanArrayOf(true, false)
+
+    // Crossfade state (touched from the main thread via the
+    // setters, resolved on the GL thread each frame).
+    @Volatile private var frontSlot = 0
+    @Volatile private var fadeToSlot = -1
+    @Volatile private var fadeStartUptimeMs = 0L
+
+    fun setSlotScale(slot: Int, scale: Float) {
+        slotScales[slot] = scale
+    }
+
+    fun setSlotFeet(slot: Int, feetV: Float) {
+        slotFeet[slot] = feetV
+    }
+
+    fun setSlotEnabled(slot: Int, enabled: Boolean) {
+        slotEnabled[slot] = enabled
+    }
+
+    fun showSingleSlot(slot: Int) {
+        frontSlot = slot
+        fadeToSlot = -1
+    }
+
+    fun beginCrossfade(toSlot: Int) {
+        if (toSlot == frontSlot || toSlot == fadeToSlot) return
+        fadeToSlot = toSlot
+        fadeStartUptimeMs = SystemClock.uptimeMillis()
+    }
+
+    /** This frame's alpha for [slot], resolving (and
+     *  completing) any running crossfade. GL thread only. */
+    private fun slotAlpha(slot: Int, nowMs: Long): Float {
+        val fadeTo = fadeToSlot
+        if (fadeTo < 0) return if (slot == frontSlot) 1f else 0f
+        val t = ((nowMs - fadeStartUptimeMs).toFloat() / CROSSFADE_MS)
+            .coerceIn(0f, 1f)
+        if (t >= 1f) {
+            frontSlot = fadeTo
+            fadeToSlot = -1
+            return if (slot == frontSlot) 1f else 0f
+        }
+        return when (slot) {
+            fadeTo -> t
+            frontSlot -> 1f - t
+            else -> 0f
+        }
+    }
+
     private var program = 0
-    private var textureId = 0
-    private var surfaceTexture: SurfaceTexture? = null
-    private val textureMatrix = FloatArray(16)
+    private val textureIds = IntArray(SLOT_COUNT)
+    private val surfaceTextures = arrayOfNulls<SurfaceTexture>(SLOT_COUNT)
+    private val textureMatrices = Array(SLOT_COUNT) { FloatArray(16) }
     private val vertices: FloatBuffer = ByteBuffer
         .allocateDirect(VERTEX_COUNT * FLOATS_PER_VERTEX * 4)
         .order(ByteOrder.nativeOrder())
@@ -566,31 +903,34 @@ private class ChromaKeyRenderer(
         aPosLoc = GLES20.glGetAttribLocation(program, "aPos")
         aTexLoc = GLES20.glGetAttribLocation(program, "aTex")
         aFadeLoc = GLES20.glGetAttribLocation(program, "aFade")
-        val textures = IntArray(1)
-        GLES20.glGenTextures(1, textures, 0)
-        textureId = textures[0]
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
-        GLES20.glTexParameteri(
-            GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-            GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR,
-        )
-        GLES20.glTexParameteri(
-            GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-            GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR,
-        )
-        GLES20.glTexParameteri(
-            GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-            GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE,
-        )
-        GLES20.glTexParameteri(
-            GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-            GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE,
-        )
-        surfaceTexture?.release()
-        val texture = SurfaceTexture(textureId)
-        texture.setDefaultBufferSize(CLIP_WIDTH_PX, CLIP_HEIGHT_PX)
-        surfaceTexture = texture
-        onTextureReady(texture)
+        val textures = IntArray(SLOT_COUNT)
+        GLES20.glGenTextures(SLOT_COUNT, textures, 0)
+        val ready = Array(SLOT_COUNT) { slot ->
+            textureIds[slot] = textures[slot]
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureIds[slot])
+            GLES20.glTexParameteri(
+                GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR,
+            )
+            GLES20.glTexParameteri(
+                GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR,
+            )
+            GLES20.glTexParameteri(
+                GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE,
+            )
+            GLES20.glTexParameteri(
+                GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE,
+            )
+            surfaceTextures[slot]?.release()
+            val texture = SurfaceTexture(textureIds[slot])
+            texture.setDefaultBufferSize(CLIP_WIDTH_PX, CLIP_HEIGHT_PX)
+            surfaceTextures[slot] = texture
+            texture
+        }
+        onTexturesReady(ready)
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -599,47 +939,93 @@ private class ChromaKeyRenderer(
 
     override fun onDrawFrame(gl: GL10?) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        val texture = surfaceTexture ?: return
         if (program == 0) return
-        texture.updateTexImage()
-        texture.getTransformMatrix(textureMatrix)
+        val nowMs = SystemClock.uptimeMillis()
+        // Outgoing slot first, incoming over it — during a
+        // crossfade both are mid-blend; outside one, exactly
+        // one slot has alpha 1 and the other is skipped.
+        val drawOrder = if (fadeToSlot >= 0) {
+            listOf(frontSlot, fadeToSlot)
+        } else {
+            listOf(frontSlot, 1 - frontSlot)
+        }
+        for (slot in drawOrder) {
+            if (!slotEnabled[slot]) continue
+            val alpha = slotAlpha(slot, nowMs)
+            if (alpha <= 0f) continue
+            val texture = surfaceTextures[slot] ?: continue
+            drawSlot(slot, texture, alpha)
+        }
+    }
 
-        // Geometry in NDC: the figure fills the view's width
-        // and the top figure-height share of its height; the
-        // reflection band sits under the foot baseline (the
-        // view is figure height + reflection depth tall).
+    /** Draw one slot's figure + reflection, keyed, at the
+     *  slot's own figure scale around the foot baseline. */
+    private fun drawSlot(slot: Int, texture: SurfaceTexture, slotAlpha: Float) {
+        texture.updateTexImage()
+        texture.getTransformMatrix(textureMatrices[slot])
+
+        // Geometry in NDC: the view is figure height +
+        // reflection depth tall; the figure fills the top
+        // figure-height share at scale 1. The slot's scale
+        // grows/shrinks the figure around the foot baseline
+        // (its bottom edge), and the reflection mirrors the
+        // SCALED figure into the fixed band below the
+        // baseline — it samples proportionally less of the
+        // texture (depthFraction ÷ scale), so its fade still
+        // melts to zero exactly at the band's bottom edge.
         val depthFraction = reflectionDepthFraction.coerceAtLeast(0f)
         val figureShare = 1f / (1f + depthFraction)
         val baselineY = 1f - 2f * figureShare
         val topAlpha = reflectionTopAlpha
+        val scale = slotScales[slot]
+        // Feet anchoring (v1.0.73): the clip's feet sit
+        // slotFeet[slot] above the texture's bottom edge
+        // (green margin below the boots), so the sampling
+        // window shifts up by that much — the feet row
+        // lands exactly ON the baseline, and the reflection
+        // mirrors from the same row instead of from the
+        // texture's bottom. The window's span is unchanged
+        // (v runs feet..feet+1; past 1 clamps to the top
+        // backdrop row, which keys out), so the figure's
+        // on-stage size does not move — she only stops
+        // floating above her own reflection.
+        val feet = slotFeet[slot]
+        // The texture is drawn centred in the wider canvas:
+        // its half-extent in NDC is the aspect ratio of
+        // canvas to texture, times the slot scale.
+        val halfExtent = (VIDEO_CLIP_ASPECT / VIDEO_CANVAS_ASPECT) * scale
+        val figureTop = baselineY + 2f * figureShare * scale
+        val bandBottom = baselineY - 2f * (1f - figureShare)
+        val reflectionV = if (scale > 0f) depthFraction / scale else depthFraction
         // (x, y, u, v, fade) per vertex, triangle strips:
         // figure first (fade 1 throughout), then its mirror —
-        // v sampled back up from the baseline by the depth
-        // fraction of the texture, alpha melting to zero.
+        // v sampled back up from the FEET row at the
+        // baseline, alpha melting to zero at the band's
+        // bottom edge.
         val data = vertexData
         var i = 0
         // figure: BL, BR, TL, TR
-        data[i++] = -1f; data[i++] = baselineY; data[i++] = 0f; data[i++] = 0f; data[i++] = 1f
-        data[i++] = 1f; data[i++] = baselineY; data[i++] = 1f; data[i++] = 0f; data[i++] = 1f
-        data[i++] = -1f; data[i++] = 1f; data[i++] = 0f; data[i++] = 1f; data[i++] = 1f
-        data[i++] = 1f; data[i++] = 1f; data[i++] = 1f; data[i++] = 1f; data[i++] = 1f
+        data[i++] = -halfExtent; data[i++] = baselineY; data[i++] = 0f; data[i++] = feet; data[i++] = 1f
+        data[i++] = halfExtent; data[i++] = baselineY; data[i++] = 1f; data[i++] = feet; data[i++] = 1f
+        data[i++] = -halfExtent; data[i++] = figureTop; data[i++] = 0f; data[i++] = feet + 1f; data[i++] = 1f
+        data[i++] = halfExtent; data[i++] = figureTop; data[i++] = 1f; data[i++] = feet + 1f; data[i++] = 1f
         // reflection: BL, BR, TL, TR (TL/TR sit ON the
-        // baseline, at the figure's own bottom edge)
-        data[i++] = -1f; data[i++] = -1f; data[i++] = 0f; data[i++] = depthFraction; data[i++] = 0f
-        data[i++] = 1f; data[i++] = -1f; data[i++] = 1f; data[i++] = depthFraction; data[i++] = 0f
-        data[i++] = -1f; data[i++] = baselineY; data[i++] = 0f; data[i++] = 0f; data[i++] = topAlpha
-        data[i++] = 1f; data[i++] = baselineY; data[i++] = 1f; data[i++] = 0f; data[i++] = topAlpha
+        // baseline, at the figure's FEET row)
+        data[i++] = -halfExtent; data[i++] = bandBottom; data[i++] = 0f; data[i++] = feet + reflectionV; data[i++] = 0f
+        data[i++] = halfExtent; data[i++] = bandBottom; data[i++] = 1f; data[i++] = feet + reflectionV; data[i++] = 0f
+        data[i++] = -halfExtent; data[i++] = baselineY; data[i++] = 0f; data[i++] = feet; data[i++] = topAlpha
+        data[i++] = halfExtent; data[i++] = baselineY; data[i++] = 1f; data[i++] = feet; data[i++] = topAlpha
         vertices.position(0)
         vertices.put(data)
         vertices.position(0)
 
         GLES20.glUseProgram(program)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureIds[slot])
         GLES20.glUniform1i(uTexLoc, 0)
-        GLES20.glUniformMatrix4fv(uTexMatrixLoc, 1, false, textureMatrix, 0)
+        GLES20.glUniformMatrix4fv(uTexMatrixLoc, 1, false, textureMatrices[slot], 0)
         GLES20.glUniform3f(uKeyColorLoc, KEY_RED, KEY_GREEN, KEY_BLUE)
-        GLES20.glUniform1f(uGlobalAlphaLoc, globalAlpha)
+        GLES20.glUniform1f(uGlobalAlphaLoc, globalAlpha * slotAlpha)
         val stride = FLOATS_PER_VERTEX * 4
         GLES20.glEnableVertexAttribArray(aPosLoc)
         GLES20.glVertexAttribPointer(aPosLoc, 2, GLES20.GL_FLOAT, false, stride, vertices)
@@ -674,6 +1060,11 @@ private class ChromaKeyRenderer(
     }
 
     companion object {
+        /** The renderer's texture slots: 0 = specials /
+         *  first dance front, 1 = dance preload / next
+         *  front (v1.0.73). */
+        const val SLOT_COUNT = 2
+
         /** The runtime frame size (every clip ships at
          *  [VIDEO_CLIP_WIDTH_PX]×[VIDEO_CLIP_HEIGHT_PX] —
          *  downscaled from the 704×1104 pack masters,

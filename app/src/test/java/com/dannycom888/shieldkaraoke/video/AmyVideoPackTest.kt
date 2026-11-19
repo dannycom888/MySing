@@ -57,6 +57,42 @@ class AmyVideoPackTest {
         assertEquals(9.833, clip.durationS, 1e-9)
         assertEquals(listOf(1.0, 1.458, 2.0), clip.accentsS)
         assertEquals(115.3, clip.impliedBpm, 1e-9)
+        // A JSON without the v1.0.72 figure fields parses
+        // with the neutral defaults (no measured height,
+        // no scaling).
+        assertEquals(0.0, clip.figureHeight, 1e-9)
+        assertEquals(1.0, clip.figureScale, 1e-9)
+    }
+
+    @Test
+    fun `every clip carries a figure scale landing on the common anchor`() {
+        // v1.0.72: the pack's clips were shot at figure
+        // heights spanning 0.70–0.88 of the frame (measured,
+        // tools/measure_figure_scales.py). Each packaged
+        // JSON carries its measured height and the playback
+        // factor that normalizes it; height × scale must be
+        // the pack's ONE anchor (idle's height — idle is the
+        // clip VIDEO_FIGURE_SCALE was tuned against, so its
+        // factor is exactly 1) within 1% for every dance
+        // clip, or chaining changes Amy's size mid-song.
+        val clips = shippedClips()
+        val idle = clips.first { it.name == AmyVideoPack.SPECIAL_IDLE }
+        assertTrue("idle figure height missing", idle.figureHeight > 0.0)
+        assertEquals("idle is the anchor clip", 1.0, idle.figureScale, 1e-9)
+        val anchor = idle.figureHeight * idle.figureScale
+        for (clip in clips) {
+            assertTrue("${clip.name} figure height missing", clip.figureHeight > 0.0)
+            assertTrue(
+                "${clip.name} figure scale out of range: ${clip.figureScale}",
+                clip.figureScale in 0.5..1.5,
+            )
+            val implied = clip.figureHeight * clip.figureScale
+            assertTrue(
+                "${clip.name} implied on-stage height $implied vs anchor $anchor (>1% off)",
+                kotlin.math.abs(implied - anchor) <= 0.01 * anchor,
+            )
+        }
+        assertEquals(20, clips.count { it.group != AmyVideoPack.GROUP_SPECIAL })
     }
 
     @Test

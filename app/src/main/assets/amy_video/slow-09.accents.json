@@ -28,5 +28,7 @@
  "accent_count": 19,
  "median_interval_s": 0.4580000000000002,
  "implied_bpm": 131.0,
- "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s"
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s",
+ "figure_height": 0.8075,
+ "figure_scale": 1.08
 }

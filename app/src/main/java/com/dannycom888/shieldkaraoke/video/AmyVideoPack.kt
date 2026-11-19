@@ -24,6 +24,17 @@ data class AmyClip(
     /** The tempo the accent spacing implies (0 when the
      *  pipeline could not measure one — the specials). */
     val impliedBpm: Double,
+    /** The clip's measured figure height, as a fraction of
+     *  the frame (v1.0.72: packaging-approach trend median,
+     *  written by tools/measure_figure_scales.py; 0 when the
+     *  packaged JSON predates the field). */
+    val figureHeight: Double = 0.0,
+    /** Playback scale factor that lands this clip's figure
+     *  on the pack's common on-stage height (v1.0.72):
+     *  figureHeight × figureScale is the same anchor for
+     *  every clip, so chaining no longer changes Amy's size
+     *  mid-song. 1.0 when the packaged JSON predates it. */
+    val figureScale: Double = 1.0,
 )
 
 /**
@@ -76,6 +87,8 @@ object AmyVideoPack {
             durationS = json.getDouble("duration_s"),
             accentsS = accents,
             impliedBpm = json.optDouble("implied_bpm", 0.0),
+            figureHeight = json.optDouble("figure_height", 0.0),
+            figureScale = json.optDouble("figure_scale", 1.0),
         )
     }
 

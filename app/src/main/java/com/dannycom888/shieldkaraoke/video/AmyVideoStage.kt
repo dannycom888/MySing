@@ -107,7 +107,9 @@ fun loadAmyCatalogue(context: Context): List<AmyClip> {
  * deep, fading from [reflectionTopAlpha] at the baseline —
  * StageFloor's law, re-implemented in the shader's fade
  * attribute. Inside that placement the video is sized by
- * [VIDEO_FIGURE_SCALE] (v1.0.71).
+ * [VIDEO_FIGURE_SCALE] (v1.0.71) times the active clip's
+ * measured figureScale (v1.0.72 — one on-stage height for
+ * every clip in the chain).
  *
  * The song drives everything, as with frames: [playing]
  * mirrors the music (pause freezes the video mid-frame), and
@@ -339,8 +341,14 @@ fun AmyVideoFigure(
     val frameWidthDp = SpotlightGeom.dancerWidthDp(heightDp.value).dp
     // The video figure is sized by VIDEO_FIGURE_SCALE (her
     // standing height lands exactly where the frame figure's
-    // stands — see the constant), the GL reflection scales
-    // in the same unit, and the figure is dropped by exactly
+    // stands — see the constant) times the ACTIVE clip's own
+    // figureScale (v1.0.72: the pack's clips were shot at
+    // figure heights spanning 0.70–0.88 of the frame, and
+    // chaining through them at one size made Amy grow and
+    // shrink at every switch; each clip now carries the
+    // measured factor that lands it on the common anchor —
+    // see AmyClip.figureScale), the GL reflection scales in
+    // the same unit, and the figure is dropped by exactly
     // the height difference so her feet stay on the zone's
     // foot baseline. Her width follows the CLIP's own aspect
     // — the frame box's wider FRAME_ASPECT would stretch the
@@ -349,9 +357,10 @@ fun AmyVideoFigure(
     // (the zone's reservation) and the pool/shadow inside it
     // keep the unscaled geometry — they key off the zone,
     // not the figure.
-    val videoHeightDp = heightDp * VIDEO_FIGURE_SCALE
+    val clipFigureScale = activeClip.figureScale.toFloat()
+    val videoHeightDp = heightDp * VIDEO_FIGURE_SCALE * clipFigureScale
     val videoWidthDp = (videoHeightDp.value * VIDEO_CLIP_ASPECT).dp
-    val videoReflectionDepthDp = reflectionDepthDp * VIDEO_FIGURE_SCALE
+    val videoReflectionDepthDp = reflectionDepthDp * VIDEO_FIGURE_SCALE * clipFigureScale
     Box(
         modifier = modifier.width(frameWidthDp).height(heightDp + reflectionDepthDp),
     ) {
@@ -398,6 +407,13 @@ fun AmyVideoFigure(
  * exactly, and the spotlight pool / contact shadow geometry
  * is NOT scaled (they key off the zone). Tune this number
  * after a look on the real stage.
+ *
+ * v1.0.72: this constant is only the pack-wide anchor (it
+ * was tuned against the idle clip, whose figureScale is
+ * exactly 1.0). Each clip's own measured figureScale
+ * multiplies it at playback, so clips shot wider or tighter
+ * than idle land on the same on-stage height — see
+ * [AmyClip.figureScale].
  */
 const val VIDEO_FIGURE_SCALE = 0.952f
 
@@ -665,10 +681,13 @@ private class ChromaKeyRenderer(
         const val CLIP_WIDTH_PX = VIDEO_CLIP_WIDTH_PX
         const val CLIP_HEIGHT_PX = VIDEO_CLIP_HEIGHT_PX
 
-        /** The packaged green, #0af20a, per channel. */
-        const val KEY_RED = 0.039f
-        const val KEY_GREEN = 0.949f
-        const val KEY_BLUE = 0.039f
+        /** The packaged green, #0af20a, per channel — the
+         *  single source is [ChromaKeyMath], whose port of
+         *  this shader's math the key gate test runs against
+         *  the shipped assets (v1.0.72). */
+        const val KEY_RED = ChromaKeyMath.KEY_RED
+        const val KEY_GREEN = ChromaKeyMath.KEY_GREEN
+        const val KEY_BLUE = ChromaKeyMath.KEY_BLUE
 
         const val FLOATS_PER_VERTEX = 5
         const val VERTEX_COUNT = 8

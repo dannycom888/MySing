@@ -134,10 +134,13 @@ class AmyVideoWiringTest {
         // One player, released with the composition.
         assertTrue(src.contains("ExoPlayer.Builder(context)"))
         assertTrue(src.contains("player.release()"))
-        // The key colour is the packaged green #0af20a.
-        assertTrue(src.contains("KEY_RED = 0.039f"))
-        assertTrue(src.contains("KEY_GREEN = 0.949f"))
-        assertTrue(src.contains("KEY_BLUE = 0.039f"))
+        // The key colour is the packaged green #0af20a,
+        // sourced from ChromaKeyMath (v1.0.72) so the JVM
+        // port the key gate runs and the shader uniform can
+        // never disagree about it.
+        assertTrue(src.contains("KEY_RED = ChromaKeyMath.KEY_RED"))
+        assertTrue(src.contains("KEY_GREEN = ChromaKeyMath.KEY_GREEN"))
+        assertTrue(src.contains("KEY_BLUE = ChromaKeyMath.KEY_BLUE"))
         assertTrue(src.contains("smoothstep(0.20, 0.34, d)"))
         // The reflection is the same texture in the same
         // pass — never a second player.
@@ -176,6 +179,33 @@ class AmyVideoWiringTest {
         assertTrue(src.contains("DRIFT_NUDGE_FRACTION"))
         assertTrue(src.contains("segmentSpeed * nudge"))
         assertEqualsCount(src, "player.seekTo(", 1)
+    }
+
+    @Test
+    fun `the key gate port matches the shader it mirrors`() {
+        // v1.0.72: ChromaKeyMath is the shader's JVM twin —
+        // its constants must stay the shader's constants, or
+        // AmyVideoKeyGateTest gates on the wrong math.
+        val math = readMain("java/com/dannycom888/shieldkaraoke/video/ChromaKeyMath.kt")
+        assertTrue(math.contains("const val KEY_RED = 0.039f"))
+        assertTrue(math.contains("const val KEY_GREEN = 0.949f"))
+        assertTrue(math.contains("const val KEY_BLUE = 0.039f"))
+        assertTrue(math.contains("const val RAMP_LOW = 0.20f"))
+        assertTrue(math.contains("const val RAMP_HIGH = 0.34f"))
+        // The GLSL ramp in the stage is the same 0.20–0.34.
+        assertTrue(videoStage().contains("smoothstep(0.20, 0.34, d)"))
+    }
+
+    @Test
+    fun `the video figure scales by the active clip's measured factor`() {
+        val src = videoStage()
+        // v1.0.72: the ACTIVE clip's figureScale multiplies
+        // the pack-wide anchor for both the figure height
+        // and the reflection depth, so a chain switch to a
+        // wider- or tighter-shot clip keeps Amy one size.
+        assertTrue(src.contains("val clipFigureScale = activeClip.figureScale.toFloat()"))
+        assertTrue(src.contains("heightDp * VIDEO_FIGURE_SCALE * clipFigureScale"))
+        assertTrue(src.contains("reflectionDepthDp * VIDEO_FIGURE_SCALE * clipFigureScale"))
     }
 
     private fun assertEqualsCount(text: String, needle: String, expected: Int) {

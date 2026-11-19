@@ -235,6 +235,11 @@ class MainActivity : ComponentActivity() {
     // stay degraded, exactly the audio tier philosophy.
     private var amyVideoCatalogue by mutableStateOf<List<AmyClip>>(emptyList())
     private var amyDanceClip by mutableStateOf<AmyClip?>(null)
+    // v1.0.71: the song's dance pool (the tempo group the
+    // pick came from) — inside the song the video chains
+    // through it at pass boundaries instead of looping the
+    // pick (see AmyVideoFigure).
+    private var amyDancePool by mutableStateOf<List<AmyClip>>(emptyList())
     private var amyVideoFallback by mutableStateOf(false)
     private var videoRotation by mutableStateOf(0)
     private var videoLastClipName by mutableStateOf<String?>(null)
@@ -630,12 +635,14 @@ class MainActivity : ComponentActivity() {
         // clip. Only Amy has video — for every other dancer
         // this is a no-op and their stage stays on frames.
         if (amyVideoLiveFor(Dancers.byKey(entry.dancerKey).key)) {
+            val pool = AmyVideoPack.dancePool(amyVideoCatalogue, currentBpm)
             val pick = AmyVideoPack.pickNext(
-                AmyVideoPack.dancePool(amyVideoCatalogue, currentBpm),
+                pool,
                 currentBpm, videoLastClipName, videoRotation,
             )
             if (pick != null) {
                 amyDanceClip = pick
+                amyDancePool = pool
                 videoLastClipName = pick.name
                 videoRotation++
             }
@@ -2430,6 +2437,7 @@ class MainActivity : ComponentActivity() {
                                         AmyVideoFigure(
                                             mode = soloVideoMode,
                                             clip = soloVideoClip,
+                                            chainPool = amyDancePool,
                                             songPositionMs = positionMs,
                                             playing = songPlaying &&
                                                 dancerPhase != DancerActivity.Phase.OUTRO_HOLD,

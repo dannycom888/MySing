@@ -120,4 +120,23 @@ object AmyVideoPack {
         }
         return byFit[index]
     }
+
+    /**
+     * The next clip when CHAINING inside a song (v1.0.71):
+     * the clips are building blocks, not loops — at each
+     * pass boundary the dance moves on to the next clip of
+     * the same tempo pool, walked in pool order from
+     * [currentName] and wrapping at the end, so a long song
+     * cycles the whole group. Never the current clip itself
+     * when the pool offers any other. Null when the pool has
+     * fewer than two clips (nothing to chain to) or the
+     * current clip is not in the pool — the caller then
+     * simply loops the current clip, as the pilot did.
+     */
+    fun chainNext(pool: List<AmyClip>, currentName: String): AmyClip? {
+        if (pool.size < 2) return null
+        val index = pool.indexOfFirst { it.name == currentName }
+        if (index < 0) return null
+        return pool[(index + 1) % pool.size]
+    }
 }

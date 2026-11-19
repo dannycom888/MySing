@@ -126,6 +126,33 @@ class AmyVideoPackTest {
     }
 
     @Test
+    fun `chain walks the pool in order wraps and never repeats`() {
+        // v1.0.71: inside a song the dance chains through
+        // the pool at pass boundaries.
+        fun clip(name: String) = AmyClip(name, "fast", "amy_video/$name.mp4", 10.0, listOf(1.0), 120.0)
+        val pool = listOf(clip("a"), clip("b"), clip("c"))
+        assertEquals("b", AmyVideoPack.chainNext(pool, "a")!!.name)
+        assertEquals("c", AmyVideoPack.chainNext(pool, "b")!!.name)
+        // Wraps at the end — a long song cycles the group.
+        assertEquals("a", AmyVideoPack.chainNext(pool, "c")!!.name)
+        // A full cycle visits every clip and never lands on
+        // the clip that just played.
+        var current = "a"
+        val visited = mutableListOf<String>()
+        repeat(6) {
+            val next = AmyVideoPack.chainNext(pool, current)!!
+            assertNotEquals(current, next.name)
+            visited += next.name
+            current = next.name
+        }
+        assertEquals(setOf("a", "b", "c"), visited.toSet())
+        // Degenerate pools: nothing to chain to.
+        assertNull(AmyVideoPack.chainNext(listOf(clip("a")), "a"))
+        assertNull(AmyVideoPack.chainNext(emptyList(), "a"))
+        assertNull(AmyVideoPack.chainNext(pool, "missing"))
+    }
+
+    @Test
     fun `special finds clips by name and nothing else`() {
         val clips = shippedClips()
         assertEquals("invite", AmyVideoPack.special(clips, "invite")!!.name)

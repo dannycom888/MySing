@@ -2622,3 +2622,45 @@ Chip 新增 `inControlBar` 尺寸档（仅控制排六钮传入）：字号 13�
 - APK：`MySing-1.0.69.apk`，33,554,220 B，SHA-256 `b477777d7d7627a757a5e148c7c82f8a1b298e7089fd8dee969a111843bd54cc`，versionCode 69，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测），ZIP 清单 804 文件。
 - 单元测试 **523 个，0 失败**（删 test-results 后强制实跑，非缓存；总数与 .68 持平：一增一改名净零）。ControlGlowTest：`languagePillIsOneCapsuleWhoseHalvesGlowSeparately` 改写为 `languageButtonsAreTwoSeparateEqualCircles`（胶囊已删、两钮各自独立成 Chip、标签「中」/「EN」、8dp 间隔、共用直径 + CircleShape + 居中 + 晕角半直径诸钉、逐角重载退役钉）；`glowCoversControlBarAndGear` 改名 `glowCoversControlBarBannerAndGear`（`glow = true` 计数 6→8：横幅两钮回归，6 在控制排、2 在横幅；`controlGlow(` 接线点 3→2：Chip 与齿轮）。另注：Chip 的 circle 文档注释两度压缩——FocusNavigationTest 以 4500 字窗口扫 Chip 的 `.focusable()`，注释膨胀会把它顶出窗口（实测偏移 5011→4346），功能零影响，完整设计说明在本章与横幅调用点。
 - 设备侧待验（**未验**）：沙发距离 + 只用遥控走一遍——两个圆形语言钮是否顺眼、是否同大如愿、逐个聚焦时粉红发光是否分明、金/粉分工是否仍一眼可辨；紧凑横屏下 28dp 圆在 36dp 横幅行里是否从容；两圆间隔 8dp、焦点 ×1.10 后是否相碰（计算每侧长大 ≈1.6dp，不碰）。
+
+## v1.0.70 — Amy 视频试点：绿幕视频进舞台（切片对拍）
+
+（2026-11-19。用户定调：Amy 的 24 条打包片（同日打包完成，55MB）先进软件做试点，今晚在 Fire HD 10 和 Shield 上实测三件事——弱硬件上硬件解码 + GPU 抠像跑不跑得流畅、抠像在真舞台上干不干净、切片对拍的重音落不落在拍上。本章不声称已验，设备侧待真机验收。）
+
+### 一、打包资产进 App
+
+- `dancers/amy-wide/pack/` 的 24 条 MP4（H.264 704×1104、BT.709/tv、绿幕）+ 24 份重音 JSON + manifest 原样进 `app/src/main/assets/amy_video/`（49 个文件、55MB）。APK 因此从 33.5MB 涨到 90.3MB——Amy 是内置伴舞（其余五位走可安装插件包，既定架构），试点接受这个体积。
+- 片子无音轨（ffprobe 实测只有一路视频流）；视频播放器另设一台、音量恒 0，不碰音乐播放器与其音频分档。
+
+### 二、视频层（仅 Amy）
+
+- 新包 `video/`：`AmyVideoFigure`——一台专用 ExoPlayer 硬解 → SurfaceTexture → GLSurfaceView 的色度抠像 shader（按色度距离抠 #0af20a、与亮度无关，带去溢色与软边 smoothstep 0.20–0.34）；表面以 `setZOrderMediaOverlay` + 半透明格式浮在窗口表面之上，抠掉的像素透出底下 Compose 画的舞台。
+- 几何与帧系统同位：同一个 figure 框（宽 = 高 × FRAME_ASPECT、BottomCenter）、同一条脚底基线、同一 soloDrop、同一左侧守卫、邀请步进的布局长高照旧；光池与接触阴影是舞台自己的 `spotlightPool` / `contactShadow` 修饰符原样画在表面之下（同一顺序：先光、再脚下暗、再人）；**倒影在同一个 GL pass 里用同一张纹理翻转采样画出**——基线处 alpha = SOLO_REFLECTION_TOP_ALPHA（0.75）、向下线性融化到 0，即 StageFloor 的倒影律在 shader 里的实现；没有第二台播放器、没有第二份解码。
+- 闸门 `amyVideoLiveFor`：舞者是 Amy（key = modern）+ 包目录已加载 + 本 session 未回退，三者齐备才走视频。其余五位伴舞、庆祝排、仪式群舞排全部帧路径，行为逐字不变。填充歌的伴舞是默认 Amy，同样走视频。
+
+### 三、切片对拍（BeatSliceScheduler，纯逻辑 + 单测钉死）
+
+- 计划：以片子的重音为界切段，第一重音前留 1 拍 lead-in；每段映射到整数拍（≥1、取最近），段速 = 自然时长 ÷（拍数 × 歌曲拍长），靠增减拍数钳在 [0.7, 1.6]；短于 0.7 拍的段先与邻段粘合（该重音被吸收——半拍不到的手势撑不起一拍）。整趟时长恰为总拍数 × 拍长，每个重音恰落在整拍上；每趟在趟首按歌曲拍格（自位置 0 起的整数倍拍长，与 PoseCycle 同一格）重新对齐，漂移不跨趟累积。
+- 播放：单台播放器连续播整片，一个 50ms 同步环按歌曲位置查计划——跨段界只改播放速度，视频位置漂移超 180ms 才 seek 回计划点。暂停即冻结视频（与音乐同冻）；OUTRO_HOLD 段视频定格在当前帧（playing=false），与帧系统的定格律一致；STILL 段换 idle 片。
+- 选片：歌曲 BPM ≥100 进快池、其余进慢池，池内按 implied BPM 距离排序；`startSong` 里每首歌轮换一格、永不与上一首同片。拍长随后被实测 BPM 修正时计划自动重算（段速由构造保证仍在钳内）。
+- 单测锚点：fast-01 在 127 BPM 下 17 段、18 拍、段速全在钳内、第一重音恰落第 1 拍、locate 在每段起点精确返回该段 clip 起点；20 条舞片 × 50–200 BPM（步进 10）全扫，段速无一出钳、趟长恒为整拍。
+- **试点范围外**：半快半慢歌曲的逐段换池（设计已定，排后续版本）；本版一首歌只用一池一片。
+
+### 四、特殊片的落位
+
+- INVITING（前奏邀请）→ invite 片循环；STILL（唱完站立呼吸）→ idle 片循环；仪式 keeper（下一首伴舞是 Amy 时）→ EXITING 用 idle（帧路径的站立 rest 帧对应物）、SOLO_INVITE 用 invite，位置、倒影、0.95 × keeperSoloAlpha 淡入与帧 keeper 完全一致；无人点歌的空舞台 → idle 片站在 solo 位，并按 keeper 的方式发布光池目标给两束追光。
+- **鼓掌片（clap）试点不上台**：本舞台的全部鼓掌场面（结尾送行、后奏鼓掌、仪式 CLAPPING）都是五人排的场面，而 Amy 本人就在排首（抱汉娜组合）——solo 位再放一支 Amy 鼓掌视频等于她同台出现两次；帧系统当年正因此让 solo 位在鼓掌时退场，本版不推翻它。clap 的模式与目录接线已在驱动层实现并有单测钉住，上台落位等试点之后再议。五人排保持帧图（试点口径），combo 片同样不上台。
+
+### 五、安全回退与诊断
+
+- 任一视频失败 → `amyVideoFallback` 置位，本 session 余下时间 Amy 全部回帧动画（与音频分档同哲学：降一次、稳住、不反复横跳）：播放器错误（onPlayerError）、首帧 8 秒看门狗未过、跳舞中视频位置冻住而歌曲已推进 ≥1.5 秒（解码卡死判定），三路都汇到这一个开关。包目录加载失败则视频根本不开。
+- 诊断行新增 `video=` 字段：`on:<模式>:<片名> x<当前段速>` / `fallback` / `off`，管理页一屏可见——今晚实测时先看这一行就知道视频层活没活、跳的是哪条片。
+- 无新权限。StageDressingTest 四个计数钉随新落位修订并逐处附 v1.0.70 附注：soloDropDp 4→8、poolCentreInZoneDp 2→3、SOLO_POOL_ALPHA_SCALE 2→5、SOLO_REFLECTION_TOP_ALPHA 2→5、soloReflectionDepthDp 3→5——每个新落位（播放位/keeper 的视频figure、空舞台）取的都是同一套 solo 几何律，钉住的「同位」不变、只是落位变多。
+
+### 六、未动
+
+其余五位伴舞的帧路径与全部素材、庆祝/后奏五人排、仪式状态机与全部时序、歌词与扫光、队列与点歌排序、手机点歌页、音频分档与增益、控制排与横幅、全部字号与按钮几何、服务端全部端点——逐字未动。
+
+- APK：`MySing-1.0.70.apk`，90,318,841 B，SHA-256 `f09a744d27c3e93b3e44ea2652b3a815d6cb7a964159ece65d96fbe39b64527b`，versionCode 70，签名证书 SHA-256 `1336ee0a…`（共享 keystore，apksigner 实测），ZIP 清单 853 文件（其中 amy_video 资产 49 个、MP4 24 条；DEX 实测含 media3 AssetDataSource 与 video 包，`asset:///` 播放路径齐备）。
+- 单元测试 **542 个，0 失败**（523 旧 + 新增 19：BeatSliceSchedulerTest 8、AmyVideoPackTest 5、AmyVideoWiringTest 6；另 StageDressingTest 四钉按上文修订计数，断言总数不变）。测试数据直读 shipped 资产——重打包若丢片/坏片，先在这里红。
+- 设备侧待验（**未验**，今晚实测清单）：Fire HD 10 上跳舞全程是否流畅不掉帧（MediaTek 硬解 704×1104 + GL 抠像 + 邀请步进时表面尺寸变化）；Shield 上同样一遍；抠像边缘是否干净（绿边/溢色/头发丝边缘）、深色衣服与裙摆会不会被误抠；倒影是否与帧系统观感一致（强度 0.75 起、融化形状）；切片对拍的主观拍感（快歌慢歌各一首，重音是否踩在拍上、跨段变速是否察觉得到）；暂停/恢复时视频是否同冻同走；沙发距离 + 只用遥控完整走一遍（点歌 → 邀请 → 跳舞 → 唱完 → 仪式 → 下一首，含空舞台 idle）；队列面板/横幅与视频表面重叠处有无穿帮（SurfaceView 浮层与窗口内容的合成边界）；若视频层出问题，诊断行应显示 video=fallback 且 Amy 自动回帧——可观察是否属实。

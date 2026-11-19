@@ -1,0 +1,33 @@
+{
+ "clip": "fast-10",
+ "group": "fast",
+ "fps": 24,
+ "frames": 240,
+ "duration_s": 10.0,
+ "accents": [
+  0.75,
+  1.25,
+  1.5,
+  1.958,
+  2.458,
+  3.167,
+  3.417,
+  3.917,
+  4.208,
+  4.875,
+  5.292,
+  5.542,
+  6.042,
+  6.417,
+  6.792,
+  7.292,
+  7.792,
+  8.292,
+  9.0,
+  9.542
+ ],
+ "accent_count": 20,
+ "median_interval_s": 0.5,
+ "implied_bpm": 120.0,
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s"
+}

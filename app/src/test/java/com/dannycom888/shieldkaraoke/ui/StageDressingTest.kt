@@ -160,9 +160,21 @@ class StageDressingTest {
         // identical lowered placement when the song starts:
         // no handover step, and the beams aim at the lowered
         // pool, not the pre-.60 one.
+        //
+        // v1.0.70 amendment: the Amy video pilot adds four
+        // more takers of the SAME drop, and the count moves to
+        // eight: the video figure's visual offset at the
+        // playback placement and at the keeper's (one each),
+        // and the idle stage — a third solo placement while
+        // nothing plays — takes it twice like the others (its
+        // video offset and its beam-aim argument). Every video
+        // placement reads the drop off its own zone height
+        // exactly as the frame placements do, so a video
+        // handover (idle → invite → dance, keeper → song)
+        // still lands on the identical lowered placement.
         val src = mainActivitySource()
         assertEquals(
-            4,
+            8,
             Regex("""StageFloor\.soloDropDp\(""").findAll(src).count(),
         )
     }
@@ -257,9 +269,14 @@ class StageDressingTest {
         // MainActivity — the solo dancer's layout and the
         // ceremony keeper's — and the root feeds their state
         // to the backdrop.
+        // v1.0.70 amendment: a third writer joins — the idle
+        // stage's video placement publishes the same resting
+        // pool while nothing plays, so the beams keep aiming
+        // at the pool Amy idles in. The law and the resting
+        // numbers it is evaluated on are unchanged.
         val src = mainActivitySource()
         assertEquals(
-            2,
+            3,
             Regex("""StageFloor\.poolCentreInZoneDp\(""").findAll(src).count(),
         )
         assertTrue(
@@ -913,9 +930,20 @@ class StageDressingTest {
         // playback dancer, the ceremony keeper) take the
         // dimming, the contact shadow and the stronger
         // reflection top — the row takes none of them.
+        //
+        // v1.0.70 amendment: the dimming and the stronger
+        // reflection top now have five takers — the two frame
+        // figures above plus the Amy video figure at the same
+        // two placements and at the idle stage — because the
+        // video figure must carry the identical light package
+        // or the handover between frames and video would
+        // step. The contact shadow's argument stays at two:
+        // the video figure draws the same shadow inside
+        // AmyVideoFigure (the same modifier), not through
+        // this argument. The row still takes none of them.
         val src = mainActivitySource()
         assertEquals(
-            2,
+            5,
             Regex("""spotlightAlphaScale\s*=\s*SpotlightGeom\.SOLO_POOL_ALPHA_SCALE""")
                 .findAll(src).count(),
         )
@@ -924,7 +952,7 @@ class StageDressingTest {
             Regex("""contactShadow = true""").findAll(src).count(),
         )
         assertEquals(
-            2,
+            5,
             Regex("""reflectionTopAlpha\s*=\s*StageFloor\.SOLO_REFLECTION_TOP_ALPHA""")
                 .findAll(src).count(),
         )
@@ -1024,8 +1052,15 @@ class StageDressingTest {
         // keeper's DancerImage depth, and the keeper's beam-aim
         // publisher (v1.0.60), which reads the same resting
         // depth to aim the beams at her pool.
+        //
+        // v1.0.70 amendment: two more call sites evaluate the
+        // same formula — the keeper's video figure (its depth
+        // argument, beside the frame figure's) and the idle
+        // stage's resting depth — so a video figure stands
+        // over the identical reflection a frame figure would.
+        // Five in total; the formula itself is untouched.
         assertEquals(
-            3,
+            5,
             Regex("""StageFloor\.soloReflectionDepthDp\(""").findAll(src).count(),
         )
         assertTrue(

@@ -132,6 +132,12 @@ import com.dannycom888.shieldkaraoke.queue.QueueEntry
 import com.dannycom888.shieldkaraoke.state.DancerKeys
 import com.dannycom888.shieldkaraoke.state.DancerNames
 import com.dannycom888.shieldkaraoke.state.SweepColor
+import com.dannycom888.shieldkaraoke.video.AmyClip
+import com.dannycom888.shieldkaraoke.video.AmyVideoFigure
+import com.dannycom888.shieldkaraoke.video.AmyVideoMode
+import com.dannycom888.shieldkaraoke.video.AmyVideoPack
+import com.dannycom888.shieldkaraoke.video.AmyVideoStatus
+import com.dannycom888.shieldkaraoke.video.loadAmyCatalogue
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -219,6 +225,25 @@ class MainActivity : ComponentActivity() {
     // ceremony's group phases own the stage, the beams keep
     // aiming at the solo placement's pool.
     private var soloPoolTarget by mutableStateOf<PoolTarget?>(null)
+    // v1.0.70: the Amy video pilot's session state. The pack
+    // catalogue is read once in onCreate (empty = the pack did
+    // not load, Amy stays on frames); [amyDanceClip] is the
+    // dance clip picked for the song on stage (picked in
+    // startSong, rotated per song, never the previous song's);
+    // ANY video failure sets [amyVideoFallback] and Amy dances
+    // on frames for the rest of the session — degrade once,
+    // stay degraded, exactly the audio tier philosophy.
+    private var amyVideoCatalogue by mutableStateOf<List<AmyClip>>(emptyList())
+    private var amyDanceClip by mutableStateOf<AmyClip?>(null)
+    private var amyVideoFallback by mutableStateOf(false)
+    private var videoRotation by mutableStateOf(0)
+    private var videoLastClipName by mutableStateOf<String?>(null)
+    private val amyVideoStatus = AmyVideoStatus()
+    /** The music's play state, mirrored by the stage's position
+     *  poll (v1.0.70): the video driver pauses and resumes with
+     *  it — position alone cannot say "paused" once it stops
+     *  changing. */
+    private var songPlaying by mutableStateOf(false)
     private var confirmQuit by mutableStateOf(false)
     /** A TV browse order waiting on its dancer pick (v1.0.51):
      *  the song the host tapped on the browse page. While this
@@ -278,6 +303,15 @@ class MainActivity : ComponentActivity() {
         uiLang = UiLang.parse(app.prefs.uiLangCode)
         controller = PlayerController(this)
         controller.onEnded = { onSongEndedNaturally() }
+        // v1.0.70: the Amy video pilot's pack catalogue — 24
+        // tiny accent JSONs in the assets, read once here. Any
+        // failure leaves the catalogue empty, which the stage
+        // reads as "no video": Amy simply stays on frames.
+        amyVideoCatalogue = try {
+            loadAmyCatalogue(this)
+        } catch (e: Exception) {
+            emptyList()
+        }
         app.state.onShouldStart = { entry ->
             runOnUiThread { startSong(entry); screen = Screen.PLAYER }
         }
@@ -535,6 +569,15 @@ class MainActivity : ComponentActivity() {
 
     // ---------- playback flow ----------
 
+    /** v1.0.70: Amy dances on video while the pilot is live —
+     *  she is the dancer in question, the pack catalogue
+     *  loaded, and no video failure has fallen the session
+     *  back to her frame animation. Every other dancer is
+     *  never live: their stage paths are frames, untouched. */
+    private fun amyVideoLiveFor(dancerKey: String?): Boolean =
+        dancerKey == DancerKeys.MODERN && !amyVideoFallback &&
+            amyVideoCatalogue.isNotEmpty()
+
     private fun startSong(entry: QueueEntry) {
         app.state.nowPlaying = entry
         // An ordered song taking the stage ends any filler session
@@ -579,6 +622,22 @@ class MainActivity : ComponentActivity() {
                         currentBpm = measured
                     }
                 }
+            }
+        }
+        // v1.0.70: pick this song's Amy dance clip (the video
+        // pilot): from the pool matching the tempo known at
+        // start, rotated per song, never the previous song's
+        // clip. Only Amy has video — for every other dancer
+        // this is a no-op and their stage stays on frames.
+        if (amyVideoLiveFor(Dancers.byKey(entry.dancerKey).key)) {
+            val pick = AmyVideoPack.pickNext(
+                AmyVideoPack.dancePool(amyVideoCatalogue, currentBpm),
+                currentBpm, videoLastClipName, videoRotation,
+            )
+            if (pick != null) {
+                amyDanceClip = pick
+                videoLastClipName = pick.name
+                videoRotation++
             }
         }
         entry.song.lyricsRef?.let { ref ->
@@ -1843,6 +1902,9 @@ class MainActivity : ComponentActivity() {
             while (true) {
                 positionMs = try { controller.player.currentPosition } catch (e: Exception) { 0L }
                 durationMs = try { controller.player.duration } catch (e: Exception) { -1L }
+                // v1.0.70: the video driver pauses/resumes
+                // with the music (see songPlaying's note).
+                songPlaying = try { controller.player.isPlaying } catch (e: Exception) { false }
                 errorBanner = controller.visibleError()
                 tickMs = SystemClock.elapsedRealtime()
                 // ~30 fps so the karaoke sweep's gold boundary
@@ -2320,6 +2382,76 @@ class MainActivity : ComponentActivity() {
                                     } else {
                                         null
                                     }
+                                    // v1.0.70: Amy's video pilot —
+                                    // when she is the dancer and
+                                    // the pilot is live, her solo
+                                    // figure is the video: the
+                                    // same placement (this height,
+                                    // this reflection depth, the
+                                    // same drop and leftward
+                                    // guard), the stage's own pool
+                                    // and contact shadow under it,
+                                    // her reflection drawn in the
+                                    // GL pass. The phase picks the
+                                    // clip: the invite over the
+                                    // intro, the beat-sliced
+                                    // dance while she sings, the
+                                    // dance frozen on its current
+                                    // frame through the outro
+                                    // hold (playing=false there),
+                                    // the idle loop while she
+                                    // stands breathing. Any other
+                                    // dancer — and Amy herself
+                                    // after a video failure — takes
+                                    // the frame path below,
+                                    // unchanged.
+                                    val soloVideoMode = if (amyVideoLiveFor(dancer.key)) {
+                                        when (dancerPhase) {
+                                            DancerActivity.Phase.INVITING -> AmyVideoMode.INVITE
+                                            DancerActivity.Phase.DANCING -> AmyVideoMode.DANCE
+                                            DancerActivity.Phase.OUTRO_HOLD -> AmyVideoMode.DANCE
+                                            DancerActivity.Phase.STILL -> AmyVideoMode.IDLE
+                                        }
+                                    } else {
+                                        null
+                                    }
+                                    val soloVideoClip = soloVideoMode?.let { videoMode ->
+                                        when (videoMode) {
+                                            AmyVideoMode.INVITE -> AmyVideoPack.special(
+                                                amyVideoCatalogue, AmyVideoPack.SPECIAL_INVITE,
+                                            )
+                                            AmyVideoMode.IDLE -> AmyVideoPack.special(
+                                                amyVideoCatalogue, AmyVideoPack.SPECIAL_IDLE,
+                                            )
+                                            else -> amyDanceClip
+                                        }
+                                    }
+                                    if (soloVideoMode != null && soloVideoClip != null) {
+                                        AmyVideoFigure(
+                                            mode = soloVideoMode,
+                                            clip = soloVideoClip,
+                                            songPositionMs = positionMs,
+                                            playing = songPlaying &&
+                                                dancerPhase != DancerActivity.Phase.OUTRO_HOLD,
+                                            beatPeriodS = 60.0 / currentBpm,
+                                            heightDp = dancerH,
+                                            reflectionDepthDp = soloFloorDepthDp.dp,
+                                            reflectionTopAlpha =
+                                                StageFloor.SOLO_REFLECTION_TOP_ALPHA,
+                                            status = amyVideoStatus,
+                                            onVideoError = { amyVideoFallback = true },
+                                            modifier = Modifier.offset(
+                                                x = if (stepOverflowDp > 0f) {
+                                                    (-stepOverflowDp).dp
+                                                } else {
+                                                    0.dp
+                                                },
+                                                y = StageFloor.soloDropDp(maxHeight.value).dp,
+                                            ),
+                                            spotlightAlphaScale =
+                                                SpotlightGeom.SOLO_POOL_ALPHA_SCALE,
+                                        )
+                                    } else {
                                     DancerImage(
                                         dancer = dancer,
                                         // v1.0.60: the whole unit —
@@ -2561,6 +2693,75 @@ class MainActivity : ComponentActivity() {
                                         // doesn't (see StageFloor).
                                         reflectionDepthDp = soloFloorDepthDp.dp,
                                     )
+                                    }
+                                }
+                            } else if (entry == null && dancersOn &&
+                                amyVideoLiveFor(DancerKeys.MODERN)
+                            ) {
+                                // v1.0.70: the idle stage —
+                                // with nothing playing, Amy
+                                // stands in her solo spot on the
+                                // idle clip, at the resting
+                                // geometry, publishing the pool
+                                // for the beams exactly as the
+                                // ceremony keeper publishes it.
+                                val idleClip = AmyVideoPack.special(
+                                    amyVideoCatalogue, AmyVideoPack.SPECIAL_IDLE,
+                                )
+                                if (idleClip != null) {
+                                    var idleZoneCoords by remember {
+                                        mutableStateOf<LayoutCoordinates?>(null)
+                                    }
+                                    BoxWithConstraints(
+                                        modifier = Modifier.fillMaxSize()
+                                            .onGloballyPositioned { idleZoneCoords = it },
+                                        contentAlignment = Alignment.BottomCenter,
+                                    ) {
+                                        val restFigureH = StageFloor.figureHeightDp(
+                                            maxHeight.value, if (compact) 0.72f else 0.80f,
+                                        )
+                                        val idleFloorDepthDp = StageFloor.soloReflectionDepthDp(
+                                            maxHeight.value, restFigureH,
+                                        )
+                                        val idleDensity = LocalDensity.current.density
+                                        SideEffect {
+                                            val coords = idleZoneCoords
+                                            if (coords != null) {
+                                                val centreDp = StageFloor.poolCentreInZoneDp(
+                                                    maxWidth.value, maxHeight.value,
+                                                    restFigureH, idleFloorDepthDp,
+                                                    StageFloor.soloDropDp(maxHeight.value),
+                                                    0f,
+                                                )
+                                                val origin = coords.localToRoot(Offset.Zero)
+                                                soloPoolTarget = PoolTarget(
+                                                    centrePx = Offset(
+                                                        origin.x + centreDp.x * idleDensity,
+                                                        origin.y + centreDp.y * idleDensity,
+                                                    ),
+                                                    radiusPx = SpotlightGeom.poolRadiusXDp(restFigureH) * idleDensity,
+                                                )
+                                            }
+                                        }
+                                        AmyVideoFigure(
+                                            mode = AmyVideoMode.IDLE,
+                                            clip = idleClip,
+                                            songPositionMs = 0L,
+                                            playing = true,
+                                            beatPeriodS = 60.0 / currentBpm,
+                                            heightDp = restFigureH.dp,
+                                            reflectionDepthDp = idleFloorDepthDp.dp,
+                                            reflectionTopAlpha =
+                                                StageFloor.SOLO_REFLECTION_TOP_ALPHA,
+                                            status = amyVideoStatus,
+                                            onVideoError = { amyVideoFallback = true },
+                                            modifier = Modifier.offset(
+                                                y = StageFloor.soloDropDp(maxHeight.value).dp,
+                                            ),
+                                            spotlightAlphaScale =
+                                                SpotlightGeom.SOLO_POOL_ALPHA_SCALE,
+                                        )
+                                    }
                                 }
                             }
                           }
@@ -2865,6 +3066,21 @@ class MainActivity : ComponentActivity() {
             append(" · ").append(positionMs / 1000).append('/').append(p.duration.coerceAtLeast(0L) / 1000).append('s')
             append(" · playing=").append(p.isPlaying)
             append(" · sink=").append(controller.sinkLabel)
+            // v1.0.70: the Amy video pilot's state — on (with
+            // the live mode, clip and segment speed), fallback
+            // (a video failure fell the session back to frames)
+            // or off (no pack catalogue loaded).
+            append(" · video=").append(
+                when {
+                    amyVideoFallback -> "fallback"
+                    amyVideoCatalogue.isEmpty() -> "off"
+                    else -> "on:" + (amyVideoStatus.mode?.name?.lowercase() ?: "-") +
+                        ":" + amyVideoStatus.clipName +
+                        " x" + String.format(
+                            java.util.Locale.US, "%.2f", amyVideoStatus.speed.toDouble(),
+                        )
+                },
+            )
             append(" · bpm=").append(currentBpm.toInt())
             if (entry != null) {
                 val dancer = Dancers.byKey(entry.dancerKey)
@@ -3371,6 +3587,60 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                    // v1.0.70: an Amy keeper stands on video —
+                    // the idle clip while she fades in (EXITING:
+                    // the frame path's standing rest frame), the
+                    // invite clip for her solo invite — at the
+                    // identical placement and fade, so the
+                    // handover into the song, where the solo
+                    // video takes over, still lands on the same
+                    // figure over the same reflection. Any other
+                    // keeper — and Amy after a video failure —
+                    // takes the frame path below, unchanged.
+                    val keeperVideoClip = if (amyVideoLiveFor(keeper.key)) {
+                        AmyVideoPack.special(
+                            amyVideoCatalogue,
+                            if (phase == Ceremony.Phase.SOLO_INVITE) {
+                                AmyVideoPack.SPECIAL_INVITE
+                            } else {
+                                AmyVideoPack.SPECIAL_IDLE
+                            },
+                        )
+                    } else {
+                        null
+                    }
+                    if (keeperVideoClip != null) {
+                        AmyVideoFigure(
+                            mode = if (phase == Ceremony.Phase.SOLO_INVITE) {
+                                AmyVideoMode.INVITE
+                            } else {
+                                AmyVideoMode.IDLE
+                            },
+                            clip = keeperVideoClip,
+                            songPositionMs = 0L,
+                            playing = true,
+                            beatPeriodS = 60.0 / currentBpm,
+                            heightDp = StageFloor.figureHeightDp(
+                                maxHeight.value, if (compact) 0.72f else 0.80f,
+                            ).dp,
+                            reflectionDepthDp = StageFloor.soloReflectionDepthDp(
+                                maxHeight.value,
+                                StageFloor.figureHeightDp(
+                                    maxHeight.value, if (compact) 0.72f else 0.80f,
+                                ),
+                            ).dp,
+                            reflectionTopAlpha =
+                                StageFloor.SOLO_REFLECTION_TOP_ALPHA,
+                            status = amyVideoStatus,
+                            onVideoError = { amyVideoFallback = true },
+                            modifier = Modifier.offset(
+                                y = StageFloor.soloDropDp(maxHeight.value).dp,
+                            ),
+                            globalAlpha = 0.95f * Ceremony.keeperSoloAlpha(elapsedMs),
+                            spotlightAlphaScale =
+                                SpotlightGeom.SOLO_POOL_ALPHA_SCALE,
+                        )
+                    } else {
                     DancerImage(
                         dancer = keeper,
                         // v1.0.60: the keeper stands at the solo
@@ -3425,6 +3695,7 @@ class MainActivity : ComponentActivity() {
                         reflectionTopAlpha =
                             StageFloor.SOLO_REFLECTION_TOP_ALPHA,
                     )
+                    }
                 }
             }
         }

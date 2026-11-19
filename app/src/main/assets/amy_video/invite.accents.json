@@ -1,0 +1,22 @@
+{
+ "clip": "invite",
+ "group": "special",
+ "fps": 24,
+ "frames": 240,
+ "duration_s": 10.0,
+ "accents": [
+  1.292,
+  1.667,
+  3.333,
+  5.208,
+  6.25,
+  6.5,
+  7.292,
+  7.708,
+  8.167
+ ],
+ "accent_count": 9,
+ "median_interval_s": 0.6254999999999997,
+ "implied_bpm": 95.9,
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s"
+}

@@ -1,0 +1,21 @@
+{
+ "clip": "slow-06",
+ "group": "slow",
+ "fps": 24,
+ "frames": 240,
+ "duration_s": 10.0,
+ "accents": [
+  0.25,
+  1.667,
+  2.792,
+  3.833,
+  4.333,
+  6.292,
+  7.208,
+  8.792
+ ],
+ "accent_count": 8,
+ "median_interval_s": 1.1249999999999998,
+ "implied_bpm": 53.3,
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s"
+}

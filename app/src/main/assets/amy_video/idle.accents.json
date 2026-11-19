@@ -1,0 +1,17 @@
+{
+ "clip": "idle",
+ "group": "special",
+ "fps": 24,
+ "frames": 240,
+ "duration_s": 10.0,
+ "accents": [
+  4.958,
+  6.958,
+  8.208,
+  8.458
+ ],
+ "accent_count": 4,
+ "median_interval_s": 1.25,
+ "implied_bpm": 48.0,
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s"
+}

@@ -60,7 +60,7 @@ object DancerActivity {
      * carries no colon and stays a lyric.
      */
     private val creditLabelRegex = Regex(
-        """^(作词|作曲|编曲|词曲|制作人|制作|监制|演唱|原唱|和声|混音|录音|出品|发行|词|曲)\s*[:：]"""
+        """^(作词人|作曲人|作词|作曲|编曲|词曲|制作人|制作|监制|演唱|原唱|和声|混音|录音|出品|发行|词|曲)\s*[:：]"""
     )
     private val creditByRegex = Regex(
         """^(lyrics|music|words|composed|arranged|performed|produced|sung)\s+by\b""",
@@ -76,9 +76,14 @@ object DancerActivity {
      * than a sung lyric? This library's converter writes a header
      * block of timed credit lines at the head of every enhanced
      * LRC — a title line, then 词/曲 lines — before the first sung
-     * line. They are displayed like lyrics (and swept like them),
-     * but nobody sings them, so they must not pose as the start
-     * of the singing.
+     * line. Nobody sings them, so they must not pose as the start
+     * of the singing ([firstSungStartMs] skips them) — and since
+     * v1.0.74 they are not the audience's business either:
+     * [displayLines] drops them from the stage's lyric list
+     * outright (user report: "歌词的作曲者、作词者还在" — most of
+     * the library's files still carry the lines, and hiding them
+     * in the app covers every file at once). The label set
+     * includes the 作词人/作曲人 forms alongside 词/曲/作词/作曲.
      */
     fun isCreditLine(text: String): Boolean {
         val t = text.trim()
@@ -86,6 +91,21 @@ object DancerActivity {
             creditByRegex.containsMatchIn(t) ||
             creditColonEnRegex.containsMatchIn(t)
     }
+
+    /**
+     * The lines the stage actually shows: the parsed lyrics with
+     * every credit line removed (v1.0.74, see [isCreditLine]).
+     * The match runs on the line's text, which the parser has
+     * already stripped of its inline word tags, so an enhanced
+     * credit line is judged by its words alone. Everything else
+     * keeps its order and timing — the title card stays (it is
+     * the song's name, not a credit), and because credit lines
+     * never counted as sung lines, the first-sung start and the
+     * dance phases derived from the filtered list are exactly
+     * what they were over the raw list.
+     */
+    fun displayLines(lines: List<LyricLine>): List<LyricLine> =
+        lines.filterNot { isCreditLine(it.text) }
 
     /** Whitespace hugging a hyphen — insignificant in a title
      *  card (v1.0.36 — see [isTitleLine]). */

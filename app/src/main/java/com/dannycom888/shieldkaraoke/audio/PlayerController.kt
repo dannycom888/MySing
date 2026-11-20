@@ -42,9 +42,9 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
  * ([PlaybackErrorText]) — the top message alone named nothing.
  * The active sink path stays visible in
  * the diagnostics line (on the admin page since v1.0.35); the
- * error banner shows
- * while the fault is live and clears once a recovery
- * is confirmed progressing (v1.0.15, see [ErrorDisplayPolicy]).
+ * error banner shows only for a failure the ladder could not
+ * heal — a self-healed error never displays at all (v1.0.74,
+ * see [ErrorDisplayPolicy]).
  * Music-stream audio focus is requested before playback and
  * abandoned on release.
  *
@@ -110,8 +110,9 @@ class PlayerController(private val context: Context) {
     private val fallback = FallbackStateMachine()
 
     /** Whether [lastError] still deserves its red banner — a
-     *  self-healed error clears once the retry is confirmed
-     *  progressing (v1.0.15, see [ErrorDisplayPolicy]). */
+     *  self-healed error never earns one; only a final or
+     *  unresolved failure shows (v1.0.74, see
+     *  [ErrorDisplayPolicy]). */
     private val errorDisplay = ErrorDisplayPolicy()
 
     private val listener = object : Player.Listener {
@@ -145,11 +146,10 @@ class PlayerController(private val context: Context) {
 
     /**
      * The error text for the red banner right now, or null when the
-     * banner should be hidden. The banner survives a real failure
-     * (FAILED path) but clears once a recovery on a plainer rung
-     * is confirmed progressing — see [ErrorDisplayPolicy]. Reads
-     * the live player, so call it from a poll loop, not
-     * composition.
+     * banner should be hidden. A real failure (FAILED path) shows
+     * and sticks; an error a plainer rung heals never shows at
+     * all — see [ErrorDisplayPolicy]. Reads the live player, so
+     * call it from a poll loop, not composition.
      */
     fun visibleError(): String? {
         val err = lastError ?: return null
@@ -299,8 +299,9 @@ class PlayerController(private val context: Context) {
         // message alone ("Unexpected runtime error") named
         // nothing on the tablet; the root fault sits in a cause.
         lastError = PlaybackErrorText.describe(error.errorCodeName, error)
-        // A fresh error re-arms the banner until this error's own
-        // recovery (if any) is confirmed progressing.
+        // A fresh error re-arms the display policy: the banner
+        // stays hidden while this error's retry settles, and only
+        // a final or unresolved failure ever shows (v1.0.74).
         errorDisplay.reset()
         if (!fallback.onError()) return // BARE errored too: stay put, error stays visible
         val uri = currentUri ?: return

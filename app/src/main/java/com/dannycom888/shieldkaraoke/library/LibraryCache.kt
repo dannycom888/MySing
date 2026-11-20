@@ -26,7 +26,12 @@ object LibraryCache {
     // ref as a seventh field. The bump voids v1 caches wholesale
     // (the documented behaviour) — the full scan right behind the
     // cache load rebuilds them with pairings included.
-    private const val VERSION = "2"
+    // v3 (v1.0.74): the stored artist/title derivation changed
+    // (hyphen spacing is now optional on either side — see
+    // LibraryScanner.splitArtistTitle); a v2 cache would serve
+    // the old mis-splits (blank artist, whole stem as title) for
+    // the one-sided files until the rescan landed.
+    private const val VERSION = "3"
 
     fun encode(treeUri: String, songs: List<Song>): String {
         val sb = StringBuilder()

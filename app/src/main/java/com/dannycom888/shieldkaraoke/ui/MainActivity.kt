@@ -666,7 +666,12 @@ class MainActivity : ComponentActivity() {
                         emptyList()
                     }
                 }
-                if (app.state.nowPlaying?.song?.id == entry.song.id) lyrics = parsed
+                if (app.state.nowPlaying?.song?.id == entry.song.id) {
+                    // v1.0.74: credit lines （词：/曲：…) never reach
+                    // the stage — most library files still carry
+                    // them, and the audience never sings them.
+                    lyrics = DancerActivity.displayLines(parsed)
+                }
             }
         }
         if (cachedGain == null) {
@@ -2975,12 +2980,13 @@ class MainActivity : ComponentActivity() {
                       }
                     }
                 }
-                // --- error banner: a real failure's banner stays
-                // up; a self-healed one clears once the plain retry
-                // is confirmed playing (v1.0.15, see
-                // ErrorDisplayPolicy). This is a fault signal, not
-                // the diagnostics line — v1.0.35 moved the small
-                // print to the admin page, the banner stays here. ---
+                // --- error banner: only a failure the ladder
+                // could not heal ever appears (a self-healed error
+                // never displays, v1.0.74; a real failure's banner
+                // stays up, see ErrorDisplayPolicy). This is a
+                // fault signal, not the diagnostics line — v1.0.35
+                // moved the small print to the admin page, the
+                // banner stays here. ---
                 errorBanner?.let { err ->
                     Text(s(TvKey.PLAY_ERROR, err), color = Color(0xFFFF7043), fontSize = (if (compact) 11 else 12).sp)
                 }

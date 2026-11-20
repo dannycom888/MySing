@@ -81,10 +81,25 @@ object LibraryScanner {
                 return stem.substring(0, idx).trim() to stem.substring(idx + sep.length).trim()
             }
         }
-        // Some files use "歌手-歌名" without spaces.
-        val dash = stem.indexOf('-')
-        if (dash > 0 && !stem.substring(0, dash).contains(' ')) {
-            return stem.substring(0, dash).trim() to stem.substring(dash + 1).trim()
+        // The spacing around the hyphen is optional on either
+        // side (v1.0.74): most of the library is "歌手 - 歌名",
+        // but a handful of files are "张宇 -雨一直下", "周杰伦- 夜曲",
+        // "王杰 王韵婵- 祈祷" — space on one side only, or none.
+        // Split on the FIRST bare hyphen and trim both sides, so
+        // a later hyphen inside the title survives intact. The
+        // old fallback additionally demanded no space before the
+        // hyphen, which is exactly what the one-sided files have
+        // (a trailing space after the artist, or a spaced duet
+        // name), so they fell through unsplit: artist blank, the
+        // whole stem posing as the title — and downstream the
+        // LRC's title card no longer matched the song's pair, so
+        // the card posed as the first sung line and the dancer
+        // danced through the intro instead of inviting.
+        val dash = stem.indexOfFirst { it == '-' || it == '–' || it == '—' }
+        if (dash > 0) {
+            val artist = stem.substring(0, dash).trim()
+            val title = stem.substring(dash + 1).trim()
+            if (artist.isNotEmpty() && title.isNotEmpty()) return artist to title
         }
         return "" to stem.trim()
     }

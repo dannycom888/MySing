@@ -108,6 +108,18 @@ class LibraryCacheTest {
     }
 
     @Test
+    fun version2CachesAreVoidAfterTheDerivationBump() {
+        // v1.0.74: a v2 line's artist/title were derived by the
+        // old hyphen rule (the one-sided files stored a blank
+        // artist and the whole stem as title); the v3 reader
+        // must treat the whole file as no cache, never serve
+        // the stale splits at a cold start.
+        val v2 = "MSING-CATALOG-CACHE\t2\t" + tree + "\n" +
+            "id\t\t张宇 -雨一直下\tCHINESE_BOY\taudio\tlyrics\t\n"
+        assertNull(LibraryCache.decode(v2, tree))
+    }
+
+    @Test
     fun emptyLibraryEncodesToNoCache() {
         // An empty scan result must not masquerade as a usable cache:
         // decode treats "no songs" as "no cache" and the app falls

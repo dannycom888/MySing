@@ -184,6 +184,9 @@ class DancerActivityTest {
         assertTrue(DancerActivity.isCreditLine("曲：胡伟立"))
         assertTrue(DancerActivity.isCreditLine("作词：黄家驹"))
         assertTrue(DancerActivity.isCreditLine("作曲 : mc六道"))
+        // v1.0.74: the 作词人/作曲人 forms count too.
+        assertTrue(DancerActivity.isCreditLine("作词人：黄家驹"))
+        assertTrue(DancerActivity.isCreditLine("作曲人 : 胡伟立"))
         assertTrue(DancerActivity.isCreditLine("编曲：刀郎"))
         assertTrue(DancerActivity.isCreditLine("Lyrics by Adele"))
         // A sung line that merely STARTS with the same character
@@ -191,6 +194,72 @@ class DancerActivityTest {
         assertFalse(DancerActivity.isCreditLine("词不达意"))
         assertFalse(DancerActivity.isCreditLine("曲终人散了"))
         assertFalse(DancerActivity.isCreditLine("如何面对"))
+    }
+
+    @Test
+    fun creditLinesAreDroppedFromTheDisplayList() {
+        // v1.0.74 (user report: "歌词的作曲者、作词者还在"): the
+        // stage's lyric list drops every credit line outright —
+        // all six label forms, judged on the tag-stripped text
+        // (the 词 line below is enhanced, word tags and all).
+        // The title card is not a credit and stays; a sung line
+        // that merely starts with 词 (no colon) stays too.
+        val lines = com.dannycom888.shieldkaraoke.lyrics.LrcParser.parse(
+            """
+            [00:00.50]歌手 - 歌名
+            [00:01.00]<00:01.00>词<00:01.20>：<00:01.40>某<00:01.60>人<00:01.80>
+            [00:02.00]曲：某人
+            [00:03.00]作词：某人
+            [00:04.00]作曲：某人
+            [00:05.00]作词人：某人
+            [00:06.00]作曲人：某人
+            [00:30.00]第一句歌词
+            [00:35.00]词不达意也成句
+            """.trimIndent()
+        )
+        assertEquals(9, lines.size) // the parser itself is untouched
+        val shown = DancerActivity.displayLines(lines)
+        assertEquals(
+            listOf("歌手 - 歌名", "第一句歌词", "词不达意也成句"),
+            shown.map { it.text },
+        )
+        // Dance start is unchanged by the drop: credit lines
+        // never counted as sung lines in the first place.
+        assertEquals(30_000L, DancerActivity.firstSungStartMs(lines, "歌手", "歌名"))
+        assertEquals(30_000L, DancerActivity.firstSungStartMs(shown, "歌手", "歌名"))
+    }
+
+    @Test
+    fun oneSidedStemsStillFindTheirIntro() {
+        // v1.0.74, the whole chain behind the user's report: a
+        // file whose name spaces the hyphen on one side only
+        // ("张宇 -雨一直下" and friends) used to scan with a blank
+        // artist and the whole stem as its title, so the LRC's
+        // title card — which mirrors the file name — no longer
+        // matched the song's pair, posed as the first sung line,
+        // and the dancer danced through the intro instead of
+        // inviting. For each real deviating stem: split it, then
+        // run the header block its LRC actually opens with
+        // (title card at 0.6 s, 词 at 1.6 s, singing at 30 s).
+        val stems = listOf(
+            "张宇 -雨一直下", "罗志祥 -爱疯头", "周杰伦- 夜曲", "小虎队- 红蜻蜓", "王杰 王韵婵- 祈祷",
+        )
+        for (stem in stems) {
+            val (artist, title) =
+                com.dannycom888.shieldkaraoke.library.LibraryScanner.splitArtistTitle(stem)
+            val lines = listOf(
+                LyricLine(600L, stem),
+                LyricLine(1_600L, "词：佚名"),
+                LyricLine(30_000L, "第一句歌词"),
+            )
+            val start = DancerActivity.firstSungStartMs(lines, artist, title)
+            assertEquals("stem $stem must skip its title card", 30_000L, start)
+            assertEquals(
+                "stem $stem must open INVITING",
+                DancerActivity.Phase.INVITING,
+                DancerActivity.phase(0L, start, 200_000L),
+            )
+        }
     }
 
     @Test

@@ -179,4 +179,53 @@ class LibraryScannerTest {
         assertEquals(Category.CHINESE_GIRL, songs[0].category)
         assertEquals("凤凰传奇", songs[0].artist)
     }
+
+    // ---- v1.0.74: hyphen spacing is optional on either side ----
+    // The user's real deviating stems: most of the library is
+    // "歌手 - 歌名", but these carry the space on one side of the
+    // hyphen only, or none. The old bare-dash fallback demanded
+    // no space before the hyphen, so they fell through unsplit —
+    // blank artist, whole stem as title — and downstream the
+    // LRC's title card stopped matching the song's pair.
+
+    @Test
+    fun `one-sided hyphen spacing still splits artist and title`() {
+        assertEquals("张宇" to "雨一直下", LibraryScanner.splitArtistTitle("张宇 -雨一直下"))
+        assertEquals("罗志祥" to "爱疯头", LibraryScanner.splitArtistTitle("罗志祥 -爱疯头"))
+        assertEquals("周杰伦" to "夜曲", LibraryScanner.splitArtistTitle("周杰伦- 夜曲"))
+        assertEquals("小虎队" to "红蜻蜓", LibraryScanner.splitArtistTitle("小虎队- 红蜻蜓"))
+        assertEquals("王杰 王韵婵" to "祈祷", LibraryScanner.splitArtistTitle("王杰 王韵婵- 祈祷"))
+        assertEquals("张宇" to "雨一直下", LibraryScanner.splitArtistTitle("张宇-雨一直下"))
+    }
+
+    @Test
+    fun `the normal spaced form splits as before`() {
+        assertEquals("Beyond" to "海阔天空", LibraryScanner.splitArtistTitle("Beyond - 海阔天空"))
+        assertEquals("周杰伦" to "晴天", LibraryScanner.splitArtistTitle("周杰伦 - 晴天"))
+    }
+
+    @Test
+    fun `a later hyphen inside the title survives intact`() {
+        // The split takes the FIRST hyphen; everything after it
+        // is the title, hyphens included.
+        assertEquals("歌手" to "歌名-加长版", LibraryScanner.splitArtistTitle("歌手 - 歌名-加长版"))
+        assertEquals("歌手" to "歌名-加长版", LibraryScanner.splitArtistTitle("歌手-歌名-加长版"))
+    }
+
+    @Test
+    fun `a stem without any hyphen is all title`() {
+        assertEquals("" to "红蜻蜓", LibraryScanner.splitArtistTitle("红蜻蜓"))
+    }
+
+    @Test
+    fun `one-sided file pairs with its lrc and yields the pair`() {
+        val songs = LibraryScanner.scan(listOf(
+            file("music chinese boy", "张宇 -雨一直下.mp3"),
+            file("music chinese boy", "张宇 -雨一直下.lrc"),
+        ))
+        assertEquals(1, songs.size)
+        assertEquals("张宇", songs[0].artist)
+        assertEquals("雨一直下", songs[0].title)
+        assertTrue(songs[0].lyricsRef != null)
+    }
 }

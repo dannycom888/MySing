@@ -12,7 +12,14 @@ For every shipped clip the fixture records:
     bg_samples        64 background RGB pixels (corner blocks
                       of every 3rd frame at 4fps, decoded with
                       the stream's tagged BT.709 matrix — what
-                      the stage's texture sampling sees);
+                      the stage's texture sampling sees).
+                      Pixels under the packaging figure mask
+                      are excluded: a tall-framed clip's hair
+                      can graze the top-centre block (the
+                      v1.0.75 invite does, at 0.75s and 9.75s),
+                      and a hair pixel is not a backdrop sample
+                      — the gate judges the backdrop, so the
+                      pool is background-only by construction;
     bg_median_rgb     their median;
     figure_samples    96 figure RGB pixels (eroded figure
                       mask, packaging definition).
@@ -79,10 +86,13 @@ if __name__ == '__main__':
         for i, f in enumerate(stream_frames(path, w, h, fps=4)):
             if i % 3 != 0:
                 continue
-            blocks = [f[:B, :B], f[:B, -B:], f[-B:, :B], f[-B:, -B:],
-                      f[:B, w // 2 - B // 2:w // 2 + B // 2]]
-            bg_pool.append(np.concatenate([b.reshape(-1, 3) for b in blocks]))
-            fig_pool.append(f[erode(figure_mask(f.astype(int)), 3)])
+            m = figure_mask(f.astype(int))
+            regions = [(slice(0, B), slice(0, B)), (slice(0, B), slice(w - B, w)),
+                       (slice(h - B, h), slice(0, B)), (slice(h - B, h), slice(w - B, w)),
+                       (slice(0, B), slice(w // 2 - B // 2, w // 2 + B // 2))]
+            bg_pool.append(np.concatenate(
+                [f[r][~m[r]].reshape(-1, 3) for r in regions]))
+            fig_pool.append(f[erode(m, 3)])
         bg_pool = np.concatenate(bg_pool)
         fig_pool = np.concatenate(fig_pool)
         digest = hashlib.sha256(open(path, 'rb').read()).hexdigest()

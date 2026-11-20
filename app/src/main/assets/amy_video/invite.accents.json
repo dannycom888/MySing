@@ -5,21 +5,19 @@
  "frames": 240,
  "duration_s": 10.0,
  "accents": [
-  1.292,
-  1.667,
-  3.333,
-  5.208,
-  6.25,
-  6.5,
-  7.292,
-  7.708,
-  8.167
+  0.792,
+  1.458,
+  4.333,
+  5.042,
+  6.375,
+  8.375,
+  8.792
  ],
- "accent_count": 9,
- "median_interval_s": 0.6254999999999997,
- "implied_bpm": 95.9,
+ "accent_count": 7,
+ "median_interval_s": 1.021,
+ "implied_bpm": 58.8,
  "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s",
- "figure_height": 0.8575,
- "figure_scale": 1.017,
- "feet_v": 0.046
+ "figure_height": 0.9016,
+ "figure_scale": 0.968,
+ "feet_v": 0.037
 }

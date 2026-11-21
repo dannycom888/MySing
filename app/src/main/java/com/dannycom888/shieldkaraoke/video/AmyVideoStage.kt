@@ -6,6 +6,8 @@ import android.graphics.SurfaceTexture
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.view.Surface
 import androidx.compose.foundation.layout.Box
@@ -35,6 +37,7 @@ import com.dannycom888.shieldkaraoke.ui.spotlightPool
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.util.concurrent.atomic.AtomicLongArray
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.abs
@@ -214,18 +217,29 @@ fun AmyVideoFigure(
         }
     }
 
-    // Errors on EITHER player fall the session back to frames.
+    // Errors on EITHER player fall the session back to
+    // frames. Each player also reports its first rendered
+    // frame to ITS slot's first-frame gate (v1.0.78): the
+    // surface wiring above is fixed per player — playerA
+    // always feeds slot 0, playerB slot 1 — whatever role
+    // (front / preload) the dance currently gives them.
     DisposableEffect(playerA, playerB) {
-        val listener = object : Player.Listener {
+        fun listenerFor(slot: Int) = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 errorState.value.invoke()
             }
+
+            override fun onRenderedFirstFrame() {
+                glView.markSlotFrameRendered(slot)
+            }
         }
-        playerA.addListener(listener)
-        playerB.addListener(listener)
+        val listenerA = listenerFor(0)
+        val listenerB = listenerFor(1)
+        playerA.addListener(listenerA)
+        playerB.addListener(listenerB)
         onDispose {
-            playerA.removeListener(listener)
-            playerB.removeListener(listener)
+            playerA.removeListener(listenerA)
+            playerB.removeListener(listenerB)
         }
     }
 
@@ -280,6 +294,10 @@ fun AmyVideoFigure(
         playerB.clearMediaItems()
         playerA.repeatMode = Player.REPEAT_MODE_ONE
         playerA.setPlaybackSpeed(1f)
+        // v1.0.78: the new special's first frame re-opens
+        // slot 0's gate; until it renders, the slot is not
+        // drawn (no black box, no previous special's frame).
+        glView.resetSlotFrameGate(0)
         playerA.setMediaItem(MediaItem.fromUri("asset:///${clip.assetPath}"))
         playerA.prepare()
         if (playingState.value) playerA.play()
@@ -299,6 +317,9 @@ fun AmyVideoFigure(
         glView.setSlotScale(0, AmyVideoSizing.slotScale(start))
         glView.setSlotFeet(0, AmyVideoSizing.slotFeetV(start))
         playerA.repeatMode = Player.REPEAT_MODE_OFF
+        // v1.0.78: song start — slot 0's gate closes until
+        // the front clip's first frame renders.
+        glView.resetSlotFrameGate(0)
         playerA.setMediaItem(MediaItem.fromUri("asset:///${start.assetPath}"))
         playerA.prepare()
         val next = danceRotation?.peekNext()
@@ -311,6 +332,10 @@ fun AmyVideoFigure(
             glView.setSlotScale(1, AmyVideoSizing.slotScale(next))
             glView.setSlotFeet(1, AmyVideoSizing.slotFeetV(next))
             playerB.repeatMode = Player.REPEAT_MODE_OFF
+            // v1.0.78: the preload's gate closes at the
+            // load and re-opens on its seek frame, long
+            // before the boundary can draw the slot.
+            glView.resetSlotFrameGate(1)
             playerB.setMediaItem(MediaItem.fromUri("asset:///${next.assetPath}"))
             playerB.prepare()
             if (plan.segments.isNotEmpty()) {
@@ -392,6 +417,14 @@ fun AmyVideoFigure(
                         glView.setSlotFeet(
                             1 - frontSlot, AmyVideoSizing.slotFeetV(following),
                         )
+                        // v1.0.78: same gate discipline as
+                        // every load — the reloaded preload's
+                        // slot stays gated until the new
+                        // clip's seek frame renders (it is
+                        // invisible throughout the wait, and
+                        // the boundary only swaps to a READY
+                        // player, whose frame has landed).
+                        glView.resetSlotFrameGate(1 - frontSlot)
                         backPlayer.setMediaItem(
                             MediaItem.fromUri("asset:///${following.assetPath}"),
                         )
@@ -767,6 +800,24 @@ class AmyGlView(context: Context) : GLSurfaceView(context) {
         queueEvent { renderer.setSlotEnabled(slot, enabled) }
     }
 
+    /** v1.0.78: close a slot's first-frame gate — the
+     *  driver calls this at every media load into the
+     *  slot's player; the slot stays undrawn until the new
+     *  item's first frame renders (see [SlotFrameGate]).
+     *  A plain atomic write on the renderer, safe from the
+     *  main thread — no GL queue hop, so the gate is shut
+     *  before the load can produce a frame. */
+    fun resetSlotFrameGate(slot: Int) {
+        renderer.resetSlotFrameGate(slot)
+    }
+
+    /** v1.0.78: open a slot's first-frame gate — the
+     *  driver calls this from the slot player's
+     *  rendered-first-frame callback. */
+    fun markSlotFrameRendered(slot: Int) {
+        renderer.markSlotFrameRendered(slot)
+    }
+
     /** Show exactly one slot, cancelling any crossfade. */
     fun showSingleSlot(slot: Int) {
         renderer.showSingleSlot(slot)
@@ -796,6 +847,18 @@ class AmyGlView(context: Context) : GLSurfaceView(context) {
  * itself never resizes). A crossfade blends the outgoing
  * slot down and the incoming slot up over [CROSSFADE_MS];
  * outside a fade exactly one slot is visible.
+ *
+ * v1.0.78: a slot is drawn only once its current load has
+ * rendered a first frame ([SlotFrameGate]) — before that
+ * the sampled texture reads black, which the shader cannot
+ * key (black's chroma is far from the key green), so the
+ * quad painted opaque black for the player's spin-up and
+ * load window on cold opens and song starts alike. The
+ * driver closes the gate at every media load; the player's
+ * rendered-first-frame callback (backed by the texture's
+ * frame-available callback) opens it, and the slot fades
+ * in over [SlotFrameGate.APPEAR_FADE_MS] through the slot
+ * alpha that feeds uGlobalAlpha.
  */
 private class ChromaKeyRenderer(
     private val onTexturesReady: (Array<SurfaceTexture>) -> Unit,
@@ -819,6 +882,40 @@ private class ChromaKeyRenderer(
     // and always draws; slot 1 exists only while the dance
     // ping-pong owns it.
     private val slotEnabled = booleanArrayOf(true, false)
+
+    // v1.0.78 first-frame gate (see SlotFrameGate): the
+    // uptime each slot's CURRENT LOAD rendered its first
+    // frame, 0 = none for this load yet. The driver closes
+    // a slot's gate at every media load into its player
+    // (resetSlotFrameGate); the player's rendered-first-
+    // frame callback and the texture's frame-available
+    // callback open it (markSlotFrameRendered). Written
+    // from the main thread, read on the GL thread every
+    // frame; also reset whenever onSurfaceCreated mints
+    // fresh textures.
+    private val slotFirstFrameUptimeMs = AtomicLongArray(SLOT_COUNT)
+    private val frameCallbackHandler = Handler(Looper.getMainLooper())
+
+    /** v1.0.78: close [slot]'s first-frame gate — a new
+     *  item is loading into its player, and whatever frame
+     *  the texture still holds belongs to the previous
+     *  item. The slot stays undrawn until the new item's
+     *  first frame is rendered. */
+    fun resetSlotFrameGate(slot: Int) {
+        slotFirstFrameUptimeMs.set(slot, 0L)
+    }
+
+    /** v1.0.78: open [slot]'s first-frame gate — its
+     *  player rendered the loaded item's first frame.
+     *  Latched: only the first signal after a reset opens
+     *  the gate, so a re-fired callback (the player can
+     *  report a first frame again after a seek) never
+     *  restarts the fade mid-song. */
+    fun markSlotFrameRendered(slot: Int) {
+        slotFirstFrameUptimeMs.compareAndSet(
+            slot, 0L, SystemClock.uptimeMillis(),
+        )
+    }
 
     // Crossfade state (touched from the main thread via the
     // setters, resolved on the GL thread each frame).
@@ -928,6 +1025,23 @@ private class ChromaKeyRenderer(
             val texture = SurfaceTexture(textureIds[slot])
             texture.setDefaultBufferSize(CLIP_WIDTH_PX, CLIP_HEIGHT_PX)
             surfaceTextures[slot] = texture
+            // v1.0.78: a fresh texture starts with its
+            // first-frame gate closed (see SlotFrameGate);
+            // the frame-available callback is one of the
+            // two signals that open it. The identity check
+            // keeps a stale callback from the texture this
+            // one replaced (already queued when the GL
+            // context was recreated) from opening the fresh
+            // texture's gate early.
+            slotFirstFrameUptimeMs.set(slot, 0L)
+            texture.setOnFrameAvailableListener(
+                { delivered ->
+                    if (delivered === surfaceTextures[slot]) {
+                        markSlotFrameRendered(slot)
+                    }
+                },
+                frameCallbackHandler,
+            )
             texture
         }
         onTexturesReady(ready)
@@ -953,8 +1067,28 @@ private class ChromaKeyRenderer(
             if (!slotEnabled[slot]) continue
             val alpha = slotAlpha(slot, nowMs)
             if (alpha <= 0f) continue
+            // v1.0.78 first-frame gate (see SlotFrameGate):
+            // a slot whose CURRENT LOAD has not rendered a
+            // frame yet is NOT drawn — sampling its texture
+            // before that reads black (or, after a swap, a
+            // frame that is not the new item's), and black's
+            // chroma sits far from the key green, so the
+            // shader would paint the quad opaque black (the
+            // cold-open / song-start black box: the front
+            // slot was drawn at full alpha for the second or
+            // two the player needed to spin up and load).
+            // The factor also fades the slot in over
+            // APPEAR_FADE_MS once the first frame lands,
+            // through the same slot alpha that feeds
+            // uGlobalAlpha. Both draw paths share this loop:
+            // the specials' single slot and the dance's
+            // ping-pong slots alike.
+            val gate = SlotFrameGate.alphaFactor(
+                slotFirstFrameUptimeMs.get(slot), nowMs,
+            )
+            if (gate <= 0f) continue
             val texture = surfaceTextures[slot] ?: continue
-            drawSlot(slot, texture, alpha)
+            drawSlot(slot, texture, alpha * gate)
         }
     }
 

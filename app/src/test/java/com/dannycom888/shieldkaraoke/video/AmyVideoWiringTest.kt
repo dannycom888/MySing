@@ -230,6 +230,39 @@ class AmyVideoWiringTest {
     }
 
     @Test
+    fun `a slot is drawn only after its current load rendered a first frame`() {
+        val src = videoStage()
+        // v1.0.78: the black box (cold open ~2s, every song
+        // start ~1s) — the draw loop sampled the front
+        // slot's SurfaceTexture from the surface's first
+        // frame, well before the player's first real frame
+        // landed; an unsampled texture reads black, whose
+        // chroma is far from the key green, so the shader
+        // painted the quad opaque. The gate is PER LOAD,
+        // not per texture: after a media swap the texture
+        // can still hold the previous clip's last frame, so
+        // the driver closes the gate at EVERY load (the
+        // specials' setMediaItem, the dance entry's front
+        // and preload loads, and the post-swap preload
+        // reload — four sites), and only the new item's
+        // first rendered frame opens it: the player's
+        // onRenderedFirstFrame, with the texture's
+        // frame-available callback as the second signal.
+        // The draw loop multiplies the slot alpha by the
+        // pure gate factor (SlotFrameGate — 0 before the
+        // first frame, fading in after it); one loop serves
+        // the specials' single slot and the dance's
+        // ping-pong slots alike.
+        assertTrue(src.contains("setOnFrameAvailableListener"))
+        assertTrue(src.contains("slotFirstFrameUptimeMs"))
+        assertTrue(src.contains("override fun onRenderedFirstFrame()"))
+        assertTrue(src.contains("glView.markSlotFrameRendered(slot)"))
+        assertTrue(src.contains("SlotFrameGate.alphaFactor("))
+        assertTrue(src.contains("drawSlot(slot, texture, alpha * gate)"))
+        assertEqualsCount(src, "glView.resetSlotFrameGate(", 4)
+    }
+
+    @Test
     fun `the key gate port matches the shader it mirrors`() {
         // v1.0.72: ChromaKeyMath is the shader's JVM twin —
         // its constants must stay the shader's constants, or

@@ -67,15 +67,41 @@ object AmyVideoPack {
     const val SPECIAL_COMBO = "combo"
 
     /**
-     * Songs at or above this tempo draw from the fast pool,
-     * slower songs from the slow pool. The split sits between
-     * the two groups' heartlands (the slow group's implied
-     * tempos top out in the low 140s only through sparse
-     * accents; its measured centres are far lower), and the
-     * per-segment speed clamp is the real guard — the pool
-     * choice only has to be roughly right.
+     * Clips that stay in the pack but are never chosen for
+     * the dance rotation (v1.0.79, the user's ruling after
+     * the punch audit in dancers/amy-wide/punch-audit/):
+     * fast-07 is dominated by alternating fist thrusts and
+     * fast-03's second half is repeated fist thrusts — the
+     * user dislikes the punching choreography. Applied in
+     * [dancePool], the one place pools are computed, so no
+     * path — start pick, mid-song rebuild, or the widened
+     * fallback — can ever serve them.
      */
-    const val FAST_POOL_MIN_BPM = 100.0
+    val EXCLUDED_FROM_ROTATION: Set<String> = setOf("fast-03", "fast-07")
+
+    /**
+     * Whether a dance clip may serve a song at [songBpm]
+     * (v1.0.79, the user's ruling replacing the hard
+     * fast/slow pool split at 100 BPM): the speed the
+     * scheduler would have to play the clip at — the song
+     * tempo over the clip's own implied tempo, the same
+     * ratio [pickNext] has always filtered on — must sit
+     * inside the scheduler's own guard band
+     * ([BeatSliceScheduler.MIN_SPEED]..[BeatSliceScheduler.MAX_SPEED]).
+     * Group labels no longer gate anything: a slow-group
+     * clip whose accents genuinely pace fast may speed into
+     * fast service, a fast-group clip may slow into slow
+     * service, and only out-of-ratio clips sit out. A clip
+     * with no measured tempo (impliedBpm 0) never qualifies
+     * on ratio — it can still dance through the empty-pool
+     * widening in [dancePool].
+     */
+    fun tempoEligible(clip: AmyClip, songBpm: Double): Boolean {
+        if (clip.impliedBpm <= 0.0 || songBpm <= 0.0) return false
+        val speed = songBpm / clip.impliedBpm
+        return speed >= BeatSliceScheduler.MIN_SPEED &&
+            speed <= BeatSliceScheduler.MAX_SPEED
+    }
 
     /**
      * Parse one packaged accent JSON (the exact shape
@@ -109,16 +135,22 @@ object AmyVideoPack {
         clips.firstOrNull { it.group == GROUP_SPECIAL && it.name == name }
 
     /**
-     * The dance pool for a song at [songBpm]: the fast group
-     * for fast songs, the slow group for slow ones. Falls back
-     * to every dance clip when the wanted group is empty (a
-     * damaged pack still dances rather than not dancing).
+     * The dance pool for a song at [songBpm]: every dance
+     * clip — both groups, minus [EXCLUDED_FROM_ROTATION] —
+     * whose beat-match speed at this tempo sits inside the
+     * scheduler's guard band (see [tempoEligible]). Falls
+     * back to every non-excluded dance clip when nothing
+     * qualifies (a damaged pack, or a tempo outside every
+     * clip's reach, still dances rather than not dancing).
      */
     fun dancePool(clips: List<AmyClip>, songBpm: Double): List<AmyClip> {
-        val wanted = if (songBpm >= FAST_POOL_MIN_BPM) GROUP_FAST else GROUP_SLOW
-        val group = clips.filter { it.group == wanted }
-        if (group.isNotEmpty()) return group
-        return clips.filter { it.group == GROUP_FAST || it.group == GROUP_SLOW }
+        val dance = clips.filter {
+            (it.group == GROUP_FAST || it.group == GROUP_SLOW) &&
+                it.name !in EXCLUDED_FROM_ROTATION
+        }
+        val eligible = dance.filter { tempoEligible(it, songBpm) }
+        if (eligible.isNotEmpty()) return eligible
+        return dance
     }
 
     /**
@@ -126,14 +158,14 @@ object AmyVideoPack {
      * from the pool a song is already dancing (v1.0.76).
      * The pool is picked at song start with the tempo known
      * at that instant — for an uncached song that is the
-     * 96 BPM default, which always implies the slow pool —
-     * so when the background measurement lands mid-song the
-     * caller rebuilds the walk if (and only if) this says
-     * the measured tempo belongs to the other pool. The
-     * comparison is by clip names, so the damaged-pack
-     * fallback in [dancePool] (an empty group widening to
-     * every dance clip) can never trigger a spurious
-     * rebuild: the widened pool equals itself at any tempo.
+     * 96 BPM default, whose eligible set is the mid-tempo
+     * mix around 96, not the set a fast or slow song ends
+     * up needing — so when the background measurement lands
+     * mid-song the caller rebuilds the walk if (and only
+     * if) this says the measured tempo's eligible set is a
+     * different set. The comparison is by clip names; a
+     * widened (empty-eligibility) pool equals itself, so a
+     * tempo that qualifies nothing new never rebuilds.
      */
     fun poolNeedsRebuild(
         clips: List<AmyClip>,
@@ -141,6 +173,45 @@ object AmyVideoPack {
         measuredBpm: Double,
     ): Boolean =
         dancePool(clips, measuredBpm).map { it.name } != inUsePool.map { it.name }
+
+    /**
+     * The first clip of the rebuilt rotation when a
+     * measured tempo swaps the pool mid-song (v1.0.79).
+     *
+     * Mid-dance, the handoff is the outgoing walk's next
+     * clip: that clip is already loaded on the preload
+     * player and plays at the next pass boundary whatever
+     * the rotation says, so leading the new rotation with
+     * it keeps the walk's bookkeeping aligned with what
+     * the driver is about to do (see [DanceRotation]).
+     *
+     * But when the measurement lands while the song is
+     * still in its intro — the dance has not entered, and
+     * nothing from the old walk has been loaded anywhere
+     * (the common case: intros run tens of seconds, the
+     * measurement needs only seconds) — leading with that
+     * clip guarantees the song's first dance pass comes
+     * from the OLD pool for no benefit at all. The
+     * rotation then starts from a fresh pick in the new
+     * pool instead: exactly the pick startSong would have
+     * made had the tempo been known at song start. Falls
+     * back to the handoff when the new pool offers no pick
+     * (an empty pool — the caller treats a null result as
+     * "no rebuild" only when the handoff is missing too).
+     */
+    fun rebuildFirstClip(
+        newPool: List<AmyClip>,
+        oldWalk: DanceRotation?,
+        introShowing: Boolean,
+        measuredBpm: Double,
+        lastClipName: String?,
+        rotation: Int,
+    ): AmyClip? {
+        if (introShowing) {
+            pickNext(newPool, measuredBpm, lastClipName, rotation)?.let { return it }
+        }
+        return oldWalk?.peekNext() ?: oldWalk?.current()
+    }
 
     /**
      * Pick the next clip from [pool] for a song at [songBpm]:

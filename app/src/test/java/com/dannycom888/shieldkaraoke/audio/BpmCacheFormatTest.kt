@@ -31,8 +31,15 @@ class BpmCacheFormatTest {
     @Test
     fun otherVersionsReadAsUncached() {
         assertNull(BpmCacheFormat.decode("1:85.7"))
-        assertNull(BpmCacheFormat.decode("3:171.4"))
+        // Version 2 is the single-tier-scan detector whose
+        // widened anti-octave scan doubled ordinary songs —
+        // its cached values (a 50 BPM ballad stored as 200,
+        // a 96 BPM song as 193.5) must not survive into the
+        // two-tier estimator (v1.0.79).
+        assertNull(BpmCacheFormat.decode("2:171.4"))
+        assertNull(BpmCacheFormat.decode("2:200.0"))
         assertNull(BpmCacheFormat.decode("0:120.0"))
+        assertNull(BpmCacheFormat.decode("4:120.0"))
     }
 
     @Test
@@ -40,8 +47,8 @@ class BpmCacheFormatTest {
         assertNull(BpmCacheFormat.decode(null))
         assertNull(BpmCacheFormat.decode(""))
         assertNull(BpmCacheFormat.decode("abc"))
-        assertNull(BpmCacheFormat.decode("2:"))
-        assertNull(BpmCacheFormat.decode("2:xyz"))
+        assertNull(BpmCacheFormat.decode("3:"))
+        assertNull(BpmCacheFormat.decode("3:xyz"))
         assertNull(BpmCacheFormat.decode("x:120.0"))
     }
 }

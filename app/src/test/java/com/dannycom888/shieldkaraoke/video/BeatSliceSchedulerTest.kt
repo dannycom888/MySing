@@ -81,27 +81,22 @@ class BeatSliceSchedulerTest {
     }
 
     @Test
-    fun `audit - the full tempo group stays usable at representative song tempos`() {
-        // v1.0.73 chaining audit, first half: does the
-        // [0.7, 1.6] speed guard shrink the song's rotation
-        // at real-world tempos? Measured answer: NO — the
-        // scheduler has no eligibility filter to begin with;
-        // gluing plus beat-count adjustment absorbs the
-        // whole tempo difference, so the pool the rotation
-        // walks is the full group (10/10) at every tempo
-        // below. (The repetition the user saw was the walk,
-        // not the pool — see the v1.0.73 chapter.)
+    fun `audit - every ratio-eligible clip plans in-band at representative song tempos`() {
+        // v1.0.73 chaining audit, first half — reframed by
+        // v1.0.79's ratio eligibility: the pool is now the
+        // set of clips whose whole-clip speed (song tempo
+        // over implied tempo) sits in [0.7, 1.6]. The audit
+        // question becomes whether the scheduler's actual
+        // per-segment plans agree with that whole-clip
+        // judgement — i.e. every eligible clip really does
+        // plan with every segment inside the same band
+        // (gluing plus beat-count adjustment absorbs the
+        // tempo difference). Measured on the shipped pack:
+        // yes, at every tempo below.
         val clips = shippedClips()
-        val cases = listOf(
-            80.0 to AmyVideoPack.GROUP_SLOW,
-            96.0 to AmyVideoPack.GROUP_SLOW,
-            120.0 to AmyVideoPack.GROUP_FAST,
-            140.0 to AmyVideoPack.GROUP_FAST,
-        )
-        for ((bpm, group) in cases) {
+        for (bpm in listOf(80.0, 96.0, 120.0, 140.0, 171.4)) {
             val pool = AmyVideoPack.dancePool(clips, bpm)
-            assertEquals("pool at $bpm", 10, pool.size)
-            assertTrue(pool.all { it.group == group })
+            assertTrue("pool at $bpm must not be empty", pool.isNotEmpty())
             val period = 60.0 / bpm
             var usable = 0
             for (clip in pool) {
@@ -116,7 +111,7 @@ class BeatSliceSchedulerTest {
                     usable++
                 }
             }
-            assertEquals("usable clips at $bpm BPM", 10, usable)
+            assertEquals("usable clips at $bpm BPM", pool.size, usable)
         }
     }
 

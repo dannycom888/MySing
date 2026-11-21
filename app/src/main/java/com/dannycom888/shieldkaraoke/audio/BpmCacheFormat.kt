@@ -19,8 +19,16 @@ object BpmCacheFormat {
 
     /** Version 1 is the pre-v1.0.76 detector (60–160 BPM),
      *  whose entries are bare numbers with no tag at all.
-     *  Version 2 is the 60–200 BPM detector. */
-    const val ESTIMATOR_VERSION = 2
+     *  Version 2 is the 60–200 BPM detector with the
+     *  single-tier anti-octave scan — the one whose widened
+     *  scan doubled ordinary songs (a 50 BPM ballad cached
+     *  as 200, a 96 BPM song as 193.5; see BeatDetector).
+     *  Version 3 is the two-tier scan (v1.0.79): version-2
+     *  entries may hold those doubled values permanently,
+     *  so they read as uncached and are re-measured, the
+     *  same self-invalidation version 2 applied to version
+     *  1's half-tempo entries. */
+    const val ESTIMATOR_VERSION = 3
 
     fun encode(bpm: Double): String = "$ESTIMATOR_VERSION:$bpm"
 

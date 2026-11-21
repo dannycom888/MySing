@@ -236,10 +236,10 @@ class MainActivity : ComponentActivity() {
     // stay degraded, exactly the audio tier philosophy.
     private var amyVideoCatalogue by mutableStateOf<List<AmyClip>>(emptyList())
     private var amyDanceClip by mutableStateOf<AmyClip?>(null)
-    // v1.0.71: the song's dance pool (the tempo group the
-    // pick came from) — inside the song the video chains
-    // through it at pass boundaries instead of looping the
-    // pick (see AmyVideoFigure).
+    // v1.0.71: the song's dance pool (the tempo-eligible
+    // set the pick came from) — inside the song the video
+    // chains through it at pass boundaries instead of
+    // looping the pick (see AmyVideoFigure).
     private var amyDancePool by mutableStateOf<List<AmyClip>>(emptyList())
     // v1.0.73: the song's dance rotation — shuffle-with-
     // exhaustion over the pool, created with the pick in
@@ -636,20 +636,20 @@ class MainActivity : ComponentActivity() {
                         // v1.0.76: the dance pool below was
                         // picked with the tempo known at song
                         // start — for an uncached song that is
-                        // DEFAULT_BPM (96 < the fast-pool
-                        // threshold), so the slow pool was
-                        // guaranteed and a fast song slow-
-                        // danced to the end: this callback used
-                        // to update only the beat grid, never
-                        // the pool. When the measured tempo
-                        // implies the OTHER pool, rebuild the
-                        // walk: the new rotation is anchored
+                        // DEFAULT_BPM, whose eligible set is
+                        // the mid-tempo mix around 96 — and
+                        // this callback used to update only
+                        // the beat grid, never the pool, so a
+                        // fast song kept dancing the default
+                        // set to the end. When the measured
+                        // tempo's eligible set differs, rebuild
+                        // the walk: mid-dance it is anchored
                         // on the clip already loaded for the
                         // next pass boundary (the old walk's
                         // peek), so that clip still plays
                         // there — the visible player never
-                        // swaps mid-pass — and every clip after
-                        // it comes from the new pool.
+                        // swaps mid-pass — and every clip
+                        // after it comes from the new pool.
                         val walk = amyDanceRotation
                         if (walk != null &&
                             amyVideoLiveFor(Dancers.byKey(entry.dancerKey).key) &&
@@ -657,9 +657,45 @@ class MainActivity : ComponentActivity() {
                                 amyVideoCatalogue, amyDancePool, measured,
                             )
                         ) {
-                            val anchor = walk.peekNext() ?: walk.current()
-                            amyDancePool = AmyVideoPack.dancePool(amyVideoCatalogue, measured)
-                            amyDanceRotation = DanceRotation(amyDancePool, anchor)
+                            val newPool = AmyVideoPack.dancePool(amyVideoCatalogue, measured)
+                            // v1.0.79: the anchor above presumes
+                            // the dance has entered — the peeked
+                            // clip is loaded and next. While the
+                            // song is still in its intro that is
+                            // false: nothing has been loaded, and
+                            // anchoring would guarantee the
+                            // first dance pass comes from the
+                            // old pool. The phase is computed
+                            // from the same state the stage reads
+                            // (an unloaded lyric sheet reads as
+                            // DANCING here, matching the stage:
+                            // the dance HAS entered in that
+                            // case). rebuildFirstClip makes the
+                            // call: intro → a fresh pick in the
+                            // new pool; mid-dance → the anchor.
+                            val introShowing = DancerActivity.phase(
+                                positionMs,
+                                DancerActivity.firstSungStartMs(
+                                    lyrics, entry.song.artist, entry.song.title,
+                                ),
+                                DancerActivity.lastLyricEndMs(lyrics),
+                            ) == DancerActivity.Phase.INVITING
+                            val first = AmyVideoPack.rebuildFirstClip(
+                                newPool, walk, introShowing, measured,
+                                videoLastClipName, videoRotation,
+                            )
+                            if (first != null) {
+                                amyDancePool = newPool
+                                amyDanceRotation = DanceRotation(newPool, first)
+                                if (introShowing) {
+                                    // The fresh pick IS this
+                                    // song's pick now — the same
+                                    // bookkeeping startSong does
+                                    // for the pick it makes.
+                                    videoLastClipName = first.name
+                                    videoRotation++
+                                }
+                            }
                         }
                     }
                 }

@@ -219,13 +219,20 @@ class AmyVideoWiringTest {
         // the rotation when the measurement implies the
         // other pool, anchored on the old walk's peek (the
         // clip loaded for the next boundary).
+        // v1.0.79: the first clip of the rebuilt rotation is
+        // decided by AmyVideoPack.rebuildFirstClip — the
+        // anchor only when the dance has entered; while the
+        // intro is still showing (the stage's own phase,
+        // computed in the callback) the rotation starts from
+        // a fresh pick in the new pool.
         assertTrue(main.contains("AmyVideoPack.poolNeedsRebuild("))
-        assertTrue(main.contains("walk.peekNext() ?: walk.current()"))
-        assertTrue(main.contains("amyDanceRotation = DanceRotation(amyDancePool, anchor)"))
+        assertTrue(main.contains("AmyVideoPack.rebuildFirstClip("))
+        assertTrue(main.contains("== DancerActivity.Phase.INVITING"))
+        assertTrue(main.contains("amyDanceRotation = DanceRotation(newPool, first)"))
         // The rebuild stays inside the measurement callback:
         // startSong's birth sites plus exactly this one
         // rebuild site — no other place rewrites the walk.
-        assertEqualsCount(main, "amyDancePool = AmyVideoPack.dancePool(", 1)
+        assertEqualsCount(main, "AmyVideoPack.dancePool(", 2)
         assertEqualsCount(main, "amyDanceRotation = DanceRotation(", 2)
     }
 

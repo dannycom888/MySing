@@ -9,7 +9,7 @@
    "source_file": "amy-wide/raw/fast-01.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 3.0,
    "corrected": false,
    "edge_touches_after": {
@@ -19,8 +19,8 @@
     "B": 0
    },
    "drift_after_pct": 3.0,
-   "frames": 235,
-   "duration_s": 9.792,
+   "frames": 240,
+   "duration_s": 10.0,
    "output_file": "amy-wide/pack/fast-01.mp4",
    "accent_file": "amy-wide/pack/fast-01.accents.json",
    "accent_count": 17,
@@ -32,7 +32,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-fast-02-0-492d0ba2-52d1-493a-9028-0da2f4919df8.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 3.6,
    "corrected": false,
    "edge_touches_after": {
@@ -42,8 +42,8 @@
     "B": 0
    },
    "drift_after_pct": 3.6,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/fast-02.mp4",
    "accent_file": "amy-wide/pack/fast-02.accents.json",
    "accent_count": 18,
@@ -55,7 +55,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-fast-03-0-ea39c0e6-58b6-42f7-854a-6ac79724764c.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 6.8,
    "corrected": true,
    "edge_touches_after": {
@@ -65,8 +65,8 @@
     "B": 0
    },
    "drift_after_pct": 3.6,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/fast-03.mp4",
    "accent_file": "amy-wide/pack/fast-03.accents.json",
    "accent_count": 21,
@@ -78,7 +78,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-fast-04b-0-8151a152-5f62-4723-819c-ad93759939dd.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 7.5,
    "corrected": true,
    "edge_touches_after": {
@@ -88,8 +88,8 @@
     "B": 0
    },
    "drift_after_pct": 0.7,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/fast-04.mp4",
    "accent_file": "amy-wide/pack/fast-04.accents.json",
    "accent_count": 10,
@@ -101,7 +101,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-fast-05-0-63d8a378-d9ea-4ebd-a916-ca99cab468c4.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 1.7,
    "corrected": false,
    "edge_touches_after": {
@@ -111,8 +111,8 @@
     "B": 0
    },
    "drift_after_pct": 1.7,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/fast-05.mp4",
    "accent_file": "amy-wide/pack/fast-05.accents.json",
    "accent_count": 21,
@@ -124,7 +124,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-fast-06-0-91678847-f760-42fc-b718-5dd0ad32534a.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 3.2,
    "corrected": false,
    "edge_touches_after": {
@@ -134,8 +134,8 @@
     "B": 0
    },
    "drift_after_pct": 3.2,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/fast-06.mp4",
    "accent_file": "amy-wide/pack/fast-06.accents.json",
    "accent_count": 17,
@@ -147,7 +147,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-fast-07-0-1e0c40ae-a5a4-49fe-aab9-4322599e3afb.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 4.3,
    "corrected": false,
    "edge_touches_after": {
@@ -157,8 +157,8 @@
     "B": 0
    },
    "drift_after_pct": 4.3,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/fast-07.mp4",
    "accent_file": "amy-wide/pack/fast-07.accents.json",
    "accent_count": 19,
@@ -170,7 +170,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-fast-08-0-c89f3fa6-22bc-4f85-b9b7-2d385435725b.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 9.9,
    "corrected": true,
    "edge_touches_after": {
@@ -180,8 +180,8 @@
     "B": 0
    },
    "drift_after_pct": 3.8,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/fast-08.mp4",
    "accent_file": "amy-wide/pack/fast-08.accents.json",
    "accent_count": 21,
@@ -193,7 +193,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-fast-09-0-8948ff22-4beb-4f5f-84a6-8b4e75f49acb.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 2.3,
    "corrected": false,
    "edge_touches_after": {
@@ -203,8 +203,8 @@
     "B": 0
    },
    "drift_after_pct": 2.3,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/fast-09.mp4",
    "accent_file": "amy-wide/pack/fast-09.accents.json",
    "accent_count": 23,
@@ -216,7 +216,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-fast-10-0-b178c977-dea6-4c29-97d7-fe34de6c7c39.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 1.7,
    "corrected": false,
    "edge_touches_after": {
@@ -226,8 +226,8 @@
     "B": 0
    },
    "drift_after_pct": 1.7,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/fast-10.mp4",
    "accent_file": "amy-wide/pack/fast-10.accents.json",
    "accent_count": 20,
@@ -239,7 +239,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-slow-01-0-8566227d-c4b4-41e3-90dc-dfdfd0d7c875.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 1.3,
    "corrected": false,
    "edge_touches_after": {
@@ -249,8 +249,8 @@
     "B": 0
    },
    "drift_after_pct": 1.3,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/slow-01.mp4",
    "accent_file": "amy-wide/pack/slow-01.accents.json",
    "accent_count": 13,
@@ -267,7 +267,7 @@
     ]
    ],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 6.7,
    "corrected": true,
    "edge_touches_after": {
@@ -277,8 +277,8 @@
     "B": 0
    },
    "drift_after_pct": 0.9,
-   "frames": 230,
-   "duration_s": 9.583,
+   "frames": 234,
+   "duration_s": 9.75,
    "output_file": "amy-wide/pack/slow-02.mp4",
    "accent_file": "amy-wide/pack/slow-02.accents.json",
    "accent_count": 5,
@@ -290,7 +290,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-slow-03-0-29855884-1ce8-41cf-8c6a-7fd04b21cf38.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "correction clamped to 0.6 for clean edges; ",
+   "notes": "correction clamped to 0.6 for clean edges;  v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 10.7,
    "corrected": true,
    "edge_touches_after": {
@@ -301,8 +301,8 @@
    },
    "clamp_strength": 0.6,
    "drift_after_pct": 4.4,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/slow-03.mp4",
    "accent_file": "amy-wide/pack/slow-03.accents.json",
    "accent_count": 14,
@@ -314,7 +314,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-slow-04b-0-d4222d32-fa46-4a54-ae1e-b63caa19261b.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 1.8,
    "corrected": false,
    "edge_touches_after": {
@@ -324,8 +324,8 @@
     "B": 0
    },
    "drift_after_pct": 1.8,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/slow-04.mp4",
    "accent_file": "amy-wide/pack/slow-04.accents.json",
    "accent_count": 12,
@@ -337,7 +337,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-slow-05-0-b137670b-a612-4a9a-9e91-9e21efe84d9b.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 1.8,
    "corrected": false,
    "edge_touches_after": {
@@ -347,8 +347,8 @@
     "B": 0
    },
    "drift_after_pct": 1.8,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/slow-05.mp4",
    "accent_file": "amy-wide/pack/slow-05.accents.json",
    "accent_count": 12,
@@ -360,7 +360,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-slow-06-0-2662015e-075d-401f-9456-c2b5de915ae3.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 1.2,
    "corrected": false,
    "edge_touches_after": {
@@ -370,8 +370,8 @@
     "B": 0
    },
    "drift_after_pct": 0.8,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/slow-06.mp4",
    "accent_file": "amy-wide/pack/slow-06.accents.json",
    "accent_count": 8,
@@ -383,7 +383,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-slow-07-0-62af62c0-d3ab-4b51-983e-d4564ff2e58a.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 5.0,
    "corrected": false,
    "edge_touches_after": {
@@ -393,8 +393,8 @@
     "B": 0
    },
    "drift_after_pct": 5.0,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/slow-07.mp4",
    "accent_file": "amy-wide/pack/slow-07.accents.json",
    "accent_count": 6,
@@ -406,7 +406,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-slow-08-0-889a6266-f59c-41ce-affd-3c005535bf14.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 2.1,
    "corrected": false,
    "edge_touches_after": {
@@ -416,8 +416,8 @@
     "B": 0
    },
    "drift_after_pct": 2.1,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/slow-08.mp4",
    "accent_file": "amy-wide/pack/slow-08.accents.json",
    "accent_count": 12,
@@ -429,7 +429,7 @@
    "source_file": "amy-wide/raw/media-generation-amy-wide-slow-09-0-54da46ed-69d3-4f3a-b844-67287506b749.mp4",
    "trims": [],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 0.9,
    "corrected": false,
    "edge_touches_after": {
@@ -439,8 +439,8 @@
     "B": 0
    },
    "drift_after_pct": 0.9,
-   "frames": 240,
-   "duration_s": 10.0,
+   "frames": 244,
+   "duration_s": 10.167,
    "output_file": "amy-wide/pack/slow-09.mp4",
    "accent_file": "amy-wide/pack/slow-09.accents.json",
    "accent_count": 19,
@@ -457,7 +457,7 @@
     ]
    ],
    "status": "ok",
-   "notes": "",
+   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
    "drift_before_pct": 1.3,
    "corrected": false,
    "edge_touches_after": {
@@ -467,8 +467,8 @@
     "B": 0
    },
    "drift_after_pct": 1.3,
-   "frames": 221,
-   "duration_s": 9.208,
+   "frames": 225,
+   "duration_s": 9.375,
    "output_file": "amy-wide/pack/slow-10.mp4",
    "accent_file": "amy-wide/pack/slow-10.accents.json",
    "accent_count": 6,

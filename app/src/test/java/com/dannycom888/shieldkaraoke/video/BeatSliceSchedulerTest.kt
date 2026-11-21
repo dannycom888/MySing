@@ -47,11 +47,15 @@ class BeatSliceSchedulerTest {
         val period = 60.0 / 127.0
         val pass = BeatSliceScheduler.plan(clip.accentsS, clip.durationS, period)
         // 17 accents + lead-in + tail = 18 raw segments; the
-        // 0.208 s tail glues backward into the last accent's
-        // segment (2 beats), the rest take 1 beat each.
+        // tail glues backward into the last accent's segment,
+        // the rest take 1 beat each. Since v1.0.77 the clip
+        // carries the canonical bookend splice (+4 frames, all
+        // accents +2 frames): the tail is 0.292 s, the merged
+        // last segment spans 1.208 s and rounds to 3 beats
+        // (was 1.125 s / 2 beats with the 0.208 s tail).
         assertEquals(17, pass.segments.size)
-        assertEquals(18, pass.totalBeats)
-        assertEquals(18 * period, pass.durationS(period), 1e-9)
+        assertEquals(19, pass.totalBeats)
+        assertEquals(19 * period, pass.durationS(period), 1e-9)
         for (segment in pass.segments) {
             assertTrue(
                 "speed ${segment.speed} outside the clamp",

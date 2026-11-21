@@ -106,7 +106,10 @@ class AmyVideoPackTest {
             assertNotNull("missing special $special", AmyVideoPack.special(clips, special))
         }
         for (clip in clips) {
-            assertTrue("${clip.name} duration", clip.durationS > 9.0 && clip.durationS <= 10.1)
+            // <= 10.2 since v1.0.77: the canonical bookend
+            // splice adds 4 frames (0.167 s) to every dance
+            // clip, putting the 240-frame clips at 10.167 s.
+            assertTrue("${clip.name} duration", clip.durationS > 9.0 && clip.durationS <= 10.2)
             assertTrue(
                 "${clip.name} mp4 missing",
                 File(assetDir(), "${clip.name}.mp4").isFile,

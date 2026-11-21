@@ -84,9 +84,11 @@ class AmyVideoSizingTest {
             )
         }
         // The spread that forces a per-clip anchor, for the
-        // record: slow-08's boots sit 0.120 of the frame
+        // record: slow-08's boots sit 0.121 of the frame
         // above its bottom edge, fast-03's only 0.035.
-        assertEquals(0.120, clips.first { it.name == "slow-08" }.feetV, 1e-9)
+        // (0.120 until v1.0.76; the v1.0.77 bookend-splice
+        // re-encode moved slow-08's p95 by one asset row.)
+        assertEquals(0.121, clips.first { it.name == "slow-08" }.feetV, 1e-9)
         assertEquals(0.035, clips.first { it.name == "fast-03" }.feetV, 1e-9)
     }
 }

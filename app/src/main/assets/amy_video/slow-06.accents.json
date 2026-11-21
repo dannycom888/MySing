@@ -2,23 +2,23 @@
  "clip": "slow-06",
  "group": "slow",
  "fps": 24,
- "frames": 240,
- "duration_s": 10.0,
+ "frames": 244,
+ "duration_s": 10.167,
  "accents": [
-  0.25,
-  1.667,
-  2.792,
-  3.833,
-  4.333,
-  6.292,
-  7.208,
-  8.792
+  0.333,
+  1.75,
+  2.875,
+  3.916,
+  4.416,
+  6.375,
+  7.291,
+  8.875
  ],
  "accent_count": 8,
  "median_interval_s": 1.1249999999999998,
  "implied_bpm": 53.3,
- "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s",
- "figure_height": 0.88,
- "figure_scale": 0.991,
- "feet_v": 0.046
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s; v1.0.77 base: canonical bookend spliced head/tail, accents shifted +2 frames",
+ "figure_height": 0.8812,
+ "figure_scale": 0.99,
+ "feet_v": 0.045
 }

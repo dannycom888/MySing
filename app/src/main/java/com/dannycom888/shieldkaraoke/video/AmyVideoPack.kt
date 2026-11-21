@@ -122,6 +122,27 @@ object AmyVideoPack {
     }
 
     /**
+     * Whether the pool implied by [measuredBpm] differs
+     * from the pool a song is already dancing (v1.0.76).
+     * The pool is picked at song start with the tempo known
+     * at that instant — for an uncached song that is the
+     * 96 BPM default, which always implies the slow pool —
+     * so when the background measurement lands mid-song the
+     * caller rebuilds the walk if (and only if) this says
+     * the measured tempo belongs to the other pool. The
+     * comparison is by clip names, so the damaged-pack
+     * fallback in [dancePool] (an empty group widening to
+     * every dance clip) can never trigger a spurious
+     * rebuild: the widened pool equals itself at any tempo.
+     */
+    fun poolNeedsRebuild(
+        clips: List<AmyClip>,
+        inUsePool: List<AmyClip>,
+        measuredBpm: Double,
+    ): Boolean =
+        dancePool(clips, measuredBpm).map { it.name } != inUsePool.map { it.name }
+
+    /**
      * Pick the next clip from [pool] for a song at [songBpm]:
      * the pool ordered by how close each clip's implied tempo
      * sits to the song's, walked by [rotation] (the caller
@@ -188,7 +209,12 @@ object AmyVideoPack {
  * and continues where the song left off.
  *
  * The song's pick plays first (startSong chose it for
- * tempo fit); the rest of the cycle is shuffled. When a
+ * tempo fit); the rest of the cycle is shuffled. (v1.0.76:
+ * a mid-song pool rebuild anchors the replacement rotation
+ * on the outgoing walk's [peekNext] instead — the clip
+ * already loaded for the next pass boundary — so that clip
+ * still "plays first" for the new rotation and everything
+ * after it comes from the new pool.) When a
  * cycle is exhausted the next one is pre-shuffled so
  * [peekNext] is always defined, and its first clip is
  * never the clip that just played (pool size > 1), so

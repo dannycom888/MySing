@@ -212,6 +212,24 @@ class AmyVideoWiringTest {
     }
 
     @Test
+    fun `the measured tempo rebuilds the dance pool mid-song`() {
+        val main = mainActivity()
+        // v1.0.76: the tempo callback in startSong — the one
+        // place a measured BPM lands — rebuilds the pool and
+        // the rotation when the measurement implies the
+        // other pool, anchored on the old walk's peek (the
+        // clip loaded for the next boundary).
+        assertTrue(main.contains("AmyVideoPack.poolNeedsRebuild("))
+        assertTrue(main.contains("walk.peekNext() ?: walk.current()"))
+        assertTrue(main.contains("amyDanceRotation = DanceRotation(amyDancePool, anchor)"))
+        // The rebuild stays inside the measurement callback:
+        // startSong's birth sites plus exactly this one
+        // rebuild site — no other place rewrites the walk.
+        assertEqualsCount(main, "amyDancePool = AmyVideoPack.dancePool(", 1)
+        assertEqualsCount(main, "amyDanceRotation = DanceRotation(", 2)
+    }
+
+    @Test
     fun `the key gate port matches the shader it mirrors`() {
         // v1.0.72: ChromaKeyMath is the shader's JVM twin —
         // its constants must stay the shader's constants, or

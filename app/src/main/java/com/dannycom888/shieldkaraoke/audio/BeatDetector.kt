@@ -2,14 +2,22 @@ package com.dannycom888.shieldkaraoke.audio
 
 /**
  * Estimates tempo (BPM) from an energy envelope by onset-flux
- * autocorrelation over the 60–160 BPM lag range. Pure function —
+ * autocorrelation over the 60–200 BPM lag range. Pure function —
  * unit tested against synthetic click trains at known BPMs.
  * Returns null when there is no confident periodic peak.
+ *
+ * The range topped out at 160 until v1.0.76: a genuinely
+ * faster song (《惊雷》 runs at ≈170 BPM, a beat period below
+ * the old minimum lag) had its true beat outside the search
+ * range, so the detector locked onto the double period and
+ * reported half tempo — and that wrong value was cached.
+ * Widening the range to 200 lets the true lag compete; the
+ * anti-octave rule below keeps normal songs from doubling.
  */
 object BeatDetector {
 
     const val MIN_BPM = 60.0
-    const val MAX_BPM = 160.0
+    const val MAX_BPM = 200.0
 
     /**
      * [envelope] holds one energy value per frame, [fps] frames per

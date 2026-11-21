@@ -140,6 +140,53 @@ class AmyVideoPackTest {
     }
 
     @Test
+    fun `pool rebuild is decided by the measured tempo crossing pools`() {
+        // v1.0.76: an uncached song starts dancing in the
+        // slow pool (the 96 BPM default picks it); when the
+        // measurement lands, the walk is rebuilt ONLY if the
+        // measured tempo implies the other pool.
+        val clips = shippedClips()
+        val slowPool = AmyVideoPack.dancePool(clips, 96.0)
+        val fastPool = AmyVideoPack.dancePool(clips, 130.0)
+        // The reported case: default-tempo slow pool, the
+        // song measures fast -> rebuild.
+        assertTrue(AmyVideoPack.poolNeedsRebuild(clips, slowPool, 130.0))
+        assertTrue(AmyVideoPack.poolNeedsRebuild(clips, slowPool, 171.4))
+        // A genuinely slow song stays in its pool.
+        assertTrue(!AmyVideoPack.poolNeedsRebuild(clips, slowPool, 80.0))
+        assertTrue(!AmyVideoPack.poolNeedsRebuild(clips, slowPool, 96.0))
+        // A fast start is not rebuilt by another fast value,
+        // and IS rebuilt by a slow measurement.
+        assertTrue(!AmyVideoPack.poolNeedsRebuild(clips, fastPool, 171.4))
+        assertTrue(AmyVideoPack.poolNeedsRebuild(clips, fastPool, 85.7))
+        // The boundary is the pool threshold itself.
+        assertTrue(
+            AmyVideoPack.poolNeedsRebuild(
+                clips, slowPool, AmyVideoPack.FAST_POOL_MIN_BPM,
+            ),
+        )
+        assertTrue(
+            !AmyVideoPack.poolNeedsRebuild(
+                clips, slowPool, AmyVideoPack.FAST_POOL_MIN_BPM - 0.1,
+            ),
+        )
+    }
+
+    @Test
+    fun `pool rebuild never fires on a damaged pack`() {
+        // With a group missing, dancePool widens to every
+        // dance clip at ANY tempo — the widened pool equals
+        // itself, so no rebuild is ever "needed" and the
+        // walk is left alone.
+        val clips = shippedClips()
+        val slowOnly = clips.filter { it.group != AmyVideoPack.GROUP_FAST }
+        val widened = AmyVideoPack.dancePool(slowOnly, 80.0)
+        assertTrue(widened.isNotEmpty())
+        assertTrue(!AmyVideoPack.poolNeedsRebuild(slowOnly, widened, 170.0))
+        assertTrue(!AmyVideoPack.poolNeedsRebuild(slowOnly, widened, 70.0))
+    }
+
+    @Test
     fun `pick rotates through the pool and never repeats the last clip`() {
         val clips = shippedClips()
         val pool = AmyVideoPack.dancePool(clips, 120.0)

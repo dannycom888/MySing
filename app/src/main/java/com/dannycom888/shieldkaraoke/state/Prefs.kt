@@ -2,6 +2,7 @@ package com.dannycom888.shieldkaraoke.state
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.dannycom888.shieldkaraoke.audio.BpmCacheFormat
 
 /** Favorites, recents, library location and loudness cache. */
 class Prefs(context: Context) {
@@ -44,12 +45,16 @@ class Prefs(context: Context) {
         prefs.edit().putString("loud_$songId", db.toString()).apply()
     }
 
-    /** Measured tempo cache, alongside the loudness cache. */
+    /** Measured tempo cache, alongside the loudness cache.
+     *  Entries are estimator-versioned ([BpmCacheFormat],
+     *  v1.0.76): a value written by an older detector reads
+     *  as uncached here, so the song is re-measured instead
+     *  of dancing forever at a stale tempo. */
     fun bpm(songId: String): Double? =
-        prefs.getString("bpm_$songId", null)?.toDoubleOrNull()
+        BpmCacheFormat.decode(prefs.getString("bpm_$songId", null))
 
     fun setBpm(songId: String, bpm: Double) {
-        prefs.edit().putString("bpm_$songId", bpm.toString()).apply()
+        prefs.edit().putString("bpm_$songId", BpmCacheFormat.encode(bpm)).apply()
     }
 
     /** Whether the dancers show on the player screen at all

@@ -37,6 +37,32 @@ class BeatDetectorTest {
     }
 
     @Test
+    fun detectsFastBpmsAboveTheOld160Cap() {
+        // v1.0.76: the range widened 160 -> 200. A ~170 BPM
+        // song's true beat period (35 frames at 100 fps) sat
+        // below the old minimum lag (37), so the detector
+        // locked onto the double period and reported ~85.
+        for (bpm in listOf(170.0, 185.0)) {
+            val est = BeatDetector.estimateBpm(clickTrain(bpm), fps)
+            assertTrue("expected an estimate for $bpm BPM", est != null)
+            assertEquals("$bpm BPM detected as $est", bpm, est!!, 3.0)
+        }
+    }
+
+    @Test
+    fun slowBpmsAreNotDoubledByTheWiderRange() {
+        // The widened search range must not let the anti-
+        // octave rule promote a slow song to double tempo:
+        // a genuine 85 BPM train has ~no correlation at its
+        // half period, so it still reads 85, not 170.
+        for (bpm in listOf(85.0, 100.0)) {
+            val est = BeatDetector.estimateBpm(clickTrain(bpm), fps)
+            assertTrue("expected an estimate for $bpm BPM", est != null)
+            assertEquals("$bpm BPM detected as $est", bpm, est!!, 3.0)
+        }
+    }
+
+    @Test
     fun silenceGivesNull() {
         assertNull(BeatDetector.estimateBpm(FloatArray(fps * 30), fps))
     }

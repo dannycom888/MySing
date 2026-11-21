@@ -633,6 +633,34 @@ class MainActivity : ComponentActivity() {
                     app.prefs.setBpm(entry.song.id, measured)
                     if (app.state.nowPlaying?.song?.id == entry.song.id) {
                         currentBpm = measured
+                        // v1.0.76: the dance pool below was
+                        // picked with the tempo known at song
+                        // start — for an uncached song that is
+                        // DEFAULT_BPM (96 < the fast-pool
+                        // threshold), so the slow pool was
+                        // guaranteed and a fast song slow-
+                        // danced to the end: this callback used
+                        // to update only the beat grid, never
+                        // the pool. When the measured tempo
+                        // implies the OTHER pool, rebuild the
+                        // walk: the new rotation is anchored
+                        // on the clip already loaded for the
+                        // next pass boundary (the old walk's
+                        // peek), so that clip still plays
+                        // there — the visible player never
+                        // swaps mid-pass — and every clip after
+                        // it comes from the new pool.
+                        val walk = amyDanceRotation
+                        if (walk != null &&
+                            amyVideoLiveFor(Dancers.byKey(entry.dancerKey).key) &&
+                            AmyVideoPack.poolNeedsRebuild(
+                                amyVideoCatalogue, amyDancePool, measured,
+                            )
+                        ) {
+                            val anchor = walk.peekNext() ?: walk.current()
+                            amyDancePool = AmyVideoPack.dancePool(amyVideoCatalogue, measured)
+                            amyDanceRotation = DanceRotation(amyDancePool, anchor)
+                        }
                     }
                 }
             }

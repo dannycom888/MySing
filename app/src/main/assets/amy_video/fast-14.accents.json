@@ -1,0 +1,27 @@
+{
+ "clip": "fast-14",
+ "group": "fast",
+ "fps": 24,
+ "frames": 244,
+ "duration_s": 10.167,
+ "accents": [
+  2.458,
+  2.958,
+  3.583,
+  4.542,
+  5.167,
+  6.042,
+  6.625,
+  7.542,
+  8.083,
+  8.583,
+  8.958
+ ],
+ "accent_count": 11,
+ "median_interval_s": 0.6040000000000001,
+ "implied_bpm": 99.3,
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s; pack2 wide packaging (big-move clip, user ruling 2026-11-21): composition kept at 0.56 big-background framing, canonical bookend splice at the same target, figure measured on final asset; figure_scale restores stage height in the app",
+ "figure_height": 0.56,
+ "figure_scale": 1.1318,
+ "feet_v": 0.05
+}

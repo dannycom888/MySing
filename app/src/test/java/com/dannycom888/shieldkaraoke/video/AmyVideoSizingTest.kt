@@ -38,10 +38,14 @@ class AmyVideoSizingTest {
     fun `the dance path's size computation lands every dance clip on the anchor`() {
         val clips = shippedClips()
         val idle = clips.first { it.name == AmyVideoPack.SPECIAL_IDLE }
-        // The anchor as the computation itself produces it:
-        // idle is the clip VIDEO_FIGURE_SCALE was tuned
-        // against (its slot scale is exactly 1).
-        assertEquals(1f, AmyVideoSizing.slotScale(idle), 1e-6f)
+        // The anchor as the computation itself produces
+        // it: idle's on-stage height. v1.0.80 (pack2):
+        // idle is no longer the anchor SOURCE — the stage
+        // anchor is the frozen constant 0.6338 (the
+        // original pack2 idle's measured height, frozen at
+        // wave 52 when idle was re-shot), and idle carries
+        // its own measured slot scale, 0.9981.
+        assertEquals(0.9981f, AmyVideoSizing.slotScale(idle), 1e-6f)
         val anchor = AmyVideoSizing.onStageFigureHeight(idle)
         assertTrue("anchor must be a real height", anchor > 0.5)
         val dance = clips.filter { it.group != AmyVideoPack.GROUP_SPECIAL }
@@ -54,13 +58,14 @@ class AmyVideoSizingTest {
             )
         }
         // The widest spread in the pack, for the record:
-        // slow-08 (drawn 1.242×) and slow-06 (0.991×) land
-        // on the same stage height.
-        val slow08 = dance.first { it.name == "slow-08" }
-        val slow06 = dance.first { it.name == "slow-06" }
+        // fast-01 (drawn 1.1318× — pack2's fast set is
+        // composed wide at 0.56 native height) and slow-01
+        // (0.9962×) land on the same stage height.
+        val fast01 = dance.first { it.name == "fast-01" }
+        val slow01 = dance.first { it.name == "slow-01" }
         assertEquals(
-            AmyVideoSizing.onStageFigureHeight(slow08),
-            AmyVideoSizing.onStageFigureHeight(slow06),
+            AmyVideoSizing.onStageFigureHeight(fast01),
+            AmyVideoSizing.onStageFigureHeight(slow01),
             0.01 * anchor,
         )
     }
@@ -83,12 +88,14 @@ class AmyVideoSizingTest {
                 clip.feetV.toFloat(), AmyVideoSizing.slotFeetV(clip), 1e-6f,
             )
         }
-        // The spread that forces a per-clip anchor, for the
-        // record: slow-08's boots sit 0.121 of the frame
-        // above its bottom edge, fast-03's only 0.035.
-        // (0.120 until v1.0.76; the v1.0.77 bookend-splice
-        // re-encode moved slow-08's p95 by one asset row.)
-        assertEquals(0.121, clips.first { it.name == "slow-08" }.feetV, 1e-9)
-        assertEquals(0.035, clips.first { it.name == "fast-03" }.feetV, 1e-9)
+        // v1.0.80 (pack2): every clip is composed onto ONE
+        // shared geometry — feet baseline at 0.95H — so the
+        // foot margin is the same 0.05 on all 24 clips. The
+        // old pack's per-clip spread (0.035..0.121) that
+        // forced a per-clip anchor is gone by construction;
+        // the pin is now uniformity.
+        for (clip in clips) {
+            assertEquals("${clip.name} feetV", 0.05, clip.feetV, 1e-9)
+        }
     }
 }

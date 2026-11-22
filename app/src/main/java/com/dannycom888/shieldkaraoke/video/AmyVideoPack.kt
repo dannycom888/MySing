@@ -7,8 +7,9 @@ import kotlin.math.abs
  * One packed Amy video clip (v1.0.70 pilot): a green-screen
  * H.264 master in the app assets plus the accent list the
  * packaging pipeline measured off it (see
- * dancers/amy-wide/pack/manifest.json — 24 clips: fast ×10,
- * slow ×10, and the invite / clap / idle / combo specials).
+ * dancers/amy-wide/pack2/manifest.json — 24 clips since
+ * v1.0.80: fast ×15, slow ×5, and the invite / clap / idle /
+ * combo specials).
  */
 data class AmyClip(
     /** Clip name, also its file stem ("fast-01", "invite"). */

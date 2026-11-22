@@ -5,16 +5,19 @@
  "frames": 240,
  "duration_s": 10.0,
  "accents": [
-  4.958,
-  6.958,
-  8.208,
-  8.458
+  1.542,
+  2.458,
+  3.708,
+  5.042,
+  6.333,
+  7.625,
+  8.958
  ],
- "accent_count": 4,
- "median_interval_s": 1.25,
- "implied_bpm": 48.0,
- "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s",
- "figure_height": 0.8725,
- "figure_scale": 1.0,
- "feet_v": 0.055
+ "accent_count": 7,
+ "median_interval_s": 1.2915,
+ "implied_bpm": 46.5,
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s; pack2 refined: shared composition 0.635, canonical bookend splice (dance only), figure measured on final asset",
+ "figure_height": 0.635,
+ "figure_scale": 0.9981,
+ "feet_v": 0.05
 }

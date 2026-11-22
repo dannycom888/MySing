@@ -1,570 +1,2074 @@
 {
- "pack": "amy-wide",
- "clip_count": 24,
- "pack_mp4_bytes": 56729034,
+ "pack": "amy-wide-pack2",
+ "convention": "512x800 runtime; standing height composed to 0.635 of frame, feet baseline 0.95H; figure_scale relative to the fixed stage anchor 0.6338 (the original pack2 idle figure_height, frozen as a constant at wave 52); dance clips carry canonical bookend head/tail",
  "clips": [
-  {
-   "clip": "fast-01",
-   "group": "fast",
-   "source_file": "amy-wide/raw/fast-01.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 3.0,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 3.0,
-   "frames": 240,
-   "duration_s": 10.0,
-   "output_file": "amy-wide/pack/fast-01.mp4",
-   "accent_file": "amy-wide/pack/fast-01.accents.json",
-   "accent_count": 17,
-   "implied_bpm": 115.3
-  },
-  {
-   "clip": "fast-02",
-   "group": "fast",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-fast-02-0-492d0ba2-52d1-493a-9028-0da2f4919df8.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 3.6,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 3.6,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/fast-02.mp4",
-   "accent_file": "amy-wide/pack/fast-02.accents.json",
-   "accent_count": 18,
-   "implied_bpm": 120.0
-  },
-  {
-   "clip": "fast-03",
-   "group": "fast",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-fast-03-0-ea39c0e6-58b6-42f7-854a-6ac79724764c.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 6.8,
-   "corrected": true,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 3.6,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/fast-03.mp4",
-   "accent_file": "amy-wide/pack/fast-03.accents.json",
-   "accent_count": 21,
-   "implied_bpm": 131.0
-  },
-  {
-   "clip": "fast-04",
-   "group": "fast",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-fast-04b-0-8151a152-5f62-4723-819c-ad93759939dd.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 7.5,
-   "corrected": true,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 0.7,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/fast-04.mp4",
-   "accent_file": "amy-wide/pack/fast-04.accents.json",
-   "accent_count": 10,
-   "implied_bpm": 96.0
-  },
-  {
-   "clip": "fast-05",
-   "group": "fast",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-fast-05-0-63d8a378-d9ea-4ebd-a916-ca99cab468c4.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 1.7,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 1.7,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/fast-05.mp4",
-   "accent_file": "amy-wide/pack/fast-05.accents.json",
-   "accent_count": 21,
-   "implied_bpm": 160.0
-  },
-  {
-   "clip": "fast-06",
-   "group": "fast",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-fast-06-0-91678847-f760-42fc-b718-5dd0ad32534a.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 3.2,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 3.2,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/fast-06.mp4",
-   "accent_file": "amy-wide/pack/fast-06.accents.json",
-   "accent_count": 17,
-   "implied_bpm": 120.0
-  },
-  {
-   "clip": "fast-07",
-   "group": "fast",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-fast-07-0-1e0c40ae-a5a4-49fe-aab9-4322599e3afb.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 4.3,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 4.3,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/fast-07.mp4",
-   "accent_file": "amy-wide/pack/fast-07.accents.json",
-   "accent_count": 19,
-   "implied_bpm": 120.0
-  },
-  {
-   "clip": "fast-08",
-   "group": "fast",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-fast-08-0-c89f3fa6-22bc-4f85-b9b7-2d385435725b.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 9.9,
-   "corrected": true,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 3.8,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/fast-08.mp4",
-   "accent_file": "amy-wide/pack/fast-08.accents.json",
-   "accent_count": 21,
-   "implied_bpm": 160.0
-  },
-  {
-   "clip": "fast-09",
-   "group": "fast",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-fast-09-0-8948ff22-4beb-4f5f-84a6-8b4e75f49acb.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 2.3,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 2.3,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/fast-09.mp4",
-   "accent_file": "amy-wide/pack/fast-09.accents.json",
-   "accent_count": 23,
-   "implied_bpm": 151.7
-  },
-  {
-   "clip": "fast-10",
-   "group": "fast",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-fast-10-0-b178c977-dea6-4c29-97d7-fe34de6c7c39.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 1.7,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 1.7,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/fast-10.mp4",
-   "accent_file": "amy-wide/pack/fast-10.accents.json",
-   "accent_count": 20,
-   "implied_bpm": 120.0
-  },
-  {
-   "clip": "slow-01",
-   "group": "slow",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-slow-01-0-8566227d-c4b4-41e3-90dc-dfdfd0d7c875.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 1.3,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 1.3,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/slow-01.mp4",
-   "accent_file": "amy-wide/pack/slow-01.accents.json",
-   "accent_count": 13,
-   "implied_bpm": 99.3
-  },
-  {
-   "clip": "slow-02",
-   "group": "slow",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-slow-02b-0-d905508e-535b-403b-b023-8664cebb39c2.mp4",
-   "trims": [
-    [
-     1.2,
-     1.6
-    ]
-   ],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 6.7,
-   "corrected": true,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 0.9,
-   "frames": 234,
-   "duration_s": 9.75,
-   "output_file": "amy-wide/pack/slow-02.mp4",
-   "accent_file": "amy-wide/pack/slow-02.accents.json",
-   "accent_count": 5,
-   "implied_bpm": 106.7
-  },
-  {
-   "clip": "slow-03",
-   "group": "slow",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-slow-03-0-29855884-1ce8-41cf-8c6a-7fd04b21cf38.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "correction clamped to 0.6 for clean edges;  v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 10.7,
-   "corrected": true,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "clamp_strength": 0.6,
-   "drift_after_pct": 4.4,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/slow-03.mp4",
-   "accent_file": "amy-wide/pack/slow-03.accents.json",
-   "accent_count": 14,
-   "implied_bpm": 96.0
-  },
-  {
-   "clip": "slow-04",
-   "group": "slow",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-slow-04b-0-d4222d32-fa46-4a54-ae1e-b63caa19261b.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 1.8,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 1.8,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/slow-04.mp4",
-   "accent_file": "amy-wide/pack/slow-04.accents.json",
-   "accent_count": 12,
-   "implied_bpm": 84.7
-  },
-  {
-   "clip": "slow-05",
-   "group": "slow",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-slow-05-0-b137670b-a612-4a9a-9e91-9e21efe84d9b.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 1.8,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 1.8,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/slow-05.mp4",
-   "accent_file": "amy-wide/pack/slow-05.accents.json",
-   "accent_count": 12,
-   "implied_bpm": 143.9
-  },
-  {
-   "clip": "slow-06",
-   "group": "slow",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-slow-06-0-2662015e-075d-401f-9456-c2b5de915ae3.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 1.2,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 0.8,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/slow-06.mp4",
-   "accent_file": "amy-wide/pack/slow-06.accents.json",
-   "accent_count": 8,
-   "implied_bpm": 53.3
-  },
-  {
-   "clip": "slow-07",
-   "group": "slow",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-slow-07-0-62af62c0-d3ab-4b51-983e-d4564ff2e58a.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 5.0,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 5.0,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/slow-07.mp4",
-   "accent_file": "amy-wide/pack/slow-07.accents.json",
-   "accent_count": 6,
-   "implied_bpm": 49.6
-  },
-  {
-   "clip": "slow-08",
-   "group": "slow",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-slow-08-0-889a6266-f59c-41ce-affd-3c005535bf14.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 2.1,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 2.1,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/slow-08.mp4",
-   "accent_file": "amy-wide/pack/slow-08.accents.json",
-   "accent_count": 12,
-   "implied_bpm": 80.0
-  },
-  {
-   "clip": "slow-09",
-   "group": "slow",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-slow-09-0-54da46ed-69d3-4f3a-b844-67287506b749.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 0.9,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 0.9,
-   "frames": 244,
-   "duration_s": 10.167,
-   "output_file": "amy-wide/pack/slow-09.mp4",
-   "accent_file": "amy-wide/pack/slow-09.accents.json",
-   "accent_count": 19,
-   "implied_bpm": 131.0
-  },
-  {
-   "clip": "slow-10",
-   "group": "slow",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-slow-10-0-f59c2731-b6d9-48c7-a21b-ab37ff99dd5d.mp4",
-   "trims": [
-    [
-     3.7,
-     4.5
-    ]
-   ],
-   "status": "ok",
-   "notes": "v1.0.77 base: canonical bookend spliced head/tail.",
-   "drift_before_pct": 1.3,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 1.3,
-   "frames": 225,
-   "duration_s": 9.375,
-   "output_file": "amy-wide/pack/slow-10.mp4",
-   "accent_file": "amy-wide/pack/slow-10.accents.json",
-   "accent_count": 6,
-   "implied_bpm": 80.0
-  },
-  {
-   "clip": "invite",
-   "group": "special",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-invite-0-675bd211-cfdc-4978-80a9-30b68b286989.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "",
-   "drift_before_pct": 8.5,
-   "corrected": true,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
-   },
-   "drift_after_pct": 0.4,
-   "frames": 240,
-   "duration_s": 10.0,
-   "output_file": "amy-wide/pack/invite.mp4",
-   "accent_file": "amy-wide/pack/invite.accents.json",
-   "accent_count": 9,
-   "implied_bpm": 95.9
-  },
   {
    "clip": "clap",
    "group": "special",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-clap-0-b5e0efda-3b5a-4888-b116-3935a6ea7321.mp4",
-   "trims": [],
+   "source_file": "raw2/clap-shorthair.mp4",
    "status": "ok",
-   "notes": "",
-   "drift_before_pct": 1.6,
+   "notes": "wave 53: short-hair re-shoot from amy-wide-start-shorthair-v3 (predecessor-generated gen1, screened and packaged by the completion wave); generator end-fade in the final ~0.7s trimmed per the standing tail-trim rescue (wave 42 precedent): packaged at 216f instead of 240f; figure_scale against the frozen 0.6338 stage anchor",
+   "src_frames": 216,
+   "drift_before_pct": 2.7,
+   "hair_ratio": 0.239,
+   "hair_before": {
+    "n": 179739,
+    "mean_rgb": [
+     201.0,
+     166.2,
+     121.9
+    ],
+    "hue_deg": 33.6,
+    "sat": 0.4,
+    "val": 0.788
+   },
+   "hair_after": {
+    "n": 154969,
+    "mean_rgb": [
+     213.3,
+     172.1,
+     130.5
+    ],
+    "hue_deg": 30.25,
+    "sat": 0.393,
+    "val": 0.836
+   },
+   "hair_grade_converged": true,
+   "grade_safety": {
+    "bg": 1.64,
+    "skin": 0.39
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    12.0,
+    239.0,
+    14.0
+   ],
    "corrected": false,
-   "edge_touches_after": {
+   "composition": {
+    "stand_h": 0.5435,
+    "feet": 0.913,
+    "cx": 350.5,
+    "scale": 0.8467,
+    "stand_target": 0.635
+   },
+   "frames": 216,
+   "figure_height": 0.6356,
+   "feet_v": 0.05,
+   "margin_top_min": 0.31,
+   "margin_left_min": 0.2578,
+   "margin_right_min": 0.3027,
+   "edge_touches": {
     "L": 0,
     "R": 0,
     "T": 0,
     "B": 0
    },
-   "drift_after_pct": 1.6,
-   "frames": 240,
-   "duration_s": 10.0,
-   "output_file": "amy-wide/pack/clap.mp4",
-   "accent_file": "amy-wide/pack/clap.accents.json",
-   "accent_count": 11,
-   "implied_bpm": 67.0
-  },
-  {
-   "clip": "idle",
-   "group": "special",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-idle-0-f1943a97-d29d-449b-9d55-1df44db61d4f.mp4",
-   "trims": [],
-   "status": "ok",
-   "notes": "",
-   "drift_before_pct": 0.8,
-   "corrected": false,
-   "edge_touches_after": {
-    "L": 0,
-    "R": 0,
-    "T": 0,
-    "B": 0
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "216"
    },
-   "drift_after_pct": 0.8,
-   "frames": 240,
-   "duration_s": 10.0,
-   "output_file": "amy-wide/pack/idle.mp4",
-   "accent_file": "amy-wide/pack/idle.accents.json",
-   "accent_count": 4,
-   "implied_bpm": 48.0
+   "accent_count": 17,
+   "implied_bpm": 130.9,
+   "duration_s": 9.0,
+   "output_file": "amy-wide/pack2/clap.mp4",
+   "accent_file": "amy-wide/pack2/clap.accents.json"
   },
   {
    "clip": "combo",
    "group": "special",
-   "source_file": "amy-wide/raw/media-generation-amy-wide-combo-0-0a38c2d3-5c0f-4eea-a5c0-c436fd4bcb8c.mp4",
-   "trims": [],
+   "source_file": "raw2/combo-w53.mp4",
    "status": "ok",
-   "notes": "",
-   "drift_before_pct": 1.6,
+   "notes": "wave 53: two-figure special animated from the APPROVED amy-hannah hold_stand artwork (composited on the modal-green wide canvas at specials framing, raw2/work/combo-start-still.png); one generation attempt, passed. Mouth audits passed for BOTH Amy and Hannah (closed-lip smiles only). Hair note: the solo bookend-distance hair gate does not apply to this two-figure special — Amy's hair follows the approved combo artwork design (measured 0.390, cf. previous pack combo 0.377); figure_scale against the frozen 0.6338 stage anchor",
+   "src_frames": 240,
+   "drift_before_pct": 3.4,
+   "hair_ratio": 0.39,
+   "hair_before": {
+    "n": 126613,
+    "mean_rgb": [
+     206.8,
+     167.4,
+     122.5
+    ],
+    "hue_deg": 31.73,
+    "sat": 0.417,
+    "val": 0.811
+   },
+   "hair_after": {
+    "n": 115508,
+    "mean_rgb": [
+     210.4,
+     169.7,
+     126.1
+    ],
+    "hue_deg": 30.83,
+    "sat": 0.412,
+    "val": 0.825
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 1.25,
+    "skin": 0.36
+   },
+   "backdrop_repainted": false,
+   "backdrop_src_rgb": [
+    0.0,
+    205.0,
+    12.0
+   ],
    "corrected": false,
-   "edge_touches_after": {
+   "composition": {
+    "stand_h": 0.5435,
+    "feet": 0.9112,
+    "cx": 351.5,
+    "scale": 0.8467,
+    "stand_target": 0.635
+   },
+   "frames": 240,
+   "figure_height": 0.635,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3075,
+   "margin_left_min": 0.2188,
+   "margin_right_min": 0.2598,
+   "edge_touches": {
     "L": 0,
     "R": 0,
     "T": 0,
     "B": 0
    },
-   "drift_after_pct": 1.1,
-   "frames": 240,
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "240"
+   },
+   "accent_count": 15,
+   "implied_bpm": 110.7,
    "duration_s": 10.0,
-   "output_file": "amy-wide/pack/combo.mp4",
-   "accent_file": "amy-wide/pack/combo.accents.json",
+   "output_file": "amy-wide/pack2/combo.mp4",
+   "accent_file": "amy-wide/pack2/combo.accents.json"
+  },
+  {
+   "clip": "fast-01",
+   "group": "fast",
+   "source_file": "raw2/fast-01-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 3.5,
+   "hair_ratio": 0.295,
+   "hair_before": {
+    "n": 185971,
+    "mean_rgb": [
+     205.3,
+     167.4,
+     128.6
+    ],
+    "hue_deg": 30.5,
+    "sat": 0.38,
+    "val": 0.805
+   },
+   "hair_after": {
+    "n": 174248,
+    "mean_rgb": [
+     211.9,
+     170.4,
+     130.5
+    ],
+    "hue_deg": 29.64,
+    "sat": 0.391,
+    "val": 0.831
+   },
+   "hair_grade_converged": true,
+   "grade_safety": {
+    "bg": 1.2,
+    "skin": 0.29
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    9.0,
+    240.0,
+    11.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.538,
+    "feet": 0.913,
+    "cx": 351.5,
+    "scale": 0.7542,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.37,
+   "margin_left_min": 0.1914,
+   "margin_right_min": 0.1465,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 18,
+   "implied_bpm": 120.0,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-01.mp4",
+   "accent_file": "amy-wide/pack2/fast-01.accents.json"
+  },
+  {
+   "clip": "fast-02",
+   "group": "fast",
+   "source_file": "raw2/fast-02-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 2.0,
+   "hair_ratio": 0.261,
+   "hair_before": {
+    "n": 192589,
+    "mean_rgb": [
+     197.0,
+     159.7,
+     120.3
+    ],
+    "hue_deg": 30.96,
+    "sat": 0.398,
+    "val": 0.772
+   },
+   "hair_after": {
+    "n": 168256,
+    "mean_rgb": [
+     209.3,
+     167.6,
+     127.7
+    ],
+    "hue_deg": 29.62,
+    "sat": 0.399,
+    "val": 0.821
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.48,
+    "skin": 0.6
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    7.0,
+    237.0,
+    16.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.543,
+    "feet": 0.9158,
+    "cx": 351.5,
+    "scale": 0.7473,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.375,
+   "margin_left_min": 0.1289,
+   "margin_right_min": 0.1699,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 18,
+   "implied_bpm": 143.9,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-02.mp4",
+   "accent_file": "amy-wide/pack2/fast-02.accents.json"
+  },
+  {
+   "clip": "fast-03",
+   "group": "fast",
+   "source_file": "raw2/fast-03-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 7.2,
+   "hair_ratio": 0.282,
+   "hair_before": {
+    "n": 201583,
+    "mean_rgb": [
+     203.7,
+     164.7,
+     119.7
+    ],
+    "hue_deg": 32.2,
+    "sat": 0.418,
+    "val": 0.799
+   },
+   "hair_after": {
+    "n": 181945,
+    "mean_rgb": [
+     213.1,
+     170.8,
+     128.6
+    ],
+    "hue_deg": 30.04,
+    "sat": 0.403,
+    "val": 0.836
+   },
+   "hair_grade_converged": true,
+   "grade_safety": {
+    "bg": 1.28,
+    "skin": 0.39
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    12.0,
+    243.0,
+    18.0
+   ],
+   "corrected": true,
+   "detrend_edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "composition": {
+    "stand_h": 0.524,
+    "feet": 0.913,
+    "cx": 354.5,
+    "scale": 0.7744,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.345,
+   "margin_left_min": 0.1289,
+   "margin_right_min": 0.1504,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 18,
+   "implied_bpm": 131.0,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-03.mp4",
+   "accent_file": "amy-wide/pack2/fast-03.accents.json"
+  },
+  {
+   "clip": "fast-04",
+   "group": "fast",
+   "source_file": "raw2/fast-04-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 7.0,
+   "hair_ratio": 0.25,
+   "hair_before": {
+    "n": 162400,
+    "mean_rgb": [
+     211.8,
+     176.8,
+     141.7
+    ],
+    "hue_deg": 30.27,
+    "sat": 0.334,
+    "val": 0.83
+   },
+   "hair_after": {
+    "n": 131068,
+    "mean_rgb": [
+     216.5,
+     174.6,
+     134.9
+    ],
+    "hue_deg": 29.39,
+    "sat": 0.378,
+    "val": 0.849
+   },
+   "hair_grade_converged": true,
+   "grade_safety": {
+    "bg": 2.27,
+    "skin": 1.1
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    10.0,
+    244.0,
+    18.0
+   ],
+   "corrected": true,
+   "detrend_edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "composition": {
+    "stand_h": 0.5308,
+    "feet": 0.913,
+    "cx": 349.5,
+    "scale": 0.7645,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.375,
+   "margin_left_min": 0.1641,
+   "margin_right_min": 0.1426,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 16,
+   "implied_bpm": 120.0,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-04.mp4",
+   "accent_file": "amy-wide/pack2/fast-04.accents.json"
+  },
+  {
+   "clip": "fast-05",
+   "group": "fast",
+   "source_file": "raw2/fast-05-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 4.2,
+   "hair_ratio": 0.245,
+   "hair_before": {
+    "n": 139414,
+    "mean_rgb": [
+     187.4,
+     159.9,
+     134.1
+    ],
+    "hue_deg": 28.88,
+    "sat": 0.292,
+    "val": 0.735
+   },
+   "hair_after": {
+    "n": 141143,
+    "mean_rgb": [
+     209.2,
+     169.5,
+     132.6
+    ],
+    "hue_deg": 28.88,
+    "sat": 0.374,
+    "val": 0.82
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.45,
+    "skin": 0.7
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    10.0,
+    244.0,
+    19.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5417,
+    "feet": 0.913,
+    "cx": 347.5,
+    "scale": 0.7492,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3525,
+   "margin_left_min": 0.1602,
+   "margin_right_min": 0.1387,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 14,
+   "implied_bpm": 110.7,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-05.mp4",
+   "accent_file": "amy-wide/pack2/fast-05.accents.json"
+  },
+  {
+   "clip": "fast-06",
+   "group": "fast",
+   "source_file": "raw2/fast-06-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 2.8,
+   "hair_ratio": 0.252,
+   "hair_before": {
+    "n": 211520,
+    "mean_rgb": [
+     213.1,
+     173.2,
+     121.1
+    ],
+    "hue_deg": 34.52,
+    "sat": 0.437,
+    "val": 0.836
+   },
+   "hair_after": {
+    "n": 139874,
+    "mean_rgb": [
+     215.6,
+     174.7,
+     133.5
+    ],
+    "hue_deg": 30.68,
+    "sat": 0.385,
+    "val": 0.846
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.46,
+    "skin": 0.83
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    9.0,
+    238.0,
+    11.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5417,
+    "feet": 0.913,
+    "cx": 351.5,
+    "scale": 0.7492,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3825,
+   "margin_left_min": 0.2578,
+   "margin_right_min": 0.2363,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 16,
+   "implied_bpm": 110.9,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-06.mp4",
+   "accent_file": "amy-wide/pack2/fast-06.accents.json"
+  },
+  {
+   "clip": "fast-07",
+   "group": "fast",
+   "source_file": "raw2/fast-07-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 3.5,
+   "hair_ratio": 0.255,
+   "hair_before": {
+    "n": 195074,
+    "mean_rgb": [
+     200.8,
+     164.0,
+     123.5
+    ],
+    "hue_deg": 31.65,
+    "sat": 0.39,
+    "val": 0.787
+   },
+   "hair_after": {
+    "n": 179057,
+    "mean_rgb": [
+     211.9,
+     170.2,
+     129.6
+    ],
+    "hue_deg": 29.77,
+    "sat": 0.394,
+    "val": 0.831
+   },
+   "hair_grade_converged": true,
+   "grade_safety": {
+    "bg": 1.63,
+    "skin": 0.45
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    13.0,
+    235.0,
+    19.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5417,
+    "feet": 0.913,
+    "cx": 344.5,
+    "scale": 0.7492,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3825,
+   "margin_left_min": 0.1953,
+   "margin_right_min": 0.1777,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 20,
+   "implied_bpm": 130.7,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-07.mp4",
+   "accent_file": "amy-wide/pack2/fast-07.accents.json"
+  },
+  {
+   "clip": "fast-08",
+   "group": "fast",
+   "source_file": "raw2/fast-08-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 1.7,
+   "hair_ratio": 0.24,
+   "hair_before": {
+    "n": 144647,
+    "mean_rgb": [
+     191.2,
+     161.5,
+     132.6
+    ],
+    "hue_deg": 29.8,
+    "sat": 0.311,
+    "val": 0.75
+   },
+   "hair_after": {
+    "n": 139478,
+    "mean_rgb": [
+     209.6,
+     169.0,
+     131.1
+    ],
+    "hue_deg": 29.18,
+    "sat": 0.38,
+    "val": 0.822
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.42,
+    "skin": 0.73
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    9.0,
+    242.0,
+    17.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5399,
+    "feet": 0.913,
+    "cx": 348.5,
+    "scale": 0.7517,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3125,
+   "margin_left_min": 0.1641,
+   "margin_right_min": 0.0996,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 15,
+   "implied_bpm": 106.7,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-08.mp4",
+   "accent_file": "amy-wide/pack2/fast-08.accents.json"
+  },
+  {
+   "clip": "fast-09",
+   "group": "fast",
+   "source_file": "raw2/fast-09-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 5.7,
+   "hair_ratio": 0.26,
+   "hair_before": {
+    "n": 209276,
+    "mean_rgb": [
+     208.5,
+     170.7,
+     125.3
+    ],
+    "hue_deg": 33.02,
+    "sat": 0.402,
+    "val": 0.818
+   },
+   "hair_after": {
+    "n": 144323,
+    "mean_rgb": [
+     214.1,
+     173.5,
+     132.8
+    ],
+    "hue_deg": 30.27,
+    "sat": 0.382,
+    "val": 0.84
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.61,
+    "skin": 0.9
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    9.0,
+    238.0,
+    12.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5408,
+    "feet": 0.913,
+    "cx": 350.5,
+    "scale": 0.7504,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3825,
+   "margin_left_min": 0.2188,
+   "margin_right_min": 0.2129,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 16,
+   "implied_bpm": 110.7,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-09.mp4",
+   "accent_file": "amy-wide/pack2/fast-09.accents.json"
+  },
+  {
+   "clip": "fast-10",
+   "group": "fast",
+   "source_file": "raw2/fast-10-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 5.6,
+   "hair_ratio": 0.255,
+   "hair_before": {
+    "n": 199254,
+    "mean_rgb": [
+     206.3,
+     169.5,
+     126.1
+    ],
+    "hue_deg": 32.79,
+    "sat": 0.396,
+    "val": 0.809
+   },
+   "hair_after": {
+    "n": 166120,
+    "mean_rgb": [
+     215.2,
+     174.5,
+     133.8
+    ],
+    "hue_deg": 30.24,
+    "sat": 0.385,
+    "val": 0.844
+   },
+   "hair_grade_converged": true,
+   "grade_safety": {
+    "bg": 1.27,
+    "skin": 0.63
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    8.0,
+    239.0,
+    14.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5426,
+    "feet": 0.913,
+    "cx": 349.5,
+    "scale": 0.7479,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3825,
+   "margin_left_min": 0.2227,
+   "margin_right_min": 0.2246,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
    "accent_count": 21,
-   "implied_bpm": 137.1
+   "implied_bpm": 120.0,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-10.mp4",
+   "accent_file": "amy-wide/pack2/fast-10.accents.json"
+  },
+  {
+   "clip": "fast-11",
+   "group": "fast",
+   "source_file": "raw2/fast-11-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 5.0,
+   "hair_ratio": 0.269,
+   "hair_before": {
+    "n": 218544,
+    "mean_rgb": [
+     203.7,
+     166.8,
+     120.5
+    ],
+    "hue_deg": 33.61,
+    "sat": 0.413,
+    "val": 0.799
+   },
+   "hair_after": {
+    "n": 189209,
+    "mean_rgb": [
+     215.2,
+     173.0,
+     131.2
+    ],
+    "hue_deg": 30.2,
+    "sat": 0.393,
+    "val": 0.844
+   },
+   "hair_grade_converged": true,
+   "grade_safety": {
+    "bg": 1.26,
+    "skin": 0.33
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    11.0,
+    239.0,
+    17.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5426,
+    "feet": 0.913,
+    "cx": 350.5,
+    "scale": 0.7479,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.38,
+   "margin_left_min": 0.2461,
+   "margin_right_min": 0.2754,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 14,
+   "implied_bpm": 102.7,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-11.mp4",
+   "accent_file": "amy-wide/pack2/fast-11.accents.json"
+  },
+  {
+   "clip": "fast-12",
+   "group": "fast",
+   "source_file": "raw2/fast-12-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 1.4,
+   "hair_ratio": 0.265,
+   "hair_before": {
+    "n": 203878,
+    "mean_rgb": [
+     194.6,
+     157.0,
+     112.2
+    ],
+    "hue_deg": 32.96,
+    "sat": 0.426,
+    "val": 0.763
+   },
+   "hair_after": {
+    "n": 172574,
+    "mean_rgb": [
+     209.1,
+     167.2,
+     125.7
+    ],
+    "hue_deg": 30.12,
+    "sat": 0.404,
+    "val": 0.82
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.6,
+    "skin": 0.44
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    9.0,
+    238.0,
+    14.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5426,
+    "feet": 0.9139,
+    "cx": 347.5,
+    "scale": 0.7479,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3825,
+   "margin_left_min": 0.2031,
+   "margin_right_min": 0.1504,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 17,
+   "implied_bpm": 120.0,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-12.mp4",
+   "accent_file": "amy-wide/pack2/fast-12.accents.json"
+  },
+  {
+   "clip": "fast-13",
+   "group": "fast",
+   "source_file": "raw2/fast-13-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 7.9,
+   "hair_ratio": 0.256,
+   "hair_before": {
+    "n": 203612,
+    "mean_rgb": [
+     198.6,
+     165.6,
+     122.7
+    ],
+    "hue_deg": 34.8,
+    "sat": 0.387,
+    "val": 0.779
+   },
+   "hair_after": {
+    "n": 128550,
+    "mean_rgb": [
+     210.8,
+     173.3,
+     134.4
+    ],
+    "hue_deg": 31.53,
+    "sat": 0.366,
+    "val": 0.827
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.42,
+    "skin": 0.76
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    6.0,
+    239.0,
+    11.0
+   ],
+   "corrected": true,
+   "detrend_edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "composition": {
+    "stand_h": 0.5236,
+    "feet": 0.913,
+    "cx": 346.0,
+    "scale": 0.7751,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.34,
+   "margin_left_min": 0.2109,
+   "margin_right_min": 0.1777,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 16,
+   "implied_bpm": 130.7,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-13.mp4",
+   "accent_file": "amy-wide/pack2/fast-13.accents.json"
+  },
+  {
+   "clip": "fast-14",
+   "group": "fast",
+   "source_file": "raw2/fast-14-dancefeel.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 3.4,
+   "hair_ratio": 0.265,
+   "hair_before": {
+    "n": 165882,
+    "mean_rgb": [
+     196.5,
+     158.9,
+     115.7
+    ],
+    "hue_deg": 32.24,
+    "sat": 0.415,
+    "val": 0.77
+   },
+   "hair_after": {
+    "n": 129980,
+    "mean_rgb": [
+     208.5,
+     167.1,
+     126.1
+    ],
+    "hue_deg": 30.15,
+    "sat": 0.401,
+    "val": 0.817
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.44,
+    "skin": 0.39
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    13.0,
+    240.0,
+    19.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5498,
+    "feet": 0.9121,
+    "cx": 353.5,
+    "scale": 0.7381,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.385,
+   "margin_left_min": 0.2266,
+   "margin_right_min": 0.1621,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 11,
+   "implied_bpm": 99.3,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-14.mp4",
+   "accent_file": "amy-wide/pack2/fast-14.accents.json"
+  },
+  {
+   "clip": "fast-15",
+   "group": "fast",
+   "source_file": "raw2/fast-15-shorthair.mp4",
+   "status": "ok",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app v1.0.80: accent grid re-derived at 2x density (midpoints interleaved; finer scan confirms real ~0.5s peaks) -- implied_bpm 62.6 -> 125.3, restoring ratio eligibility at the clip's natural tempo.",
+   "composition_mode": "wide",
+   "src_frames": 240,
+   "drift_before_pct": 2.7,
+   "hair_ratio": 0.25,
+   "hair_before": {
+    "n": 210951,
+    "mean_rgb": [
+     204.1,
+     168.0,
+     121.1
+    ],
+    "hue_deg": 34.37,
+    "sat": 0.416,
+    "val": 0.8
+   },
+   "hair_after": {
+    "n": 148011,
+    "mean_rgb": [
+     215.2,
+     175.0,
+     135.2
+    ],
+    "hue_deg": 30.38,
+    "sat": 0.381,
+    "val": 0.844
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.19,
+    "skin": 0.64
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    8.0,
+    242.0,
+    13.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5453,
+    "feet": 0.9149,
+    "cx": 345.0,
+    "scale": 0.7442,
+    "stand_target": 0.56
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.7417,
+    "stand_target": 0.56
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.56,
+   "feet_v": 0.05,
+   "margin_top_min": 0.385,
+   "margin_left_min": 0.1953,
+   "margin_right_min": 0.2051,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 15,
+   "implied_bpm": 125.3,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/fast-15.mp4",
+   "accent_file": "amy-wide/pack2/fast-15.accents.json"
+  },
+  {
+   "clip": "idle",
+   "group": "special",
+   "source_file": "raw2/idle-shorthair.mp4",
+   "status": "ok",
+   "notes": "wave 52: short-hair re-shoot (gen4, living-statue wording — gens 1-3 rejected for a recurring blink-coupled lip-pucker; gen4 face audit 40/40 frozen closed-lip smile); this clip carries its own figure_scale against the fixed stage anchor 0.6338 like every other clip (anchor NOT re-derived from it)",
+   "src_frames": 240,
+   "drift_before_pct": 0.7,
+   "hair_ratio": 0.243,
+   "hair_before": {
+    "n": 189808,
+    "mean_rgb": [
+     194.9,
+     157.6,
+     116.1
+    ],
+    "hue_deg": 31.79,
+    "sat": 0.413,
+    "val": 0.764
+   },
+   "hair_after": {
+    "n": 158156,
+    "mean_rgb": [
+     208.1,
+     166.8,
+     126.9
+    ],
+    "hue_deg": 29.76,
+    "sat": 0.401,
+    "val": 0.816
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.19,
+    "skin": 0.4
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    7.0,
+    240.0,
+    11.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5453,
+    "feet": 0.913,
+    "cx": 349.5,
+    "scale": 0.8439,
+    "stand_target": 0.635
+   },
+   "frames": 240,
+   "figure_height": 0.635,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3125,
+   "margin_left_min": 0.2812,
+   "margin_right_min": 0.2363,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "240"
+   },
+   "accent_count": 7,
+   "implied_bpm": 46.5,
+   "duration_s": 10.0,
+   "output_file": "amy-wide/pack2/idle.mp4",
+   "accent_file": "amy-wide/pack2/idle.accents.json"
+  },
+  {
+   "clip": "invite",
+   "group": "special",
+   "source_file": "raw2/invite-shorthair.mp4",
+   "status": "ok",
+   "notes": "wave 52: short-hair re-shoot (gen1, one draw; mouth audit 40/40 closed-lip at 0.25s sampling); figure_scale computed against the fixed stage anchor 0.6338 (frozen constant, wave 52 ruling — not re-derived from the current idle)",
+   "src_frames": 240,
+   "drift_before_pct": 0.7,
+   "hair_ratio": 0.261,
+   "hair_before": {
+    "n": 210407,
+    "mean_rgb": [
+     197.3,
+     157.7,
+     113.0
+    ],
+    "hue_deg": 32.02,
+    "sat": 0.436,
+    "val": 0.774
+   },
+   "hair_after": {
+    "n": 177172,
+    "mean_rgb": [
+     209.7,
+     167.3,
+     126.5
+    ],
+    "hue_deg": 29.74,
+    "sat": 0.408,
+    "val": 0.822
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.3,
+    "skin": 0.57
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    8.0,
+    243.0,
+    13.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5453,
+    "feet": 0.913,
+    "cx": 352.5,
+    "scale": 0.8439,
+    "stand_target": 0.635
+   },
+   "frames": 240,
+   "figure_height": 0.635,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3075,
+   "margin_left_min": 0.207,
+   "margin_right_min": 0.2715,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "240"
+   },
+   "accent_count": 10,
+   "implied_bpm": 110.9,
+   "duration_s": 10.0,
+   "output_file": "amy-wide/pack2/invite.mp4",
+   "accent_file": "amy-wide/pack2/invite.accents.json"
+  },
+  {
+   "clip": "slow-01",
+   "group": "slow",
+   "source_file": "raw2/slow-01-shorthair.mp4",
+   "status": "ok",
+   "notes": "",
+   "src_frames": 240,
+   "drift_before_pct": 4.2,
+   "hair_ratio": 0.261,
+   "hair_before": {
+    "n": 240088,
+    "mean_rgb": [
+     202.2,
+     165.0,
+     119.4
+    ],
+    "hue_deg": 33.28,
+    "sat": 0.416,
+    "val": 0.793
+   },
+   "hair_after": {
+    "n": 210854,
+    "mean_rgb": [
+     212.1,
+     170.4,
+     128.9
+    ],
+    "hue_deg": 30.14,
+    "sat": 0.399,
+    "val": 0.832
+   },
+   "hair_grade_converged": true,
+   "grade_safety": {
+    "bg": 1.21,
+    "skin": 0.3
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    10.0,
+    242.0,
+    13.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5417,
+    "feet": 0.913,
+    "cx": 346.5,
+    "scale": 0.8495,
+    "stand_target": 0.635
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.8411,
+    "stand_target": 0.635
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.6362,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3075,
+   "margin_left_min": 0.2773,
+   "margin_right_min": 0.2637,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 15,
+   "implied_bpm": 102.9,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/slow-01.mp4",
+   "accent_file": "amy-wide/pack2/slow-01.accents.json"
+  },
+  {
+   "clip": "slow-02",
+   "group": "slow",
+   "source_file": "raw2/slow-02-shorthair.mp4",
+   "status": "ok",
+   "notes": "",
+   "src_frames": 216,
+   "drift_before_pct": 2.8,
+   "hair_ratio": 0.278,
+   "hair_before": {
+    "n": 182330,
+    "mean_rgb": [
+     202.0,
+     164.4,
+     123.7
+    ],
+    "hue_deg": 31.58,
+    "sat": 0.395,
+    "val": 0.792
+   },
+   "hair_after": {
+    "n": 154281,
+    "mean_rgb": [
+     209.8,
+     168.5,
+     128.3
+    ],
+    "hue_deg": 30.07,
+    "sat": 0.397,
+    "val": 0.823
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.74,
+    "skin": 0.41
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    11.0,
+    238.0,
+    10.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5444,
+    "feet": 0.913,
+    "cx": 337.2,
+    "scale": 0.8453,
+    "stand_target": 0.635
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.8411,
+    "stand_target": 0.635
+   },
+   "spliced": true,
+   "frames": 220,
+   "figure_height": 0.635,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3075,
+   "margin_left_min": 0.2188,
+   "margin_right_min": 0.2012,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "220"
+   },
+   "accent_count": 20,
+   "implied_bpm": 160.0,
+   "duration_s": 9.167,
+   "output_file": "amy-wide/pack2/slow-02.mp4",
+   "accent_file": "amy-wide/pack2/slow-02.accents.json"
+  },
+  {
+   "clip": "slow-03",
+   "group": "slow",
+   "source_file": "raw2/slow-03-shorthair.mp4",
+   "status": "ok",
+   "notes": "",
+   "src_frames": 240,
+   "drift_before_pct": 3.5,
+   "hair_ratio": 0.26,
+   "hair_before": {
+    "n": 198983,
+    "mean_rgb": [
+     206.2,
+     165.7,
+     120.1
+    ],
+    "hue_deg": 31.92,
+    "sat": 0.42,
+    "val": 0.809
+   },
+   "hair_after": {
+    "n": 184391,
+    "mean_rgb": [
+     212.8,
+     169.9,
+     127.3
+    ],
+    "hue_deg": 30.18,
+    "sat": 0.404,
+    "val": 0.834
+   },
+   "hair_grade_converged": true,
+   "grade_safety": {
+    "bg": 0.89,
+    "skin": 0.26
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    12.0,
+    241.0,
+    19.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5444,
+    "feet": 0.913,
+    "cx": 350.8,
+    "scale": 0.8453,
+    "stand_target": 0.635
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.8411,
+    "stand_target": 0.635
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.635,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3075,
+   "margin_left_min": 0.1953,
+   "margin_right_min": 0.3027,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 9,
+   "implied_bpm": 72.0,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/slow-03.mp4",
+   "accent_file": "amy-wide/pack2/slow-03.accents.json"
+  },
+  {
+   "clip": "slow-04",
+   "group": "slow",
+   "source_file": "raw2/slow-04-shorthair.mp4",
+   "status": "ok",
+   "notes": "",
+   "src_frames": 240,
+   "drift_before_pct": 4.2,
+   "hair_ratio": 0.255,
+   "hair_before": {
+    "n": 241806,
+    "mean_rgb": [
+     194.0,
+     158.5,
+     116.6
+    ],
+    "hue_deg": 32.84,
+    "sat": 0.407,
+    "val": 0.761
+   },
+   "hair_after": {
+    "n": 198475,
+    "mean_rgb": [
+     208.4,
+     167.2,
+     127.6
+    ],
+    "hue_deg": 29.87,
+    "sat": 0.398,
+    "val": 0.817
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.36,
+    "skin": 0.41
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    7.0,
+    240.0,
+    15.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5453,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.8439,
+    "stand_target": 0.635
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.8411,
+    "stand_target": 0.635
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.635,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3075,
+   "margin_left_min": 0.2578,
+   "margin_right_min": 0.2559,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 15,
+   "implied_bpm": 102.8,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/slow-04.mp4",
+   "accent_file": "amy-wide/pack2/slow-04.accents.json"
+  },
+  {
+   "clip": "slow-07",
+   "group": "slow",
+   "source_file": "raw2/slow-07-shorthair.mp4",
+   "status": "ok",
+   "notes": "",
+   "src_frames": 240,
+   "drift_before_pct": 4.2,
+   "hair_ratio": 0.26,
+   "hair_before": {
+    "n": 202836,
+    "mean_rgb": [
+     195.8,
+     158.6,
+     118.0
+    ],
+    "hue_deg": 31.63,
+    "sat": 0.401,
+    "val": 0.768
+   },
+   "hair_after": {
+    "n": 166943,
+    "mean_rgb": [
+     208.2,
+     166.7,
+     126.7
+    ],
+    "hue_deg": 29.79,
+    "sat": 0.398,
+    "val": 0.816
+   },
+   "hair_grade_converged": false,
+   "grade_safety": {
+    "bg": 2.28,
+    "skin": 0.47
+   },
+   "backdrop_repainted": true,
+   "backdrop_src_rgb": [
+    9.0,
+    241.0,
+    13.0
+   ],
+   "corrected": false,
+   "composition": {
+    "stand_h": 0.5417,
+    "feet": 0.913,
+    "cx": 349.5,
+    "scale": 0.8495,
+    "stand_target": 0.635
+   },
+   "canonical_geometry": {
+    "stand_h": 0.5471,
+    "feet": 0.913,
+    "cx": 348.0,
+    "scale": 0.8411,
+    "stand_target": 0.635
+   },
+   "spliced": true,
+   "frames": 244,
+   "figure_height": 0.635,
+   "feet_v": 0.05,
+   "margin_top_min": 0.3075,
+   "margin_left_min": 0.2031,
+   "margin_right_min": 0.2207,
+   "edge_touches": {
+    "L": 0,
+    "R": 0,
+    "T": 0,
+    "B": 0
+   },
+   "probe": {
+    "width": 512,
+    "height": 800,
+    "color_range": "tv",
+    "color_space": "bt709",
+    "color_transfer": "bt709",
+    "color_primaries": "bt709",
+    "avg_frame_rate": "24/1",
+    "nb_read_frames": "244"
+   },
+   "accent_count": 18,
+   "implied_bpm": 131.0,
+   "duration_s": 10.167,
+   "output_file": "amy-wide/pack2/slow-07.mp4",
+   "accent_file": "amy-wide/pack2/slow-07.accents.json"
   }
- ]
+ ],
+ "clip_count": 24,
+ "pack_mp4_bytes": 14264292,
+ "bookend_note": "Splice canonical: canon5 (long hair) for clips packaged before wave 38; canon6-short (short hair, canon6-short/C.npy, window 80-91, anchor 86) for all splices from wave 38 on (user ruling 2026-11-21: whole set unified on short hair). First canon6 clip: fast-01. Wave 52: specials idle/invite re-shot on short hair (canon6 era, packaged via the specials path, no splice); clap/combo remain canon5-era long hair pending specials unification part 2."
 }

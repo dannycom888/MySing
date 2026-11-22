@@ -46,16 +46,16 @@ class BeatSliceSchedulerTest {
         val clip = fast01()
         val period = 60.0 / 127.0
         val pass = BeatSliceScheduler.plan(clip.accentsS, clip.durationS, period)
-        // 17 accents + lead-in + tail = 18 raw segments; the
-        // tail glues backward into the last accent's segment,
-        // the rest take 1 beat each. Since v1.0.77 the clip
-        // carries the canonical bookend splice (+4 frames, all
-        // accents +2 frames): the tail is 0.292 s, the merged
-        // last segment spans 1.208 s and rounds to 3 beats
-        // (was 1.125 s / 2 beats with the 0.208 s tail).
-        assertEquals(17, pass.segments.size)
-        assertEquals(19, pass.totalBeats)
-        assertEquals(19 * period, pass.durationS(period), 1e-9)
+        // Pack2's fast-01 (v1.0.80) carries 18 accents:
+        // lead-in + accents + tail = 19 raw segments; the
+        // 0.25 s segment before the 2.0 s accent is too
+        // short to hold a beat and glues forward into the
+        // next, leaving 18 segments; two of them (3.083–
+        // 3.792 and the 9.0–tail close) take 2 beats, the
+        // rest 1 — 20 beats in all.
+        assertEquals(18, pass.segments.size)
+        assertEquals(20, pass.totalBeats)
+        assertEquals(20 * period, pass.durationS(period), 1e-9)
         for (segment in pass.segments) {
             assertTrue(
                 "speed ${segment.speed} outside the clamp",
@@ -120,7 +120,9 @@ class BeatSliceSchedulerTest {
         val clip = fast01()
         val period = 60.0 / 50.0
         val pass = BeatSliceScheduler.plan(clip.accentsS, clip.durationS, period)
-        assertTrue(pass.segments.size < 17)
+        // Pack2 fast-01's 18 accents glue down to 9
+        // segments at a 50 BPM song beat (measured).
+        assertEquals(9, pass.segments.size)
         for (segment in pass.segments) {
             assertTrue(
                 "segment of ${segment.naturalS}s is shorter than 0.7 beat",

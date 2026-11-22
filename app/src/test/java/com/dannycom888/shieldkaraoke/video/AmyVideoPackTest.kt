@@ -71,15 +71,18 @@ class AmyVideoPackTest {
         // tools/measure_figure_scales.py). Each packaged
         // JSON carries its measured height and the playback
         // factor that normalizes it; height × scale must be
-        // the pack's ONE anchor (idle's height — idle is the
-        // clip VIDEO_FIGURE_SCALE was tuned against, so its
-        // factor is exactly 1) within 1% for every dance
+        // the pack's ONE anchor within 1% for every dance
         // clip, or chaining changes Amy's size mid-song.
+        // v1.0.80 (pack2): the anchor is the frozen stage
+        // constant 0.6338 — the original pack2 idle's
+        // measured figure height, frozen at wave 52 when
+        // idle itself was re-shot; idle now carries its own
+        // scale (0.9981) like every other clip instead of
+        // being the anchor source at exactly 1.0.
         val clips = shippedClips()
         val idle = clips.first { it.name == AmyVideoPack.SPECIAL_IDLE }
         assertTrue("idle figure height missing", idle.figureHeight > 0.0)
-        assertEquals("idle is the anchor clip", 1.0, idle.figureScale, 1e-9)
-        val anchor = idle.figureHeight * idle.figureScale
+        val anchor = 0.6338
         for (clip in clips) {
             assertTrue("${clip.name} figure height missing", clip.figureHeight > 0.0)
             assertTrue(
@@ -99,8 +102,13 @@ class AmyVideoPackTest {
     fun `the shipped pack is complete - 24 clips in their groups`() {
         val clips = shippedClips()
         assertEquals(24, clips.size)
-        assertEquals(10, clips.count { it.group == AmyVideoPack.GROUP_FAST })
-        assertEquals(10, clips.count { it.group == AmyVideoPack.GROUP_SLOW })
+        // v1.0.80 (pack2, the user's ruling 2026-11-21):
+        // the set is 15 fast + 5 slow — under the ratio
+        // rule a fast clip slowed to 0.7× still reads as
+        // dancing and covers slow songs, so only the
+        // slowest songs need native slow clips.
+        assertEquals(15, clips.count { it.group == AmyVideoPack.GROUP_FAST })
+        assertEquals(5, clips.count { it.group == AmyVideoPack.GROUP_SLOW })
         assertEquals(4, clips.count { it.group == AmyVideoPack.GROUP_SPECIAL })
         for (special in listOf("invite", "clap", "idle", "combo")) {
             assertNotNull("missing special $special", AmyVideoPack.special(clips, special))
@@ -109,7 +117,11 @@ class AmyVideoPackTest {
             // <= 10.2 since v1.0.77: the canonical bookend
             // splice adds 4 frames (0.167 s) to every dance
             // clip, putting the 240-frame clips at 10.167 s.
-            assertTrue("${clip.name} duration", clip.durationS > 9.0 && clip.durationS <= 10.2)
+            // >= 9.0 since v1.0.80 (pack2): clap is packaged
+            // at 216 frames — exactly 9.0 s — after the
+            // wave-53 tail-trim rescue cut its generator
+            // end-fade, so the floor is inclusive now.
+            assertTrue("${clip.name} duration", clip.durationS >= 9.0 && clip.durationS <= 10.2)
             assertTrue(
                 "${clip.name} mp4 missing",
                 File(assetDir(), "${clip.name}.mp4").isFile,
@@ -135,15 +147,18 @@ class AmyVideoPackTest {
         val clips = shippedClips()
         // Every member of every pool satisfies the ratio,
         // and pools genuinely mix the groups at mid tempos:
-        // at 120 BPM, 16 of the 18 rotatable clips qualify,
-        // drawn from BOTH groups (only slow-06 and slow-07,
-        // implied ≈53/50, would need >1.6× and sit out).
+        // at 120 BPM, 17 of the 18 rotatable clips qualify,
+        // drawn from BOTH groups (only slow-03, implied
+        // 72.0, would need 1.67× and sits out; pack2's
+        // slow-07 genuinely paces 131.0 and serves — the
+        // v1.0.79 pin against the old pack's ≈50 BPM
+        // slow-07 no longer applies to the re-shot clip).
         val mid = AmyVideoPack.dancePool(clips, 120.0)
-        assertEquals(16, mid.size)
+        assertEquals(17, mid.size)
         assertTrue(mid.all { AmyVideoPack.tempoEligible(it, 120.0) })
         assertTrue(mid.any { it.group == AmyVideoPack.GROUP_FAST })
         assertTrue(mid.any { it.group == AmyVideoPack.GROUP_SLOW })
-        assertTrue(mid.none { it.name == "slow-06" || it.name == "slow-07" })
+        assertTrue(mid.none { it.name == "slow-03" })
         // The guard band edges are inclusive: a clip whose
         // implied tempo makes the ratio exactly 0.7 or
         // exactly 1.6 still serves.
@@ -161,27 +176,29 @@ class AmyVideoPackTest {
 
     @Test
     fun `a 171 bpm song excludes the out-of-ratio slow clips`() {
-        // The 《惊雷》 pin: at its measured 171.4, every
-        // slow-group clip whose implied tempo puts it out
-        // of the guard band sits out — slow-07 (implied
-        // 49.6, ratio 3.5) first among them.
+        // The 《惊雷》 pin, re-measured on pack2 (v1.0.80):
+        // at 171.4, the slow-group clips whose implied
+        // tempo puts them out of the guard band sit out —
+        // slow-01 (102.9, ratio 1.67), slow-04 (102.8) and
+        // slow-03 (72.0).
         val clips = shippedClips()
         val pool = AmyVideoPack.dancePool(clips, 171.4)
-        val outOfRatioSlow = listOf(
-            "slow-01", "slow-02", "slow-03", "slow-04",
-            "slow-06", "slow-07", "slow-08", "slow-10",
-        )
+        val outOfRatioSlow = listOf("slow-01", "slow-03", "slow-04")
         assertTrue(pool.none { it.name in outOfRatioSlow })
-        // The rule cuts the other way too: fast-04 (implied
-        // 96) would need 1.79× at 171.4 and sits out despite
-        // its fast-group label.
-        assertTrue(pool.none { it.name == "fast-04" })
-        // Two slow-group clips DO serve: slow-05 and
-        // slow-09's accents genuinely pace 143.9 / 131.0,
-        // so their ratios (1.19 / 1.31) are in band — the
-        // rule judges measured pace, not the group label.
-        assertTrue(pool.any { it.name == "slow-05" })
-        assertTrue(pool.any { it.name == "slow-09" })
+        // Two slow-group clips DO serve: pack2's slow-02
+        // and slow-07 genuinely pace 160.0 / 131.0, so
+        // their ratios (1.07 / 1.31) are in band — the rule
+        // judges measured pace, not the group label.
+        assertTrue(pool.any { it.name == "slow-02" })
+        assertTrue(pool.any { it.name == "slow-07" })
+        // fast-04 serves too: pack2's re-shot paces 120.0
+        // (ratio 1.43), not the old clip's 96.
+        assertTrue(pool.any { it.name == "fast-04" })
+        // fast-15 (Macarena) serves at 1.37 after its
+        // v1.0.80 2× accent re-derivation (implied 125.3;
+        // the raw detector read 62.6, which would have sat
+        // the clip out of its own tempo home).
+        assertTrue(pool.any { it.name == "fast-15" })
         // The rule itself, independent of today's pack: a
         // slow-group clip at implied 75 needs 2.28× at
         // 171.4 — out.

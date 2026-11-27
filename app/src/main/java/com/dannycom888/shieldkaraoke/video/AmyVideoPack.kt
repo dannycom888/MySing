@@ -69,16 +69,18 @@ object AmyVideoPack {
 
     /**
      * Clips that stay in the pack but are never chosen for
-     * the dance rotation (v1.0.79, the user's ruling after
-     * the punch audit in dancers/amy-wide/punch-audit/):
-     * fast-07 is dominated by alternating fist thrusts and
-     * fast-03's second half is repeated fist thrusts — the
-     * user dislikes the punching choreography. Applied in
-     * [dancePool], the one place pools are computed, so no
-     * path — start pick, mid-song rebuild, or the widened
-     * fallback — can ever serve them.
+     * the dance rotation. v1.0.79 excluded fast-03 and
+     * fast-07 under the user's ruling after the punch audit
+     * (the OLD clips' fist-thrust choreography). Those
+     * clips were re-shot punch-free in pack2 (fast-03
+     * shoulder-groove, fast-07 marching-groove, shipped in
+     * v1.0.80), and on 2026-11-24 the user ruled
+     * 「解除剔除，两条新舞进轮换」 — the exclusion is
+     * lifted and all 20 dance clips rotate. The mechanism
+     * stays (applied in [dancePool], the one place pools
+     * are computed) with an empty set.
      */
-    val EXCLUDED_FROM_ROTATION: Set<String> = setOf("fast-03", "fast-07")
+    val EXCLUDED_FROM_ROTATION: Set<String> = emptySet()
 
     /**
      * Whether a dance clip may serve a song at [songBpm]

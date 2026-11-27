@@ -147,14 +147,17 @@ class AmyVideoPackTest {
         val clips = shippedClips()
         // Every member of every pool satisfies the ratio,
         // and pools genuinely mix the groups at mid tempos:
-        // at 120 BPM, 17 of the 18 rotatable clips qualify,
+        // at 120 BPM, 19 of the 20 rotatable clips qualify,
         // drawn from BOTH groups (only slow-03, implied
         // 72.0, would need 1.67× and sits out; pack2's
         // slow-07 genuinely paces 131.0 and serves — the
         // v1.0.79 pin against the old pack's ≈50 BPM
         // slow-07 no longer applies to the re-shot clip).
+        // All 20 clips rotate since v1.0.81 lifted the
+        // fast-03/fast-07 exclusion (see the reinstatement
+        // test below).
         val mid = AmyVideoPack.dancePool(clips, 120.0)
-        assertEquals(17, mid.size)
+        assertEquals(19, mid.size)
         assertTrue(mid.all { AmyVideoPack.tempoEligible(it, 120.0) })
         assertTrue(mid.any { it.group == AmyVideoPack.GROUP_FAST })
         assertTrue(mid.any { it.group == AmyVideoPack.GROUP_SLOW })
@@ -207,30 +210,26 @@ class AmyVideoPackTest {
     }
 
     @Test
-    fun `the punch-audit clips are never chosen at any tempo`() {
-        // v1.0.79 (the user's ruling): fast-03 and fast-07
-        // stay in the pack but out of every pool — the
-        // eligible set AND the widened fallback alike.
+    fun `the re-shot punch-audit clips rotate again since v1_0_81`() {
+        // v1.0.79 excluded fast-03 and fast-07 over the
+        // OLD clips' punching. Pack2 re-shot both
+        // punch-free (shoulder-groove / marching-groove,
+        // shipped in v1.0.80), and on 2026-11-24 the user
+        // ruled 「解除剔除，两条新舞进轮换」: the denylist
+        // is empty and both clips serve at their tempos.
         val clips = shippedClips()
+        assertTrue(AmyVideoPack.EXCLUDED_FROM_ROTATION.isEmpty())
         assertTrue(clips.any { it.name == "fast-03" })
         assertTrue(clips.any { it.name == "fast-07" })
-        var bpm = 40.0
-        while (bpm <= 300.0) {
-            val pool = AmyVideoPack.dancePool(clips, bpm)
-            assertTrue(
-                "excluded clip in the pool at $bpm",
-                pool.none { it.name in AmyVideoPack.EXCLUDED_FROM_ROTATION },
-            )
-            bpm += 5.0
-        }
-        // The denylist, not the ratio, does this: at 131
-        // fast-03's own ratio is 1.0, yet it is not served.
-        val fast03 = clips.first { it.name == "fast-03" }
-        assertTrue(AmyVideoPack.tempoEligible(fast03, 131.0))
-        assertTrue(AmyVideoPack.dancePool(clips, 131.0).none { it.name == "fast-03" })
-        // A pack of nothing but excluded clips has no pool.
-        val onlyExcluded = clips.filter { it.name in AmyVideoPack.EXCLUDED_FROM_ROTATION }
-        assertTrue(AmyVideoPack.dancePool(onlyExcluded, 120.0).isEmpty())
+        // At 131 fast-03's own ratio is 1.0 and it IS
+        // served now; fast-07 (implied 130.7) serves too.
+        val pool131 = AmyVideoPack.dancePool(clips, 131.0)
+        assertTrue(pool131.any { it.name == "fast-03" })
+        assertTrue(pool131.any { it.name == "fast-07" })
+        // A pack of nothing but the two re-shot clips has
+        // a pool again (under the exclusion it was empty).
+        val onlyReshot = clips.filter { it.name == "fast-03" || it.name == "fast-07" }
+        assertEquals(2, AmyVideoPack.dancePool(onlyReshot, 131.0).size)
     }
 
     @Test
@@ -265,7 +264,10 @@ class AmyVideoPackTest {
         // spurious rebuild follows.
         val clips = shippedClips()
         val widened = AmyVideoPack.dancePool(clips, 300.0)
-        assertEquals(18, widened.size)
+        // All 20 dance clips since v1.0.81 lifted the
+        // fast-03/fast-07 exclusion (the widened fallback
+        // covered only 18 while it stood).
+        assertEquals(20, widened.size)
         assertTrue(widened.none { it.name in AmyVideoPack.EXCLUDED_FROM_ROTATION })
         assertTrue(!AmyVideoPack.poolNeedsRebuild(clips, widened, 310.0))
         // With no dance clips at all there is nothing to

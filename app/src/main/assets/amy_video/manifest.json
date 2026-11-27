@@ -1,6 +1,6 @@
 {
  "pack": "amy-wide-pack2",
- "convention": "512x800 runtime; standing height composed to 0.635 of frame (fast dance clips 0.56 wide composition, user ruling 2026-11-21), feet baseline 0.95H; figure_scale relative to the fixed stage anchor 0.6338 (frozen at wave 52); dance clips carry the canonical bookend head/tail in the wave-54 HARD-CUT construction (no dissolves)",
+ "convention": "512x800 runtime; standing height composed to 0.635 of frame (fast dance clips 0.56 wide composition, user ruling 2026-11-21), feet baseline 0.95H; figure_scale relative to the fixed stage anchor 0.6338 (frozen at wave 52); dance clips carry the canonical bookend head/tail in the wave-54 HARD-CUT construction (no dissolves); wave 55: dance bodies are static-trimmed (at most 1 stance frame before motion onset, at most 2 after motion end; accents shifted by the head trim) and every dance clip's four bookend frames carry the clip's OWN opening body head composited over the canon head (head transplant) — user prescriptions 2026-11-27",
  "clips": [
   {
    "clip": "clap",
@@ -218,7 +218,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 225,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.37,
@@ -242,9 +242,166 @@
    },
    "accent_count": 18,
    "implied_bpm": 120.0,
-   "duration_s": 10.167,
+   "duration_s": 9.375,
    "output_file": "amy-wide/pack2/fast-01.mp4",
-   "accent_file": "amy-wide/pack2/fast-01.accents.json"
+   "accent_file": "amy-wide/pack2/fast-01.accents.json",
+   "static_trim": {
+    "median_body_diff": 24.556,
+    "static_threshold": 6.139,
+    "head_static_found": 8,
+    "tail_static_found": 14,
+    "head_trim_frames": 7,
+    "tail_trim_frames": 12,
+    "frames_before": 244,
+    "frames_after": 225,
+    "accents_shifted": 18,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 20,
+     "matched": 18,
+     "kept": 18
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 424,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 300,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6889,
+     "1": 6897,
+     "2": 7947,
+     "3": 7997,
+     "4": 8013,
+     "5": 7972,
+     "219": 6772,
+     "220": 6951,
+     "221": 7009,
+     "222": 7022,
+     "223": 7020,
+     "224": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 241,
+    "head_step_before_pct": 15.2,
+    "tail_step_before_pct": -0.0,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7964,
+     "1": 7932,
+     "2": 7939,
+     "3": 7937,
+     "4": 7979,
+     "5": 7927,
+     "219": 6713,
+     "220": 6935,
+     "221": 7039,
+     "222": 7026,
+     "223": 7945,
+     "224": 7942
+    },
+    "head_step_after_pct": 0.1,
+    "tail_step_after_pct": 13.1,
+    "first_last": {
+     "max": 45,
+     "mean": 0.33
+    },
+    "control_f0_f1": {
+     "max": 72,
+     "mean": 0.117
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 424,
+    "cut_redetected": 424,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     221,
+     222
+    ],
+    "boundary": {
+     "last_moving_index": 220,
+     "first_stance_index": 221,
+     "hair_delta_before_pct": 1.5,
+     "fig_diff_before": 9.067,
+     "median_body_diff_current": 24.983,
+     "median_body_diff_trim_record": 24.556,
+     "hair_delta_after_pct": 13.2,
+     "fig_diff_after": 27.219
+    },
+    "hair_before": {
+     "0": 7964,
+     "1": 7932,
+     "2": 7939,
+     "3": 7937,
+     "4": 7979,
+     "5": 7927,
+     "217": 6457,
+     "218": 6709,
+     "219": 6713,
+     "220": 6935,
+     "221": 7039,
+     "222": 7026,
+     "223": 7945,
+     "224": 7942
+    },
+    "tail_step_before_pct": 13.1,
+    "mask_boxes": {
+     "221": {
+      "x0": 162,
+      "x1": 345,
+      "top": 300,
+      "bottom": 461,
+      "hair_bottom_max": 458
+     },
+     "222": {
+      "x0": 162,
+      "x1": 345,
+      "top": 300,
+      "bottom": 460,
+      "hair_bottom_max": 457
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7901,
+     "1": 7869,
+     "2": 7866,
+     "3": 7882,
+     "4": 7921,
+     "5": 7877,
+     "217": 6400,
+     "218": 6653,
+     "219": 6718,
+     "220": 6924,
+     "221": 7840,
+     "222": 7854,
+     "223": 7790,
+     "224": 7783
+    },
+    "head_step_after_pct": -0.0,
+    "tail_step_after_pct": -0.8,
+    "first_last": {
+     "max": 45,
+     "mean": 0.427
+    },
+    "control_f0_f1": {
+     "max": 70,
+     "mean": 0.113
+    }
+   }
   },
   {
    "clip": "fast-02",
@@ -306,7 +463,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 217,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.375,
@@ -330,9 +487,166 @@
    },
    "accent_count": 19,
    "implied_bpm": 144.1,
-   "duration_s": 10.167,
+   "duration_s": 9.042,
    "output_file": "amy-wide/pack2/fast-02.mp4",
-   "accent_file": "amy-wide/pack2/fast-02.accents.json"
+   "accent_file": "amy-wide/pack2/fast-02.accents.json",
+   "static_trim": {
+    "median_body_diff": 27.986,
+    "static_threshold": 6.997,
+    "head_static_found": 3,
+    "tail_static_found": 27,
+    "head_trim_frames": 2,
+    "tail_trim_frames": 25,
+    "frames_before": 244,
+    "frames_after": 217,
+    "accents_shifted": 19,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 20,
+     "matched": 18,
+     "kept": 19
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 426,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 302,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6910,
+     "1": 6922,
+     "2": 8052,
+     "3": 7925,
+     "4": 7961,
+     "5": 7858,
+     "211": 6795,
+     "212": 6922,
+     "213": 6966,
+     "214": 7031,
+     "215": 7020,
+     "216": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 251,
+    "head_step_before_pct": 16.3,
+    "tail_step_before_pct": -0.2,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7997,
+     "1": 7979,
+     "2": 7993,
+     "3": 7889,
+     "4": 7941,
+     "5": 7805,
+     "211": 6758,
+     "212": 6801,
+     "213": 6911,
+     "214": 6967,
+     "215": 7951,
+     "216": 7951
+    },
+    "head_step_after_pct": 0.2,
+    "tail_step_after_pct": 14.1,
+    "first_last": {
+     "max": 38,
+     "mean": 0.33
+    },
+    "control_f0_f1": {
+     "max": 73,
+     "mean": 0.11
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 426,
+    "cut_redetected": 426,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     213,
+     214
+    ],
+    "boundary": {
+     "last_moving_index": 212,
+     "first_stance_index": 213,
+     "hair_delta_before_pct": 1.6,
+     "fig_diff_before": 11.751,
+     "median_body_diff_current": 28.249,
+     "median_body_diff_trim_record": 27.986,
+     "hair_delta_after_pct": 15.5,
+     "fig_diff_after": 25.057
+    },
+    "hair_before": {
+     "0": 7997,
+     "1": 7979,
+     "2": 7993,
+     "3": 7889,
+     "4": 7941,
+     "5": 7805,
+     "209": 6392,
+     "210": 6604,
+     "211": 6758,
+     "212": 6801,
+     "213": 6911,
+     "214": 6967,
+     "215": 7951,
+     "216": 7951
+    },
+    "tail_step_before_pct": 14.1,
+    "mask_boxes": {
+     "213": {
+      "x0": 160,
+      "x1": 341,
+      "top": 302,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     },
+     "214": {
+      "x0": 160,
+      "x1": 339,
+      "top": 302,
+      "bottom": 436,
+      "hair_bottom_max": 433
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 254,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7946,
+     "1": 7916,
+     "2": 7926,
+     "3": 7824,
+     "4": 7842,
+     "5": 7706,
+     "209": 6295,
+     "210": 6546,
+     "211": 6746,
+     "212": 6824,
+     "213": 7883,
+     "214": 7878,
+     "215": 7839,
+     "216": 7839
+    },
+    "head_step_after_pct": 0.1,
+    "tail_step_after_pct": -0.5,
+    "first_last": {
+     "max": 45,
+     "mean": 0.424
+    },
+    "control_f0_f1": {
+     "max": 66,
+     "mean": 0.11
+    }
+   }
   },
   {
    "clip": "fast-03",
@@ -400,7 +714,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 212,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.345,
@@ -424,9 +738,166 @@
    },
    "accent_count": 19,
    "implied_bpm": 143.9,
-   "duration_s": 10.167,
+   "duration_s": 8.833,
    "output_file": "amy-wide/pack2/fast-03.mp4",
-   "accent_file": "amy-wide/pack2/fast-03.accents.json"
+   "accent_file": "amy-wide/pack2/fast-03.accents.json",
+   "static_trim": {
+    "median_body_diff": 25.179,
+    "static_threshold": 6.295,
+    "head_static_found": 5,
+    "tail_static_found": 30,
+    "head_trim_frames": 4,
+    "tail_trim_frames": 28,
+    "frames_before": 244,
+    "frames_after": 212,
+    "accents_shifted": 19,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 21,
+     "matched": 19,
+     "kept": 19
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 422,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 296,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6934,
+     "1": 6870,
+     "2": 8242,
+     "3": 8245,
+     "4": 7572,
+     "5": 7517,
+     "206": 7195,
+     "207": 7127,
+     "208": 6977,
+     "209": 6893,
+     "210": 7020,
+     "211": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 251,
+    "head_step_before_pct": 20.0,
+    "tail_step_before_pct": 1.8,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 8226,
+     "1": 8190,
+     "2": 8188,
+     "3": 8227,
+     "4": 7486,
+     "5": 7424,
+     "206": 7139,
+     "207": 7025,
+     "208": 6917,
+     "209": 6778,
+     "210": 8211,
+     "211": 8212
+    },
+    "head_step_after_pct": -0.0,
+    "tail_step_after_pct": 21.1,
+    "first_last": {
+     "max": 42,
+     "mean": 0.336
+    },
+    "control_f0_f1": {
+     "max": 69,
+     "mean": 0.112
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 422,
+    "cut_redetected": 422,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     208,
+     209
+    ],
+    "boundary": {
+     "last_moving_index": 207,
+     "first_stance_index": 208,
+     "hair_delta_before_pct": -1.5,
+     "fig_diff_before": 15.174,
+     "median_body_diff_current": 26.544,
+     "median_body_diff_trim_record": 25.179,
+     "hair_delta_after_pct": 15.5,
+     "fig_diff_after": 33.786
+    },
+    "hair_before": {
+     "0": 8226,
+     "1": 8190,
+     "2": 8188,
+     "3": 8227,
+     "4": 7486,
+     "5": 7424,
+     "204": 7162,
+     "205": 7049,
+     "206": 7139,
+     "207": 7025,
+     "208": 6917,
+     "209": 6778,
+     "210": 8211,
+     "211": 8212
+    },
+    "tail_step_before_pct": 21.1,
+    "mask_boxes": {
+     "208": {
+      "x0": 156,
+      "x1": 345,
+      "top": 296,
+      "bottom": 456,
+      "hair_bottom_max": 453
+     },
+     "209": {
+      "x0": 156,
+      "x1": 343,
+      "top": 296,
+      "bottom": 456,
+      "hair_bottom_max": 453
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 252,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 8152,
+     "1": 8116,
+     "2": 8089,
+     "3": 8113,
+     "4": 7412,
+     "5": 7336,
+     "204": 7069,
+     "205": 6969,
+     "206": 7057,
+     "207": 6955,
+     "208": 8035,
+     "209": 8054,
+     "210": 8064,
+     "211": 8067
+    },
+    "head_step_after_pct": -0.3,
+    "tail_step_after_pct": 0.1,
+    "first_last": {
+     "max": 48,
+     "mean": 0.429
+    },
+    "control_f0_f1": {
+     "max": 70,
+     "mean": 0.119
+    }
+   }
   },
   {
    "clip": "fast-04",
@@ -520,7 +991,156 @@
    "implied_bpm": 120.0,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/fast-04.mp4",
-   "accent_file": "amy-wide/pack2/fast-04.accents.json"
+   "accent_file": "amy-wide/pack2/fast-04.accents.json",
+   "static_trim": {
+    "median_body_diff": 18.927,
+    "static_threshold": 4.732,
+    "head_static_found": 1,
+    "tail_static_found": 1,
+    "head_trim_frames": 0,
+    "tail_trim_frames": 0,
+    "frames_before": 244,
+    "frames_after": 244,
+    "accents_shifted": 18,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 17,
+     "matched": 17,
+     "kept": 18
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 416,
+    "mask": {
+     "x0": 110,
+     "x1": 423,
+     "top": 292,
+     "bottom": 439,
+     "hair_bottom_max": 436
+    },
+    "hair_before": {
+     "0": 6968,
+     "1": 6929,
+     "2": 7905,
+     "3": 8001,
+     "4": 7844,
+     "5": 7499,
+     "238": 6169,
+     "239": 5964,
+     "240": 5920,
+     "241": 5890,
+     "242": 7020,
+     "243": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "head_step_before_pct": 14.1,
+    "tail_step_before_pct": 19.2,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7813,
+     "1": 7795,
+     "2": 7837,
+     "3": 7958,
+     "4": 7729,
+     "5": 7423,
+     "238": 6151,
+     "239": 6026,
+     "240": 5919,
+     "241": 5924,
+     "242": 7796,
+     "243": 7781
+    },
+    "head_step_after_pct": 0.5,
+    "tail_step_after_pct": 31.6,
+    "first_last": {
+     "max": 48,
+     "mean": 0.37
+    },
+    "control_f0_f1": {
+     "max": 98,
+     "mean": 0.133
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 416,
+    "cut_redetected": 416,
+    "kept_tail_stance_frames": 1,
+    "target_indices": [
+     241
+    ],
+    "boundary": {
+     "last_moving_index": 240,
+     "first_stance_index": 241,
+     "hair_delta_before_pct": 0.1,
+     "fig_diff_before": 5.111,
+     "median_body_diff_current": 18.546,
+     "median_body_diff_trim_record": 18.927,
+     "hair_delta_after_pct": 29.9,
+     "fig_diff_after": 28.842
+    },
+    "hair_before": {
+     "0": 7813,
+     "1": 7795,
+     "2": 7837,
+     "3": 7958,
+     "4": 7729,
+     "5": 7423,
+     "236": 6144,
+     "237": 6197,
+     "238": 6151,
+     "239": 6026,
+     "240": 5919,
+     "241": 5924,
+     "242": 7796,
+     "243": 7781
+    },
+    "tail_step_before_pct": 31.6,
+    "mask_boxes": {
+     "241": {
+      "x0": 110,
+      "x1": 423,
+      "top": 292,
+      "bottom": 438,
+      "hair_bottom_max": 435
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7748,
+     "1": 7723,
+     "2": 7774,
+     "3": 7900,
+     "4": 7668,
+     "5": 7364,
+     "236": 6094,
+     "237": 6104,
+     "238": 6105,
+     "239": 5931,
+     "240": 5862,
+     "241": 7615,
+     "242": 7687,
+     "243": 7700
+    },
+    "head_step_after_pct": 0.7,
+    "tail_step_after_pct": 0.9,
+    "first_last": {
+     "max": 47,
+     "mean": 0.46
+    },
+    "control_f0_f1": {
+     "max": 95,
+     "mean": 0.134
+    }
+   }
   },
   {
    "clip": "fast-05",
@@ -582,7 +1202,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 208,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.3525,
@@ -606,9 +1226,166 @@
    },
    "accent_count": 14,
    "implied_bpm": 110.7,
-   "duration_s": 10.167,
+   "duration_s": 8.667,
    "output_file": "amy-wide/pack2/fast-05.mp4",
-   "accent_file": "amy-wide/pack2/fast-05.accents.json"
+   "accent_file": "amy-wide/pack2/fast-05.accents.json",
+   "static_trim": {
+    "median_body_diff": 29.135,
+    "static_threshold": 7.284,
+    "head_static_found": 9,
+    "tail_static_found": 30,
+    "head_trim_frames": 8,
+    "tail_trim_frames": 28,
+    "frames_before": 244,
+    "frames_after": 208,
+    "accents_shifted": 14,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 14,
+     "matched": 13,
+     "kept": 14
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 422,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 302,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6875,
+     "1": 6857,
+     "2": 7939,
+     "3": 7880,
+     "4": 7498,
+     "5": 6757,
+     "202": 6014,
+     "203": 5989,
+     "204": 6128,
+     "205": 6111,
+     "206": 7020,
+     "207": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "head_step_before_pct": 15.8,
+    "tail_step_before_pct": 14.9,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7957,
+     "1": 7952,
+     "2": 7946,
+     "3": 7914,
+     "4": 7446,
+     "5": 6716,
+     "202": 6092,
+     "203": 6084,
+     "204": 6152,
+     "205": 6194,
+     "206": 7951,
+     "207": 7951
+    },
+    "head_step_after_pct": -0.1,
+    "tail_step_after_pct": 28.4,
+    "first_last": {
+     "max": 42,
+     "mean": 0.335
+    },
+    "control_f0_f1": {
+     "max": 73,
+     "mean": 0.102
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 422,
+    "cut_redetected": 424,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     204,
+     205
+    ],
+    "boundary": {
+     "last_moving_index": 203,
+     "first_stance_index": 204,
+     "hair_delta_before_pct": 1.1,
+     "fig_diff_before": 8.963,
+     "median_body_diff_current": 31.795,
+     "median_body_diff_trim_record": 29.135,
+     "hair_delta_after_pct": 30.0,
+     "fig_diff_after": 21.363
+    },
+    "hair_before": {
+     "0": 7957,
+     "1": 7952,
+     "2": 7946,
+     "3": 7914,
+     "4": 7446,
+     "5": 6716,
+     "200": 5962,
+     "201": 5978,
+     "202": 6092,
+     "203": 6084,
+     "204": 6152,
+     "205": 6194,
+     "206": 7951,
+     "207": 7951
+    },
+    "tail_step_before_pct": 28.4,
+    "mask_boxes": {
+     "204": {
+      "x0": 154,
+      "x1": 359,
+      "top": 302,
+      "bottom": 432,
+      "hair_bottom_max": 429
+     },
+     "205": {
+      "x0": 160,
+      "x1": 351,
+      "top": 302,
+      "bottom": 432,
+      "hair_bottom_max": 429
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7924,
+     "1": 7903,
+     "2": 7897,
+     "3": 7851,
+     "4": 7420,
+     "5": 6654,
+     "200": 5834,
+     "201": 5929,
+     "202": 5960,
+     "203": 6031,
+     "204": 7838,
+     "205": 7837,
+     "206": 7855,
+     "207": 7853
+    },
+    "head_step_after_pct": -0.1,
+    "tail_step_after_pct": 0.2,
+    "first_last": {
+     "max": 48,
+     "mean": 0.431
+    },
+    "control_f0_f1": {
+     "max": 70,
+     "mean": 0.103
+    }
+   }
   },
   {
    "clip": "fast-06",
@@ -670,7 +1447,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 215,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.3825,
@@ -694,9 +1471,166 @@
    },
    "accent_count": 16,
    "implied_bpm": 110.9,
-   "duration_s": 10.167,
+   "duration_s": 8.958,
    "output_file": "amy-wide/pack2/fast-06.mp4",
-   "accent_file": "amy-wide/pack2/fast-06.accents.json"
+   "accent_file": "amy-wide/pack2/fast-06.accents.json",
+   "static_trim": {
+    "median_body_diff": 14.282,
+    "static_threshold": 3.571,
+    "head_static_found": 5,
+    "tail_static_found": 27,
+    "head_trim_frames": 4,
+    "tail_trim_frames": 25,
+    "frames_before": 244,
+    "frames_after": 215,
+    "accents_shifted": 16,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 17,
+     "matched": 15,
+     "kept": 16
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 424,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 302,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6939,
+     "1": 6941,
+     "2": 7885,
+     "3": 7903,
+     "4": 7067,
+     "5": 7073,
+     "209": 7013,
+     "210": 6975,
+     "211": 6950,
+     "212": 6935,
+     "213": 7020,
+     "214": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 245,
+    "head_step_before_pct": 13.6,
+    "tail_step_before_pct": 1.2,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7830,
+     "1": 7816,
+     "2": 7821,
+     "3": 7831,
+     "4": 6961,
+     "5": 7001,
+     "209": 6976,
+     "210": 6964,
+     "211": 6917,
+     "212": 6913,
+     "213": 7773,
+     "214": 7780
+    },
+    "head_step_after_pct": 0.1,
+    "tail_step_after_pct": 12.4,
+    "first_last": {
+     "max": 38,
+     "mean": 0.318
+    },
+    "control_f0_f1": {
+     "max": 64,
+     "mean": 0.102
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 424,
+    "cut_redetected": 426,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     211,
+     212
+    ],
+    "boundary": {
+     "last_moving_index": 210,
+     "first_stance_index": 211,
+     "hair_delta_before_pct": -0.7,
+     "fig_diff_before": 4.036,
+     "median_body_diff_current": 14.826,
+     "median_body_diff_trim_record": 14.282,
+     "hair_delta_after_pct": 10.5,
+     "fig_diff_after": 24.289
+    },
+    "hair_before": {
+     "0": 7830,
+     "1": 7816,
+     "2": 7821,
+     "3": 7831,
+     "4": 6961,
+     "5": 7001,
+     "207": 7076,
+     "208": 7031,
+     "209": 6976,
+     "210": 6964,
+     "211": 6917,
+     "212": 6913,
+     "213": 7773,
+     "214": 7780
+    },
+    "tail_step_before_pct": 12.4,
+    "mask_boxes": {
+     "211": {
+      "x0": 162,
+      "x1": 339,
+      "top": 302,
+      "bottom": 436,
+      "hair_bottom_max": 433
+     },
+     "212": {
+      "x0": 162,
+      "x1": 339,
+      "top": 302,
+      "bottom": 436,
+      "hair_bottom_max": 433
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7702,
+     "1": 7690,
+     "2": 7694,
+     "3": 7705,
+     "4": 6920,
+     "5": 6938,
+     "207": 7028,
+     "208": 7005,
+     "209": 6963,
+     "210": 6949,
+     "211": 7677,
+     "212": 7676,
+     "213": 7702,
+     "214": 7707
+    },
+    "head_step_after_pct": 0.1,
+    "tail_step_after_pct": 0.3,
+    "first_last": {
+     "max": 50,
+     "mean": 0.409
+    },
+    "control_f0_f1": {
+     "max": 64,
+     "mean": 0.1
+    }
+   }
   },
   {
    "clip": "fast-07",
@@ -758,7 +1692,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 220,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.3825,
@@ -782,9 +1716,166 @@
    },
    "accent_count": 20,
    "implied_bpm": 130.7,
-   "duration_s": 10.167,
+   "duration_s": 9.167,
    "output_file": "amy-wide/pack2/fast-07.mp4",
-   "accent_file": "amy-wide/pack2/fast-07.accents.json"
+   "accent_file": "amy-wide/pack2/fast-07.accents.json",
+   "static_trim": {
+    "median_body_diff": 16.33,
+    "static_threshold": 4.082,
+    "head_static_found": 6,
+    "tail_static_found": 21,
+    "head_trim_frames": 5,
+    "tail_trim_frames": 19,
+    "frames_before": 244,
+    "frames_after": 220,
+    "accents_shifted": 20,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 20,
+     "matched": 18,
+     "kept": 20
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 424,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 302,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6940,
+     "1": 6887,
+     "2": 7141,
+     "3": 7077,
+     "4": 7189,
+     "5": 7101,
+     "214": 6146,
+     "215": 6346,
+     "216": 6373,
+     "217": 6372,
+     "218": 7020,
+     "219": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "head_step_before_pct": 3.7,
+    "tail_step_before_pct": 10.2,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7133,
+     "1": 7128,
+     "2": 7097,
+     "3": 7036,
+     "4": 7196,
+     "5": 7091,
+     "214": 6153,
+     "215": 6338,
+     "216": 6334,
+     "217": 6328,
+     "218": 7076,
+     "219": 7073
+    },
+    "head_step_after_pct": -0.4,
+    "tail_step_after_pct": 11.8,
+    "first_last": {
+     "max": 46,
+     "mean": 0.323
+    },
+    "control_f0_f1": {
+     "max": 66,
+     "mean": 0.114
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 424,
+    "cut_redetected": 424,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     216,
+     217
+    ],
+    "boundary": {
+     "last_moving_index": 215,
+     "first_stance_index": 216,
+     "hair_delta_before_pct": -0.1,
+     "fig_diff_before": 6.806,
+     "median_body_diff_current": 16.607,
+     "median_body_diff_trim_record": 16.33,
+     "hair_delta_after_pct": 12.5,
+     "fig_diff_after": 19.678
+    },
+    "hair_before": {
+     "0": 7133,
+     "1": 7128,
+     "2": 7097,
+     "3": 7036,
+     "4": 7196,
+     "5": 7091,
+     "212": 5982,
+     "213": 6147,
+     "214": 6153,
+     "215": 6338,
+     "216": 6334,
+     "217": 6328,
+     "218": 7076,
+     "219": 7073
+    },
+    "tail_step_before_pct": 11.8,
+    "mask_boxes": {
+     "216": {
+      "x0": 166,
+      "x1": 345,
+      "top": 302,
+      "bottom": 438,
+      "hair_bottom_max": 435
+     },
+     "217": {
+      "x0": 170,
+      "x1": 341,
+      "top": 302,
+      "bottom": 438,
+      "hair_bottom_max": 435
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7087,
+     "1": 7074,
+     "2": 7051,
+     "3": 7006,
+     "4": 7134,
+     "5": 7014,
+     "212": 5910,
+     "213": 6079,
+     "214": 6044,
+     "215": 6250,
+     "216": 7031,
+     "217": 7029,
+     "218": 7036,
+     "219": 7031
+    },
+    "head_step_after_pct": -0.3,
+    "tail_step_after_pct": 0.1,
+    "first_last": {
+     "max": 45,
+     "mean": 0.432
+    },
+    "control_f0_f1": {
+     "max": 71,
+     "mean": 0.112
+    }
+   }
   },
   {
    "clip": "fast-08",
@@ -846,7 +1937,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 227,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.3125,
@@ -870,9 +1961,166 @@
    },
    "accent_count": 15,
    "implied_bpm": 106.7,
-   "duration_s": 10.167,
+   "duration_s": 9.458,
    "output_file": "amy-wide/pack2/fast-08.mp4",
-   "accent_file": "amy-wide/pack2/fast-08.accents.json"
+   "accent_file": "amy-wide/pack2/fast-08.accents.json",
+   "static_trim": {
+    "median_body_diff": 20.88,
+    "static_threshold": 5.22,
+    "head_static_found": 3,
+    "tail_static_found": 17,
+    "head_trim_frames": 2,
+    "tail_trim_frames": 15,
+    "frames_before": 244,
+    "frames_after": 227,
+    "accents_shifted": 15,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 16,
+     "matched": 15,
+     "kept": 15
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 426,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 300,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6849,
+     "1": 6892,
+     "2": 8267,
+     "3": 8231,
+     "4": 5794,
+     "5": 5710,
+     "221": 5797,
+     "222": 5770,
+     "223": 5766,
+     "224": 5798,
+     "225": 7020,
+     "226": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "head_step_before_pct": 20.0,
+    "tail_step_before_pct": 21.1,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 8177,
+     "1": 8163,
+     "2": 8181,
+     "3": 8155,
+     "4": 5725,
+     "5": 5686,
+     "221": 5785,
+     "222": 5812,
+     "223": 5773,
+     "224": 5818,
+     "225": 8162,
+     "226": 8166
+    },
+    "head_step_after_pct": 0.2,
+    "tail_step_after_pct": 40.3,
+    "first_last": {
+     "max": 42,
+     "mean": 0.329
+    },
+    "control_f0_f1": {
+     "max": 67,
+     "mean": 0.106
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 426,
+    "cut_redetected": 426,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     223,
+     224
+    ],
+    "boundary": {
+     "last_moving_index": 222,
+     "first_stance_index": 223,
+     "hair_delta_before_pct": -0.7,
+     "fig_diff_before": 11.189,
+     "median_body_diff_current": 21.895,
+     "median_body_diff_trim_record": 20.88,
+     "hair_delta_after_pct": 38.7,
+     "fig_diff_after": 26.726
+    },
+    "hair_before": {
+     "0": 8177,
+     "1": 8163,
+     "2": 8181,
+     "3": 8155,
+     "4": 5725,
+     "5": 5686,
+     "219": 5505,
+     "220": 5717,
+     "221": 5785,
+     "222": 5812,
+     "223": 5773,
+     "224": 5818,
+     "225": 8162,
+     "226": 8166
+    },
+    "tail_step_before_pct": 40.3,
+    "mask_boxes": {
+     "223": {
+      "x0": 162,
+      "x1": 341,
+      "top": 300,
+      "bottom": 432,
+      "hair_bottom_max": 429
+     },
+     "224": {
+      "x0": 162,
+      "x1": 343,
+      "top": 300,
+      "bottom": 432,
+      "hair_bottom_max": 429
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 8118,
+     "1": 8103,
+     "2": 8114,
+     "3": 8086,
+     "4": 5658,
+     "5": 5638,
+     "219": 5484,
+     "220": 5624,
+     "221": 5762,
+     "222": 5770,
+     "223": 8004,
+     "224": 8002,
+     "225": 8009,
+     "226": 8011
+    },
+    "head_step_after_pct": 0.1,
+    "tail_step_after_pct": 0.1,
+    "first_last": {
+     "max": 49,
+     "mean": 0.46
+    },
+    "control_f0_f1": {
+     "max": 67,
+     "mean": 0.106
+    }
+   }
   },
   {
    "clip": "fast-09",
@@ -934,7 +2182,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 213,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.3825,
@@ -958,9 +2206,166 @@
    },
    "accent_count": 16,
    "implied_bpm": 110.7,
-   "duration_s": 10.167,
+   "duration_s": 8.875,
    "output_file": "amy-wide/pack2/fast-09.mp4",
-   "accent_file": "amy-wide/pack2/fast-09.accents.json"
+   "accent_file": "amy-wide/pack2/fast-09.accents.json",
+   "static_trim": {
+    "median_body_diff": 16.041,
+    "static_threshold": 4.01,
+    "head_static_found": 3,
+    "tail_static_found": 31,
+    "head_trim_frames": 2,
+    "tail_trim_frames": 29,
+    "frames_before": 244,
+    "frames_after": 213,
+    "accents_shifted": 16,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 17,
+     "matched": 15,
+     "kept": 16
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 428,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 302,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6809,
+     "1": 6850,
+     "2": 8037,
+     "3": 8078,
+     "4": 7991,
+     "5": 7436,
+     "207": 7195,
+     "208": 7287,
+     "209": 7288,
+     "210": 7278,
+     "211": 7020,
+     "212": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 248,
+    "head_step_before_pct": 17.3,
+    "tail_step_before_pct": -3.5,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7936,
+     "1": 7939,
+     "2": 7958,
+     "3": 8010,
+     "4": 7890,
+     "5": 7406,
+     "207": 7199,
+     "208": 7306,
+     "209": 7300,
+     "210": 7294,
+     "211": 7938,
+     "212": 7938
+    },
+    "head_step_after_pct": 0.2,
+    "tail_step_after_pct": 8.8,
+    "first_last": {
+     "max": 43,
+     "mean": 0.325
+    },
+    "control_f0_f1": {
+     "max": 69,
+     "mean": 0.101
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 428,
+    "cut_redetected": 426,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     209,
+     210
+    ],
+    "boundary": {
+     "last_moving_index": 208,
+     "first_stance_index": 209,
+     "hair_delta_before_pct": -0.1,
+     "fig_diff_before": 4.924,
+     "median_body_diff_current": 16.238,
+     "median_body_diff_trim_record": 16.041,
+     "hair_delta_after_pct": 9.8,
+     "fig_diff_after": 21.7
+    },
+    "hair_before": {
+     "0": 7936,
+     "1": 7939,
+     "2": 7958,
+     "3": 8010,
+     "4": 7890,
+     "5": 7406,
+     "205": 7122,
+     "206": 7122,
+     "207": 7199,
+     "208": 7306,
+     "209": 7300,
+     "210": 7294,
+     "211": 7938,
+     "212": 7938
+    },
+    "tail_step_before_pct": 8.8,
+    "mask_boxes": {
+     "209": {
+      "x0": 160,
+      "x1": 335,
+      "top": 302,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     },
+     "210": {
+      "x0": 160,
+      "x1": 335,
+      "top": 302,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 254,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7826,
+     "1": 7819,
+     "2": 7844,
+     "3": 7935,
+     "4": 7799,
+     "5": 7338,
+     "205": 7089,
+     "206": 7078,
+     "207": 7151,
+     "208": 7161,
+     "209": 7862,
+     "210": 7846,
+     "211": 7858,
+     "212": 7858
+    },
+    "head_step_after_pct": 0.3,
+    "tail_step_after_pct": 0.2,
+    "first_last": {
+     "max": 60,
+     "mean": 0.405
+    },
+    "control_f0_f1": {
+     "max": 70,
+     "mean": 0.101
+    }
+   }
   },
   {
    "clip": "fast-10",
@@ -1022,7 +2427,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 216,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.3825,
@@ -1046,9 +2451,166 @@
    },
    "accent_count": 21,
    "implied_bpm": 120.0,
-   "duration_s": 10.167,
+   "duration_s": 9.0,
    "output_file": "amy-wide/pack2/fast-10.mp4",
-   "accent_file": "amy-wide/pack2/fast-10.accents.json"
+   "accent_file": "amy-wide/pack2/fast-10.accents.json",
+   "static_trim": {
+    "median_body_diff": 17.248,
+    "static_threshold": 4.312,
+    "head_static_found": 3,
+    "tail_static_found": 28,
+    "head_trim_frames": 2,
+    "tail_trim_frames": 26,
+    "frames_before": 244,
+    "frames_after": 216,
+    "accents_shifted": 21,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 21,
+     "matched": 19,
+     "kept": 21
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 425,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 304,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6915,
+     "1": 6905,
+     "2": 7889,
+     "3": 7851,
+     "4": 6502,
+     "5": 6268,
+     "210": 6575,
+     "211": 6591,
+     "212": 6571,
+     "213": 6577,
+     "214": 7020,
+     "215": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 248,
+    "head_step_before_pct": 14.3,
+    "tail_step_before_pct": 6.7,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7843,
+     "1": 7836,
+     "2": 7835,
+     "3": 7812,
+     "4": 6454,
+     "5": 6234,
+     "210": 6580,
+     "211": 6616,
+     "212": 6590,
+     "213": 6635,
+     "214": 7823,
+     "215": 7823
+    },
+    "head_step_after_pct": -0.0,
+    "tail_step_after_pct": 17.9,
+    "first_last": {
+     "max": 37,
+     "mean": 0.324
+    },
+    "control_f0_f1": {
+     "max": 66,
+     "mean": 0.099
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 425,
+    "cut_redetected": 426,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     212,
+     213
+    ],
+    "boundary": {
+     "last_moving_index": 211,
+     "first_stance_index": 212,
+     "hair_delta_before_pct": -0.4,
+     "fig_diff_before": 6.549,
+     "median_body_diff_current": 17.596,
+     "median_body_diff_trim_record": 17.248,
+     "hair_delta_after_pct": 17.2,
+     "fig_diff_after": 23.736
+    },
+    "hair_before": {
+     "0": 7843,
+     "1": 7836,
+     "2": 7835,
+     "3": 7812,
+     "4": 6454,
+     "5": 6234,
+     "208": 6461,
+     "209": 6579,
+     "210": 6580,
+     "211": 6616,
+     "212": 6590,
+     "213": 6635,
+     "214": 7823,
+     "215": 7823
+    },
+    "tail_step_before_pct": 17.9,
+    "mask_boxes": {
+     "212": {
+      "x0": 162,
+      "x1": 341,
+      "top": 304,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     },
+     "213": {
+      "x0": 162,
+      "x1": 339,
+      "top": 304,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 247,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7751,
+     "1": 7743,
+     "2": 7720,
+     "3": 7697,
+     "4": 6394,
+     "5": 6274,
+     "208": 6433,
+     "209": 6549,
+     "210": 6543,
+     "211": 6635,
+     "212": 7773,
+     "213": 7768,
+     "214": 7776,
+     "215": 7772
+    },
+    "head_step_after_pct": -0.3,
+    "tail_step_after_pct": 0.1,
+    "first_last": {
+     "max": 62,
+     "mean": 0.415
+    },
+    "control_f0_f1": {
+     "max": 64,
+     "mean": 0.098
+    }
+   }
   },
   {
    "clip": "fast-11",
@@ -1110,7 +2672,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 208,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.38,
@@ -1134,9 +2696,166 @@
    },
    "accent_count": 14,
    "implied_bpm": 102.7,
-   "duration_s": 10.167,
+   "duration_s": 8.667,
    "output_file": "amy-wide/pack2/fast-11.mp4",
-   "accent_file": "amy-wide/pack2/fast-11.accents.json"
+   "accent_file": "amy-wide/pack2/fast-11.accents.json",
+   "static_trim": {
+    "median_body_diff": 17.485,
+    "static_threshold": 4.371,
+    "head_static_found": 5,
+    "tail_static_found": 34,
+    "head_trim_frames": 4,
+    "tail_trim_frames": 32,
+    "frames_before": 244,
+    "frames_after": 208,
+    "accents_shifted": 14,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 16,
+     "matched": 14,
+     "kept": 14
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 426,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 304,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6842,
+     "1": 6832,
+     "2": 8116,
+     "3": 8139,
+     "4": 7894,
+     "5": 7653,
+     "202": 7142,
+     "203": 7150,
+     "204": 7136,
+     "205": 7144,
+     "206": 7020,
+     "207": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "head_step_before_pct": 18.8,
+    "tail_step_before_pct": -1.7,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 8055,
+     "1": 8041,
+     "2": 8068,
+     "3": 8083,
+     "4": 7845,
+     "5": 7632,
+     "202": 7119,
+     "203": 7160,
+     "204": 7117,
+     "205": 7131,
+     "206": 8049,
+     "207": 8045
+    },
+    "head_step_after_pct": 0.3,
+    "tail_step_after_pct": 12.9,
+    "first_last": {
+     "max": 37,
+     "mean": 0.323
+    },
+    "control_f0_f1": {
+     "max": 69,
+     "mean": 0.104
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 426,
+    "cut_redetected": 426,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     204,
+     205
+    ],
+    "boundary": {
+     "last_moving_index": 203,
+     "first_stance_index": 204,
+     "hair_delta_before_pct": -0.6,
+     "fig_diff_before": 7.271,
+     "median_body_diff_current": 18.308,
+     "median_body_diff_trim_record": 17.485,
+     "hair_delta_after_pct": 11.6,
+     "fig_diff_after": 21.996
+    },
+    "hair_before": {
+     "0": 8055,
+     "1": 8041,
+     "2": 8068,
+     "3": 8083,
+     "4": 7845,
+     "5": 7632,
+     "200": 7128,
+     "201": 7120,
+     "202": 7119,
+     "203": 7160,
+     "204": 7117,
+     "205": 7131,
+     "206": 8049,
+     "207": 8045
+    },
+    "tail_step_before_pct": 12.9,
+    "mask_boxes": {
+     "204": {
+      "x0": 162,
+      "x1": 339,
+      "top": 304,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     },
+     "205": {
+      "x0": 162,
+      "x1": 337,
+      "top": 304,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 249,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7964,
+     "1": 7956,
+     "2": 7980,
+     "3": 8013,
+     "4": 7802,
+     "5": 7542,
+     "200": 7093,
+     "201": 7071,
+     "202": 7080,
+     "203": 7130,
+     "204": 7954,
+     "205": 7953,
+     "206": 7973,
+     "207": 7973
+    },
+    "head_step_after_pct": 0.3,
+    "tail_step_after_pct": 0.3,
+    "first_last": {
+     "max": 52,
+     "mean": 0.425
+    },
+    "control_f0_f1": {
+     "max": 68,
+     "mean": 0.104
+    }
+   }
   },
   {
    "clip": "fast-12",
@@ -1198,7 +2917,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 228,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.3825,
@@ -1222,9 +2941,166 @@
    },
    "accent_count": 17,
    "implied_bpm": 120.0,
-   "duration_s": 10.167,
+   "duration_s": 9.5,
    "output_file": "amy-wide/pack2/fast-12.mp4",
-   "accent_file": "amy-wide/pack2/fast-12.accents.json"
+   "accent_file": "amy-wide/pack2/fast-12.accents.json",
+   "static_trim": {
+    "median_body_diff": 22.083,
+    "static_threshold": 5.521,
+    "head_static_found": 3,
+    "tail_static_found": 16,
+    "head_trim_frames": 2,
+    "tail_trim_frames": 14,
+    "frames_before": 244,
+    "frames_after": 228,
+    "accents_shifted": 17,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 18,
+     "matched": 15,
+     "kept": 17
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 428,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 302,
+     "bottom": 436,
+     "hair_bottom_max": 433
+    },
+    "hair_before": {
+     "0": 6858,
+     "1": 6848,
+     "2": 8026,
+     "3": 8041,
+     "4": 8059,
+     "5": 8031,
+     "222": 7058,
+     "223": 7093,
+     "224": 7112,
+     "225": 7100,
+     "226": 7020,
+     "227": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "head_step_before_pct": 17.2,
+    "tail_step_before_pct": -1.1,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7954,
+     "1": 7944,
+     "2": 7967,
+     "3": 7990,
+     "4": 7993,
+     "5": 7976,
+     "222": 6971,
+     "223": 6988,
+     "224": 6985,
+     "225": 6975,
+     "226": 7954,
+     "227": 7948
+    },
+    "head_step_after_pct": 0.3,
+    "tail_step_after_pct": 14.0,
+    "first_last": {
+     "max": 41,
+     "mean": 0.328
+    },
+    "control_f0_f1": {
+     "max": 70,
+     "mean": 0.102
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 428,
+    "cut_redetected": 428,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     224,
+     225
+    ],
+    "boundary": {
+     "last_moving_index": 223,
+     "first_stance_index": 224,
+     "hair_delta_before_pct": -0.0,
+     "fig_diff_before": 5.657,
+     "median_body_diff_current": 22.719,
+     "median_body_diff_trim_record": 22.083,
+     "hair_delta_after_pct": 14.8,
+     "fig_diff_after": 21.993
+    },
+    "hair_before": {
+     "0": 7954,
+     "1": 7944,
+     "2": 7967,
+     "3": 7990,
+     "4": 7993,
+     "5": 7976,
+     "220": 6960,
+     "221": 6912,
+     "222": 6971,
+     "223": 6988,
+     "224": 6985,
+     "225": 6975,
+     "226": 7954,
+     "227": 7948
+    },
+    "tail_step_before_pct": 14.0,
+    "mask_boxes": {
+     "224": {
+      "x0": 164,
+      "x1": 341,
+      "top": 302,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     },
+     "225": {
+      "x0": 164,
+      "x1": 339,
+      "top": 302,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 253,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7864,
+     "1": 7865,
+     "2": 7879,
+     "3": 7904,
+     "4": 7952,
+     "5": 7908,
+     "220": 6751,
+     "221": 6829,
+     "222": 6829,
+     "223": 6829,
+     "224": 7837,
+     "225": 7843,
+     "226": 7858,
+     "227": 7854
+    },
+    "head_step_after_pct": 0.2,
+    "tail_step_after_pct": 0.2,
+    "first_last": {
+     "max": 50,
+     "mean": 0.418
+    },
+    "control_f0_f1": {
+     "max": 70,
+     "mean": 0.103
+    }
+   }
   },
   {
    "clip": "fast-13",
@@ -1292,7 +3168,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 210,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.34,
@@ -1316,9 +3192,166 @@
    },
    "accent_count": 17,
    "implied_bpm": 125.1,
-   "duration_s": 10.167,
+   "duration_s": 8.75,
    "output_file": "amy-wide/pack2/fast-13.mp4",
-   "accent_file": "amy-wide/pack2/fast-13.accents.json"
+   "accent_file": "amy-wide/pack2/fast-13.accents.json",
+   "static_trim": {
+    "median_body_diff": 15.504,
+    "static_threshold": 3.876,
+    "head_static_found": 1,
+    "tail_static_found": 36,
+    "head_trim_frames": 0,
+    "tail_trim_frames": 34,
+    "frames_before": 244,
+    "frames_after": 210,
+    "accents_shifted": 17,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 18,
+     "matched": 17,
+     "kept": 17
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 426,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 304,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6877,
+     "1": 6879,
+     "2": 7690,
+     "3": 7723,
+     "4": 7540,
+     "5": 7332,
+     "204": 6510,
+     "205": 6545,
+     "206": 6490,
+     "207": 6479,
+     "208": 7020,
+     "209": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 253,
+    "head_step_before_pct": 11.8,
+    "tail_step_before_pct": 8.4,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7584,
+     "1": 7582,
+     "2": 7586,
+     "3": 7614,
+     "4": 7493,
+     "5": 7237,
+     "204": 6444,
+     "205": 6453,
+     "206": 6402,
+     "207": 6392,
+     "208": 7590,
+     "209": 7587
+    },
+    "head_step_after_pct": 0.1,
+    "tail_step_after_pct": 18.7,
+    "first_last": {
+     "max": 43,
+     "mean": 0.318
+    },
+    "control_f0_f1": {
+     "max": 65,
+     "mean": 0.102
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 426,
+    "cut_redetected": 426,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     206,
+     207
+    ],
+    "boundary": {
+     "last_moving_index": 205,
+     "first_stance_index": 206,
+     "hair_delta_before_pct": -0.8,
+     "fig_diff_before": 6.273,
+     "median_body_diff_current": 16.141,
+     "median_body_diff_trim_record": 15.504,
+     "hair_delta_after_pct": 15.2,
+     "fig_diff_after": 21.851
+    },
+    "hair_before": {
+     "0": 7584,
+     "1": 7582,
+     "2": 7586,
+     "3": 7614,
+     "4": 7493,
+     "5": 7237,
+     "202": 6474,
+     "203": 6449,
+     "204": 6444,
+     "205": 6453,
+     "206": 6402,
+     "207": 6392,
+     "208": 7590,
+     "209": 7587
+    },
+    "tail_step_before_pct": 18.7,
+    "mask_boxes": {
+     "206": {
+      "x0": 166,
+      "x1": 341,
+      "top": 304,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     },
+     "207": {
+      "x0": 166,
+      "x1": 339,
+      "top": 304,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 232,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7494,
+     "1": 7494,
+     "2": 7489,
+     "3": 7525,
+     "4": 7446,
+     "5": 7198,
+     "202": 6421,
+     "203": 6399,
+     "204": 6374,
+     "205": 6453,
+     "206": 7433,
+     "207": 7437,
+     "208": 7454,
+     "209": 7452
+    },
+    "head_step_after_pct": -0.1,
+    "tail_step_after_pct": 0.2,
+    "first_last": {
+     "max": 47,
+     "mean": 0.404
+    },
+    "control_f0_f1": {
+     "max": 67,
+     "mean": 0.109
+    }
+   }
   },
   {
    "clip": "fast-14",
@@ -1380,7 +3413,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 228,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.3825,
@@ -1404,9 +3437,166 @@
    },
    "accent_count": 12,
    "implied_bpm": 96.0,
-   "duration_s": 10.167,
+   "duration_s": 9.5,
    "output_file": "amy-wide/pack2/fast-14.mp4",
-   "accent_file": "amy-wide/pack2/fast-14.accents.json"
+   "accent_file": "amy-wide/pack2/fast-14.accents.json",
+   "static_trim": {
+    "median_body_diff": 19.726,
+    "static_threshold": 4.931,
+    "head_static_found": 2,
+    "tail_static_found": 17,
+    "head_trim_frames": 1,
+    "tail_trim_frames": 15,
+    "frames_before": 244,
+    "frames_after": 228,
+    "accents_shifted": 12,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 13,
+     "matched": 11,
+     "kept": 12
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 416,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 300,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6865,
+     "1": 6865,
+     "2": 5637,
+     "3": 5637,
+     "4": 5606,
+     "5": 5458,
+     "222": 5684,
+     "223": 5523,
+     "224": 5530,
+     "225": 5559,
+     "226": 7020,
+     "227": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "head_step_before_pct": -17.9,
+    "tail_step_before_pct": 26.3,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 5693,
+     "1": 5698,
+     "2": 5608,
+     "3": 5651,
+     "4": 5590,
+     "5": 5489,
+     "222": 5548,
+     "223": 5484,
+     "224": 5475,
+     "225": 5508,
+     "226": 5625,
+     "227": 5627
+    },
+    "head_step_after_pct": -1.6,
+    "tail_step_after_pct": 2.1,
+    "first_last": {
+     "max": 39,
+     "mean": 0.351
+    },
+    "control_f0_f1": {
+     "max": 101,
+     "mean": 0.123
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 416,
+    "cut_redetected": 416,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     224,
+     225
+    ],
+    "boundary": {
+     "last_moving_index": 223,
+     "first_stance_index": 224,
+     "hair_delta_before_pct": -0.2,
+     "fig_diff_before": 5.03,
+     "median_body_diff_current": 22.392,
+     "median_body_diff_trim_record": 19.726,
+     "hair_delta_after_pct": 2.5,
+     "fig_diff_after": 13.605
+    },
+    "hair_before": {
+     "0": 5693,
+     "1": 5698,
+     "2": 5608,
+     "3": 5651,
+     "4": 5590,
+     "5": 5489,
+     "220": 5625,
+     "221": 5618,
+     "222": 5548,
+     "223": 5484,
+     "224": 5475,
+     "225": 5508,
+     "226": 5625,
+     "227": 5627
+    },
+    "tail_step_before_pct": 2.1,
+    "mask_boxes": {
+     "224": {
+      "x0": 172,
+      "x1": 335,
+      "top": 300,
+      "bottom": 430,
+      "hair_bottom_max": 427
+     },
+     "225": {
+      "x0": 172,
+      "x1": 335,
+      "top": 300,
+      "bottom": 432,
+      "hair_bottom_max": 429
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 245,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 5676,
+     "1": 5684,
+     "2": 5593,
+     "3": 5642,
+     "4": 5586,
+     "5": 5501,
+     "220": 5538,
+     "221": 5463,
+     "222": 5523,
+     "223": 5508,
+     "224": 5645,
+     "225": 5630,
+     "226": 5645,
+     "227": 5667
+    },
+    "head_step_after_pct": -1.6,
+    "tail_step_after_pct": 0.3,
+    "first_last": {
+     "max": 46,
+     "mean": 0.441
+    },
+    "control_f0_f1": {
+     "max": 97,
+     "mean": 0.123
+    }
+   }
   },
   {
    "clip": "fast-15",
@@ -1468,7 +3658,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 220,
    "figure_height": 0.56,
    "feet_v": 0.05,
    "margin_top_min": 0.385,
@@ -1490,11 +3680,168 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "244"
    },
-   "accent_count": 8,
-   "implied_bpm": 62.6,
-   "duration_s": 10.167,
+   "accent_count": 15,
+   "implied_bpm": 125.3,
+   "duration_s": 9.167,
    "output_file": "amy-wide/pack2/fast-15.mp4",
-   "accent_file": "amy-wide/pack2/fast-15.accents.json"
+   "accent_file": "amy-wide/pack2/fast-15.accents.json",
+   "static_trim": {
+    "median_body_diff": 11.898,
+    "static_threshold": 2.974,
+    "head_static_found": 3,
+    "tail_static_found": 24,
+    "head_trim_frames": 2,
+    "tail_trim_frames": 22,
+    "frames_before": 244,
+    "frames_after": 220,
+    "accents_shifted": 15,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 9,
+     "matched": 7,
+     "kept": 15
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 426,
+    "mask": {
+     "x0": 152,
+     "x1": 355,
+     "top": 304,
+     "bottom": 434,
+     "hair_bottom_max": 431
+    },
+    "hair_before": {
+     "0": 6865,
+     "1": 6857,
+     "2": 7803,
+     "3": 7793,
+     "4": 7730,
+     "5": 7461,
+     "214": 7075,
+     "215": 7026,
+     "216": 7009,
+     "217": 7016,
+     "218": 7020,
+     "219": 7041
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "head_step_before_pct": 13.8,
+    "tail_step_before_pct": 0.1,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 7758,
+     "1": 7741,
+     "2": 7758,
+     "3": 7731,
+     "4": 7663,
+     "5": 7393,
+     "214": 7027,
+     "215": 6999,
+     "216": 6977,
+     "217": 7000,
+     "218": 7726,
+     "219": 7724
+    },
+    "head_step_after_pct": 0.2,
+    "tail_step_after_pct": 10.4,
+    "first_last": {
+     "max": 45,
+     "mean": 0.331
+    },
+    "control_f0_f1": {
+     "max": 66,
+     "mean": 0.109
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 426,
+    "cut_redetected": 426,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     216,
+     217
+    ],
+    "boundary": {
+     "last_moving_index": 215,
+     "first_stance_index": 216,
+     "hair_delta_before_pct": -0.3,
+     "fig_diff_before": 3.612,
+     "median_body_diff_current": 12.262,
+     "median_body_diff_trim_record": 11.898,
+     "hair_delta_after_pct": 9.9,
+     "fig_diff_after": 16.761
+    },
+    "hair_before": {
+     "0": 7758,
+     "1": 7741,
+     "2": 7758,
+     "3": 7731,
+     "4": 7663,
+     "5": 7393,
+     "212": 6967,
+     "213": 6973,
+     "214": 7027,
+     "215": 6999,
+     "216": 6977,
+     "217": 7000,
+     "218": 7726,
+     "219": 7724
+    },
+    "tail_step_before_pct": 10.4,
+    "mask_boxes": {
+     "216": {
+      "x0": 166,
+      "x1": 341,
+      "top": 304,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     },
+     "217": {
+      "x0": 166,
+      "x1": 339,
+      "top": 304,
+      "bottom": 434,
+      "hair_bottom_max": 431
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 230,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 7653,
+     "1": 7636,
+     "2": 7653,
+     "3": 7657,
+     "4": 7600,
+     "5": 7337,
+     "212": 6955,
+     "213": 6962,
+     "214": 7013,
+     "215": 6973,
+     "216": 7660,
+     "217": 7660,
+     "218": 7616,
+     "219": 7618
+    },
+    "head_step_after_pct": 0.2,
+    "tail_step_after_pct": -0.6,
+    "first_last": {
+     "max": 56,
+     "mean": 0.47
+    },
+    "control_f0_f1": {
+     "max": 62,
+     "mean": 0.109
+    }
+   }
   },
   {
    "clip": "idle",
@@ -1711,7 +4058,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 242,
    "figure_height": 0.6375,
    "feet_v": 0.05,
    "margin_top_min": 0.3075,
@@ -1735,9 +4082,158 @@
    },
    "accent_count": 15,
    "implied_bpm": 106.7,
-   "duration_s": 10.167,
+   "duration_s": 10.083,
    "output_file": "amy-wide/pack2/slow-01.mp4",
-   "accent_file": "amy-wide/pack2/slow-01.accents.json"
+   "accent_file": "amy-wide/pack2/slow-01.accents.json",
+   "static_trim": {
+    "median_body_diff": 9.921,
+    "static_threshold": 2.48,
+    "head_static_found": 3,
+    "tail_static_found": 1,
+    "head_trim_frames": 2,
+    "tail_trim_frames": 0,
+    "frames_before": 244,
+    "frames_after": 242,
+    "accents_shifted": 15,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 15,
+     "matched": 13,
+     "kept": 15
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 382,
+    "mask": {
+     "x0": 140,
+     "x1": 365,
+     "top": 242,
+     "bottom": 390,
+     "hair_bottom_max": 387
+    },
+    "hair_before": {
+     "0": 9292,
+     "1": 9303,
+     "2": 10804,
+     "3": 10767,
+     "4": 10814,
+     "5": 10864,
+     "236": 9875,
+     "237": 9843,
+     "238": 9811,
+     "239": 9828,
+     "240": 9360,
+     "241": 9369
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 231,
+    "head_step_before_pct": 16.1,
+    "tail_step_before_pct": -4.8,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 10558,
+     "1": 10542,
+     "2": 10669,
+     "3": 10679,
+     "4": 10743,
+     "5": 10749,
+     "236": 9817,
+     "237": 9794,
+     "238": 9772,
+     "239": 9779,
+     "240": 10560,
+     "241": 10559
+    },
+    "head_step_after_pct": 1.2,
+    "tail_step_after_pct": 8.0,
+    "first_last": {
+     "max": 34,
+     "mean": 0.39
+    },
+    "control_f0_f1": {
+     "max": 80,
+     "mean": 0.136
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 382,
+    "cut_redetected": 382,
+    "kept_tail_stance_frames": 1,
+    "target_indices": [
+     239
+    ],
+    "boundary": {
+     "last_moving_index": 238,
+     "first_stance_index": 239,
+     "hair_delta_before_pct": 0.1,
+     "fig_diff_before": 3.715,
+     "median_body_diff_current": 9.843,
+     "median_body_diff_trim_record": 9.921,
+     "hair_delta_after_pct": 7.7,
+     "fig_diff_after": 17.409
+    },
+    "hair_before": {
+     "0": 10558,
+     "1": 10542,
+     "2": 10669,
+     "3": 10679,
+     "4": 10743,
+     "5": 10749,
+     "234": 9848,
+     "235": 9832,
+     "236": 9817,
+     "237": 9794,
+     "238": 9772,
+     "239": 9779,
+     "240": 10560,
+     "241": 10559
+    },
+    "tail_step_before_pct": 8.0,
+    "mask_boxes": {
+     "239": {
+      "x0": 156,
+      "x1": 353,
+      "top": 242,
+      "bottom": 390,
+      "hair_bottom_max": 387
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 251,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 10476,
+     "1": 10454,
+     "2": 10589,
+     "3": 10587,
+     "4": 10597,
+     "5": 10632,
+     "234": 9769,
+     "235": 9751,
+     "236": 9752,
+     "237": 9748,
+     "238": 9746,
+     "239": 10493,
+     "240": 10490,
+     "241": 10505
+    },
+    "head_step_after_pct": 1.3,
+    "tail_step_after_pct": -0.0,
+    "first_last": {
+     "max": 45,
+     "mean": 0.556
+    },
+    "control_f0_f1": {
+     "max": 84,
+     "mean": 0.137
+    }
+   }
   },
   {
    "clip": "slow-02",
@@ -1798,7 +4294,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 220,
+   "frames": 217,
    "figure_height": 0.635,
    "feet_v": 0.05,
    "margin_top_min": 0.3075,
@@ -1822,9 +4318,166 @@
    },
    "accent_count": 21,
    "implied_bpm": 160.0,
-   "duration_s": 9.167,
+   "duration_s": 9.042,
    "output_file": "amy-wide/pack2/slow-02.mp4",
-   "accent_file": "amy-wide/pack2/slow-02.accents.json"
+   "accent_file": "amy-wide/pack2/slow-02.accents.json",
+   "static_trim": {
+    "median_body_diff": 11.985,
+    "static_threshold": 2.996,
+    "head_static_found": 3,
+    "tail_static_found": 3,
+    "head_trim_frames": 2,
+    "tail_trim_frames": 1,
+    "frames_before": 220,
+    "frames_after": 217,
+    "accents_shifted": 21,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 21,
+     "matched": 18,
+     "kept": 21
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 382,
+    "mask": {
+     "x0": 140,
+     "x1": 365,
+     "top": 244,
+     "bottom": 391,
+     "hair_bottom_max": 388
+    },
+    "hair_before": {
+     "0": 9284,
+     "1": 9240,
+     "2": 10714,
+     "3": 10685,
+     "4": 10649,
+     "5": 10670,
+     "211": 8559,
+     "212": 8422,
+     "213": 8419,
+     "214": 8481,
+     "215": 9360,
+     "216": 9369
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 255,
+    "head_step_before_pct": 16.0,
+    "tail_step_before_pct": 10.4,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 10448,
+     "1": 10425,
+     "2": 10581,
+     "3": 10587,
+     "4": 10610,
+     "5": 10600,
+     "211": 8499,
+     "212": 8432,
+     "213": 8484,
+     "214": 8514,
+     "215": 10435,
+     "216": 10427
+    },
+    "head_step_after_pct": 1.5,
+    "tail_step_after_pct": 22.6,
+    "first_last": {
+     "max": 40,
+     "mean": 0.391
+    },
+    "control_f0_f1": {
+     "max": 68,
+     "mean": 0.124
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 382,
+    "cut_redetected": 382,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     213,
+     214
+    ],
+    "boundary": {
+     "last_moving_index": 212,
+     "first_stance_index": 213,
+     "hair_delta_before_pct": 0.6,
+     "fig_diff_before": 3.073,
+     "median_body_diff_current": 11.89,
+     "median_body_diff_trim_record": 11.985,
+     "hair_delta_after_pct": 21.7,
+     "fig_diff_after": 14.482
+    },
+    "hair_before": {
+     "0": 10448,
+     "1": 10425,
+     "2": 10581,
+     "3": 10587,
+     "4": 10610,
+     "5": 10600,
+     "209": 8638,
+     "210": 8605,
+     "211": 8499,
+     "212": 8432,
+     "213": 8484,
+     "214": 8514,
+     "215": 10435,
+     "216": 10427
+    },
+    "tail_step_before_pct": 22.6,
+    "mask_boxes": {
+     "213": {
+      "x0": 164,
+      "x1": 351,
+      "top": 244,
+      "bottom": 400,
+      "hair_bottom_max": 397
+     },
+     "214": {
+      "x0": 164,
+      "x1": 351,
+      "top": 244,
+      "bottom": 400,
+      "hair_bottom_max": 397
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 216,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 10314,
+     "1": 10289,
+     "2": 10398,
+     "3": 10461,
+     "4": 10486,
+     "5": 10499,
+     "209": 8600,
+     "210": 8570,
+     "211": 8503,
+     "212": 8499,
+     "213": 10346,
+     "214": 10364,
+     "215": 10297,
+     "216": 10295
+    },
+    "head_step_after_pct": 1.1,
+    "tail_step_after_pct": -0.6,
+    "first_last": {
+     "max": 52,
+     "mean": 0.56
+    },
+    "control_f0_f1": {
+     "max": 65,
+     "mean": 0.125
+    }
+   }
   },
   {
    "clip": "slow-03",
@@ -1885,7 +4538,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 239,
    "figure_height": 0.635,
    "feet_v": 0.05,
    "margin_top_min": 0.3075,
@@ -1909,9 +4562,158 @@
    },
    "accent_count": 10,
    "implied_bpm": 68.6,
-   "duration_s": 10.167,
+   "duration_s": 9.958,
    "output_file": "amy-wide/pack2/slow-03.mp4",
-   "accent_file": "amy-wide/pack2/slow-03.accents.json"
+   "accent_file": "amy-wide/pack2/slow-03.accents.json",
+   "static_trim": {
+    "median_body_diff": 13.938,
+    "static_threshold": 3.484,
+    "head_static_found": 6,
+    "tail_static_found": 1,
+    "head_trim_frames": 5,
+    "tail_trim_frames": 0,
+    "frames_before": 244,
+    "frames_after": 239,
+    "accents_shifted": 10,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 11,
+     "matched": 10,
+     "kept": 10
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 382,
+    "mask": {
+     "x0": 140,
+     "x1": 365,
+     "top": 244,
+     "bottom": 392,
+     "hair_bottom_max": 389
+    },
+    "hair_before": {
+     "0": 9226,
+     "1": 9117,
+     "2": 10806,
+     "3": 10824,
+     "4": 10629,
+     "5": 10874,
+     "233": 7668,
+     "234": 7720,
+     "235": 7674,
+     "236": 7713,
+     "237": 9360,
+     "238": 9369
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 230,
+    "head_step_before_pct": 18.5,
+    "tail_step_before_pct": 21.4,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 10575,
+     "1": 10543,
+     "2": 10759,
+     "3": 10732,
+     "4": 10606,
+     "5": 10808,
+     "233": 7647,
+     "234": 7699,
+     "235": 7671,
+     "236": 7695,
+     "237": 10511,
+     "238": 10508
+    },
+    "head_step_after_pct": 2.0,
+    "tail_step_after_pct": 36.6,
+    "first_last": {
+     "max": 37,
+     "mean": 0.393
+    },
+    "control_f0_f1": {
+     "max": 61,
+     "mean": 0.129
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 382,
+    "cut_redetected": 382,
+    "kept_tail_stance_frames": 1,
+    "target_indices": [
+     236
+    ],
+    "boundary": {
+     "last_moving_index": 235,
+     "first_stance_index": 236,
+     "hair_delta_before_pct": 0.3,
+     "fig_diff_before": 5.294,
+     "median_body_diff_current": 13.975,
+     "median_body_diff_trim_record": 13.938,
+     "hair_delta_after_pct": 36.3,
+     "fig_diff_after": 23.883
+    },
+    "hair_before": {
+     "0": 10575,
+     "1": 10543,
+     "2": 10759,
+     "3": 10732,
+     "4": 10606,
+     "5": 10808,
+     "231": 7565,
+     "232": 7565,
+     "233": 7647,
+     "234": 7699,
+     "235": 7671,
+     "236": 7695,
+     "237": 10511,
+     "238": 10508
+    },
+    "tail_step_before_pct": 36.6,
+    "mask_boxes": {
+     "236": {
+      "x0": 152,
+      "x1": 349,
+      "top": 244,
+      "bottom": 392,
+      "hair_bottom_max": 389
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 253,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 10487,
+     "1": 10455,
+     "2": 10659,
+     "3": 10648,
+     "4": 10548,
+     "5": 10668,
+     "231": 7564,
+     "232": 7516,
+     "233": 7598,
+     "234": 7621,
+     "235": 7649,
+     "236": 10427,
+     "237": 10456,
+     "238": 10454
+    },
+    "head_step_after_pct": 2.0,
+    "tail_step_after_pct": 0.3,
+    "first_last": {
+     "max": 39,
+     "mean": 0.507
+    },
+    "control_f0_f1": {
+     "max": 73,
+     "mean": 0.129
+    }
+   }
   },
   {
    "clip": "slow-04",
@@ -1972,7 +4774,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 233,
    "figure_height": 0.635,
    "feet_v": 0.05,
    "margin_top_min": 0.3075,
@@ -1996,9 +4798,158 @@
    },
    "accent_count": 14,
    "implied_bpm": 102.9,
-   "duration_s": 10.167,
+   "duration_s": 9.708,
    "output_file": "amy-wide/pack2/slow-04.mp4",
-   "accent_file": "amy-wide/pack2/slow-04.accents.json"
+   "accent_file": "amy-wide/pack2/slow-04.accents.json",
+   "static_trim": {
+    "median_body_diff": 15.452,
+    "static_threshold": 3.863,
+    "head_static_found": 12,
+    "tail_static_found": 1,
+    "head_trim_frames": 11,
+    "tail_trim_frames": 0,
+    "frames_before": 244,
+    "frames_after": 233,
+    "accents_shifted": 14,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 15,
+     "matched": 13,
+     "kept": 14
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 380,
+    "mask": {
+     "x0": 140,
+     "x1": 365,
+     "top": 244,
+     "bottom": 391,
+     "hair_bottom_max": 388
+    },
+    "hair_before": {
+     "0": 9240,
+     "1": 9243,
+     "2": 10606,
+     "3": 10490,
+     "4": 10428,
+     "5": 9984,
+     "227": 8822,
+     "228": 8834,
+     "229": 8836,
+     "230": 8820,
+     "231": 9360,
+     "232": 9369
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 222,
+    "head_step_before_pct": 14.7,
+    "tail_step_before_pct": 6.1,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 10408,
+     "1": 10399,
+     "2": 10468,
+     "3": 10393,
+     "4": 10330,
+     "5": 9932,
+     "227": 8738,
+     "228": 8753,
+     "229": 8741,
+     "230": 8733,
+     "231": 10409,
+     "232": 10405
+    },
+    "head_step_after_pct": 0.7,
+    "tail_step_after_pct": 19.2,
+    "first_last": {
+     "max": 40,
+     "mean": 0.405
+    },
+    "control_f0_f1": {
+     "max": 67,
+     "mean": 0.134
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 380,
+    "cut_redetected": 380,
+    "kept_tail_stance_frames": 1,
+    "target_indices": [
+     230
+    ],
+    "boundary": {
+     "last_moving_index": 229,
+     "first_stance_index": 230,
+     "hair_delta_before_pct": -0.1,
+     "fig_diff_before": 6.522,
+     "median_body_diff_current": 15.308,
+     "median_body_diff_trim_record": 15.452,
+     "hair_delta_after_pct": 18.4,
+     "fig_diff_after": 15.66
+    },
+    "hair_before": {
+     "0": 10408,
+     "1": 10399,
+     "2": 10468,
+     "3": 10393,
+     "4": 10330,
+     "5": 9932,
+     "225": 8752,
+     "226": 8769,
+     "227": 8738,
+     "228": 8753,
+     "229": 8741,
+     "230": 8733,
+     "231": 10409,
+     "232": 10405
+    },
+    "tail_step_before_pct": 19.2,
+    "mask_boxes": {
+     "230": {
+      "x0": 158,
+      "x1": 347,
+      "top": 244,
+      "bottom": 392,
+      "hair_bottom_max": 389
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 239,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 10332,
+     "1": 10319,
+     "2": 10383,
+     "3": 10302,
+     "4": 10231,
+     "5": 9838,
+     "225": 8667,
+     "226": 8676,
+     "227": 8660,
+     "228": 8709,
+     "229": 8681,
+     "230": 10277,
+     "231": 10330,
+     "232": 10333
+    },
+    "head_step_after_pct": 0.6,
+    "tail_step_after_pct": 0.5,
+    "first_last": {
+     "max": 61,
+     "mean": 0.507
+    },
+    "control_f0_f1": {
+     "max": 81,
+     "mean": 0.131
+    }
+   }
   },
   {
    "clip": "slow-07",
@@ -2059,7 +5010,7 @@
    },
    "spliced": true,
    "splice_mode": "hardcut",
-   "frames": 244,
+   "frames": 205,
    "figure_height": 0.635,
    "feet_v": 0.05,
    "margin_top_min": 0.305,
@@ -2083,12 +5034,169 @@
    },
    "accent_count": 17,
    "implied_bpm": 120.0,
-   "duration_s": 10.167,
+   "duration_s": 8.542,
    "output_file": "amy-wide/pack2/slow-07.mp4",
-   "accent_file": "amy-wide/pack2/slow-07.accents.json"
+   "accent_file": "amy-wide/pack2/slow-07.accents.json",
+   "static_trim": {
+    "median_body_diff": 12.437,
+    "static_threshold": 3.109,
+    "head_static_found": 3,
+    "tail_static_found": 39,
+    "head_trim_frames": 2,
+    "tail_trim_frames": 37,
+    "frames_before": 244,
+    "frames_after": 205,
+    "accents_shifted": 17,
+    "accents_dropped": [],
+    "accent_verify": {
+     "remeasured": 18,
+     "matched": 16,
+     "kept": 17
+    }
+   },
+   "head_transplant": {
+    "source_frame": 2,
+    "cut_y": 384,
+    "mask": {
+     "x0": 140,
+     "x1": 365,
+     "top": 242,
+     "bottom": 390,
+     "hair_bottom_max": 387
+    },
+    "hair_before": {
+     "0": 9379,
+     "1": 9348,
+     "2": 10923,
+     "3": 10919,
+     "4": 10759,
+     "5": 10739,
+     "199": 9189,
+     "200": 9230,
+     "201": 9177,
+     "202": 9226,
+     "203": 9360,
+     "204": 9369
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 235,
+    "head_step_before_pct": 16.8,
+    "tail_step_before_pct": 1.5,
+    "wave": 55,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27: move the clip's own normal (body) head onto the first frames, body untouched",
+    "hair_after": {
+     "0": 10649,
+     "1": 10629,
+     "2": 10809,
+     "3": 10816,
+     "4": 10731,
+     "5": 10698,
+     "199": 9024,
+     "200": 9093,
+     "201": 9075,
+     "202": 9112,
+     "203": 10652,
+     "204": 10659
+    },
+    "head_step_after_pct": 1.7,
+    "tail_step_after_pct": 16.9,
+    "first_last": {
+     "max": 41,
+     "mean": 0.398
+    },
+    "control_f0_f1": {
+     "max": 67,
+     "mean": 0.129
+    }
+   },
+   "tail_transplant": {
+    "source_frame": 2,
+    "cut_y": 384,
+    "cut_redetected": 384,
+    "kept_tail_stance_frames": 2,
+    "target_indices": [
+     201,
+     202
+    ],
+    "boundary": {
+     "last_moving_index": 200,
+     "first_stance_index": 201,
+     "hair_delta_before_pct": -0.2,
+     "fig_diff_before": 3.92,
+     "median_body_diff_current": 13.206,
+     "median_body_diff_trim_record": 12.437,
+     "hair_delta_after_pct": 16.5,
+     "fig_diff_after": 19.269
+    },
+    "hair_before": {
+     "0": 10649,
+     "1": 10629,
+     "2": 10809,
+     "3": 10816,
+     "4": 10731,
+     "5": 10698,
+     "197": 9082,
+     "198": 9113,
+     "199": 9024,
+     "200": 9093,
+     "201": 9075,
+     "202": 9112,
+     "203": 10652,
+     "204": 10659
+    },
+    "tail_step_before_pct": 16.9,
+    "mask_boxes": {
+     "201": {
+      "x0": 152,
+      "x1": 347,
+      "top": 242,
+      "bottom": 392,
+      "hair_bottom_max": 389
+     },
+     "202": {
+      "x0": 152,
+      "x1": 347,
+      "top": 242,
+      "bottom": 394,
+      "hair_bottom_max": 391
+     }
+    },
+    "below_mask_max_diff_pre_encode": 0,
+    "lower60_max_diff_pre_encode": 252,
+    "wave": 56,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 09:05: fix the tail frames too (「也修复下」), reversing the leave-it of minutes earlier; same head transplant extended to the body's kept tail stance frames, moving frames untouched, bookends unchanged",
+    "hair_after": {
+     "0": 10543,
+     "1": 10526,
+     "2": 10650,
+     "3": 10666,
+     "4": 10613,
+     "5": 10541,
+     "197": 9025,
+     "198": 9013,
+     "199": 9004,
+     "200": 8988,
+     "201": 10470,
+     "202": 10474,
+     "203": 10504,
+     "204": 10547
+    },
+    "head_step_after_pct": 1.2,
+    "tail_step_after_pct": 0.3,
+    "first_last": {
+     "max": 48,
+     "mean": 0.57
+    },
+    "control_f0_f1": {
+     "max": 77,
+     "mean": 0.126
+    }
+   }
   }
  ],
  "clip_count": 24,
- "pack_mp4_bytes": 13923320,
- "bookend_note": "Splice canonical: canon6-short (short hair, canon6-short/C.npy, window 80-91, anchor 86) for all dance clips. Construction history: dissolve splice (canon5 era, then canon6 from wave 38) superseded at wave 54 by the HARD-CUT construction (user ruling 2026-11-26: [C86 C87 pure] + full body + [C85 C86 pure], no dissolves; first frame = last frame = C86; body frames keep their legacy timeline indices). The dissolve versions are archived in pack2/superseded/*-pre54-dissolve-superseded.*. Specials (idle/invite/clap/combo) carry no bookend splice and are unchanged at wave 54."
+ "pack_mp4_bytes": 12396779,
+ "bookend_note": "Splice canonical: canon6-short (short hair, canon6-short/C.npy, window 80-91, anchor 86) for all dance clips. Construction history: dissolve splice (canon5 era, then canon6 from wave 38) superseded at wave 54 by the HARD-CUT construction (user ruling 2026-11-26: [C86 C87 pure] + full body + [C85 C86 pure], no dissolves; first frame = last frame = C86; body frames keep their legacy timeline indices). The dissolve versions are archived in pack2/superseded/*-pre54-dissolve-superseded.*. Specials (idle/invite/clap/combo) carry no bookend splice and are unchanged at wave 54. Wave 55 (2026-11-27, user prescriptions 「将后面正常的头部移到前3帧，身体别动」 + 「连接处太长」): (1) STATIC TRIM first — body head/tail static runs (figure-region frame-diff < 25% of the clip's median body diff) trimmed to at most 1 stance frame before motion onset and at most 2 after motion end, moving frames never trimmed; accents shifted by -(head_trim/24)s, ZERO accents dropped on all 20 clips; frame counts 244 -> 205..244 (slow-02 220 -> 217), per-clip calibration in each entry's static_trim record. (2) HEAD TRANSPLANT on the trimmed files — the canon head on the four bookend frames (0, 1, N-2, N-1) is replaced by the clip's own first body frame's head (feathered mask, blend boundary at the neck/collar line, extended per column to the lower of the two heads' hair-strand bottoms; frames 0 and N-1 share one alpha so first=last identity is preserved). Measured on the final files: bookend->body hair step at clip start +11.8..+20.0% (fast-14 -17.9%) before, -1.6..+2.0% after on all 20; pixels below the mask bit-identical pre-encode; first=last max 34-48 / mean 0.32-0.41 (encode-noise class). Tail steps (body-end -> tail bookend) after: 17 clips >10% (fast-08 +40.3% highest; fast-09 +8.8%, slow-01 +8.0%, fast-14 +2.1% under), flagged per clip in head_transplant records. (3) CHAIN GATE (fast-01->02->03, keyed over the dark stage backdrop, static = the same 25%-of-median definition): perceptual static zone per join 4 frames (v1.0.82 files) -> 2 frames (new), target <=8. Pre-trim files archived in pack2/superseded/*-pre55-hardcut-superseded.*."
 }

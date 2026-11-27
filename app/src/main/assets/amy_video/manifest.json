@@ -78,7 +78,27 @@
    "implied_bpm": 130.9,
    "duration_s": 9.0,
    "output_file": "amy-wide/pack2/clap.mp4",
-   "accent_file": "amy-wide/pack2/clap.accents.json"
+   "accent_file": "amy-wide/pack2/clap.accents.json",
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/clap-pre62-edge-superseded.mp4",
+    "eaten_before": 8676,
+    "eaten_after": 157,
+    "rim_before": 6.82,
+    "rim_after": -12.62,
+    "interior_qualifying_before": 7745,
+    "interior_qualifying_after": 1230,
+    "speck_hair_outline_clusters_ge3_after": 54,
+    "speck_hair_outline_max_cluster_after": 24,
+    "speck_outline_max_cluster_after": 24,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 497619,
+    "size_after": 972763
+   }
   },
   {
    "clip": "combo",
@@ -156,7 +176,27 @@
    "implied_bpm": 110.7,
    "duration_s": 10.0,
    "output_file": "amy-wide/pack2/combo.mp4",
-   "accent_file": "amy-wide/pack2/combo.accents.json"
+   "accent_file": "amy-wide/pack2/combo.accents.json",
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/combo-pre62-edge-superseded.mp4",
+    "eaten_before": 14847,
+    "eaten_after": 292,
+    "rim_before": 11.77,
+    "rim_after": -10.07,
+    "interior_qualifying_before": 9653,
+    "interior_qualifying_after": 1740,
+    "speck_hair_outline_clusters_ge3_after": 90,
+    "speck_hair_outline_max_cluster_after": 12,
+    "speck_outline_max_cluster_after": 26,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 1414795,
+    "size_after": 2694587
+   }
   },
   {
    "clip": "fast-01",
@@ -400,6 +440,40 @@
     "control_f0_f1": {
      "max": 70,
      "mean": 0.113
+    }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-01-pre62-edge-superseded.mp4",
+    "eaten_before": 8109,
+    "eaten_after": 138,
+    "rim_before": 8.62,
+    "rim_after": -12.33,
+    "interior_qualifying_before": 6271,
+    "interior_qualifying_after": 733,
+    "speck_hair_outline_clusters_ge3_after": 30,
+    "speck_hair_outline_max_cluster_after": 6,
+    "speck_outline_max_cluster_after": 12,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 539752,
+    "size_after": 1285422,
+    "head_step_pct": -0.4,
+    "tail_step_pct": -0.7,
+    "first_last_after": {
+     "max": 221,
+     "mean": 0.621
+    },
+    "control_f0_f1_after": {
+     "max": 198,
+     "mean": 0.19
+    },
+    "first_last_before": {
+     "max": 45,
+     "mean": 0.427
     }
    }
   },
@@ -645,6 +719,40 @@
     "control_f0_f1": {
      "max": 66,
      "mean": 0.11
+    }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-02-pre62-edge-superseded.mp4",
+    "eaten_before": 7423,
+    "eaten_after": 144,
+    "rim_before": 7.85,
+    "rim_after": -12.36,
+    "interior_qualifying_before": 6746,
+    "interior_qualifying_after": 995,
+    "speck_hair_outline_clusters_ge3_after": 53,
+    "speck_hair_outline_max_cluster_after": 6,
+    "speck_outline_max_cluster_after": 13,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 564230,
+    "size_after": 1301780,
+    "head_step_pct": 0.0,
+    "tail_step_pct": 0.0,
+    "first_last_after": {
+     "max": 223,
+     "mean": 0.65
+    },
+    "control_f0_f1_after": {
+     "max": 175,
+     "mean": 0.161
+    },
+    "first_last_before": {
+     "max": 45,
+     "mean": 0.424
     }
    }
   },
@@ -897,6 +1005,40 @@
      "max": 70,
      "mean": 0.119
     }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-03-pre62-edge-superseded.mp4",
+    "eaten_before": 9331,
+    "eaten_after": 157,
+    "rim_before": 8.72,
+    "rim_after": -11.78,
+    "interior_qualifying_before": 6503,
+    "interior_qualifying_after": 891,
+    "speck_hair_outline_clusters_ge3_after": 47,
+    "speck_hair_outline_max_cluster_after": 4,
+    "speck_outline_max_cluster_after": 24,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 527937,
+    "size_after": 1235958,
+    "head_step_pct": -0.5,
+    "tail_step_pct": 0.7,
+    "first_last_after": {
+     "max": 221,
+     "mean": 0.662
+    },
+    "control_f0_f1_after": {
+     "max": 171,
+     "mean": 0.175
+    },
+    "first_last_before": {
+     "max": 48,
+     "mean": 0.429
+    }
    }
   },
   {
@@ -1139,6 +1281,40 @@
     "control_f0_f1": {
      "max": 95,
      "mean": 0.134
+    }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-04-pre62-edge-superseded.mp4",
+    "eaten_before": 9596,
+    "eaten_after": 241,
+    "rim_before": 9.81,
+    "rim_after": -11.48,
+    "interior_qualifying_before": 7617,
+    "interior_qualifying_after": 1311,
+    "speck_hair_outline_clusters_ge3_after": 81,
+    "speck_hair_outline_max_cluster_after": 6,
+    "speck_outline_max_cluster_after": 18,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 521610,
+    "size_after": 1407145,
+    "head_step_pct": 1.0,
+    "tail_step_pct": 1.6,
+    "first_last_after": {
+     "max": 230,
+     "mean": 0.734
+    },
+    "control_f0_f1_after": {
+     "max": 173,
+     "mean": 0.199
+    },
+    "first_last_before": {
+     "max": 47,
+     "mean": 0.46
     }
    }
   },
@@ -1385,6 +1561,40 @@
      "max": 70,
      "mean": 0.103
     }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-05-pre62-edge-superseded.mp4",
+    "eaten_before": 7077,
+    "eaten_after": 161,
+    "rim_before": 8.17,
+    "rim_after": -12.22,
+    "interior_qualifying_before": 7284,
+    "interior_qualifying_after": 1073,
+    "speck_hair_outline_clusters_ge3_after": 55,
+    "speck_hair_outline_max_cluster_after": 5,
+    "speck_outline_max_cluster_after": 12,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 557798,
+    "size_after": 1255062,
+    "head_step_pct": -0.2,
+    "tail_step_pct": 0.8,
+    "first_last_after": {
+     "max": 230,
+     "mean": 0.646
+    },
+    "control_f0_f1_after": {
+     "max": 214,
+     "mean": 0.162
+    },
+    "first_last_before": {
+     "max": 48,
+     "mean": 0.431
+    }
    }
   },
   {
@@ -1629,6 +1839,40 @@
     "control_f0_f1": {
      "max": 64,
      "mean": 0.1
+    }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-06-pre62-edge-superseded.mp4",
+    "eaten_before": 7394,
+    "eaten_after": 157,
+    "rim_before": 7.27,
+    "rim_after": -13.3,
+    "interior_qualifying_before": 7276,
+    "interior_qualifying_after": 890,
+    "speck_hair_outline_clusters_ge3_after": 48,
+    "speck_hair_outline_max_cluster_after": 6,
+    "speck_outline_max_cluster_after": 20,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 378363,
+    "size_after": 966211,
+    "head_step_pct": -0.3,
+    "tail_step_pct": -0.3,
+    "first_last_after": {
+     "max": 222,
+     "mean": 0.636
+    },
+    "control_f0_f1_after": {
+     "max": 209,
+     "mean": 0.161
+    },
+    "first_last_before": {
+     "max": 50,
+     "mean": 0.409
     }
    }
   },
@@ -1875,6 +2119,40 @@
      "max": 71,
      "mean": 0.112
     }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-07-pre62-edge-superseded.mp4",
+    "eaten_before": 6844,
+    "eaten_after": 148,
+    "rim_before": 7.29,
+    "rim_after": -12.73,
+    "interior_qualifying_before": 6876,
+    "interior_qualifying_after": 1041,
+    "speck_hair_outline_clusters_ge3_after": 44,
+    "speck_hair_outline_max_cluster_after": 5,
+    "speck_outline_max_cluster_after": 23,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 443794,
+    "size_after": 1160105,
+    "head_step_pct": -0.7,
+    "tail_step_pct": 0.7,
+    "first_last_after": {
+     "max": 231,
+     "mean": 0.644
+    },
+    "control_f0_f1_after": {
+     "max": 168,
+     "mean": 0.175
+    },
+    "first_last_before": {
+     "max": 45,
+     "mean": 0.432
+    }
    }
   },
   {
@@ -2119,6 +2397,40 @@
     "control_f0_f1": {
      "max": 67,
      "mean": 0.106
+    }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-08-pre62-edge-superseded.mp4",
+    "eaten_before": 6379,
+    "eaten_after": 184,
+    "rim_before": 6.61,
+    "rim_after": -13.02,
+    "interior_qualifying_before": 6790,
+    "interior_qualifying_after": 968,
+    "speck_hair_outline_clusters_ge3_after": 46,
+    "speck_hair_outline_max_cluster_after": 6,
+    "speck_outline_max_cluster_after": 12,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 508606,
+    "size_after": 1248194,
+    "head_step_pct": 0.2,
+    "tail_step_pct": 0.2,
+    "first_last_after": {
+     "max": 232,
+     "mean": 0.671
+    },
+    "control_f0_f1_after": {
+     "max": 190,
+     "mean": 0.163
+    },
+    "first_last_before": {
+     "max": 49,
+     "mean": 0.46
     }
    }
   },
@@ -2365,6 +2677,40 @@
      "max": 70,
      "mean": 0.101
     }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-09-pre62-edge-superseded.mp4",
+    "eaten_before": 7574,
+    "eaten_after": 145,
+    "rim_before": 8.11,
+    "rim_after": -12.24,
+    "interior_qualifying_before": 7109,
+    "interior_qualifying_after": 1066,
+    "speck_hair_outline_clusters_ge3_after": 55,
+    "speck_hair_outline_max_cluster_after": 6,
+    "speck_outline_max_cluster_after": 14,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 426036,
+    "size_after": 1004912,
+    "head_step_pct": -0.0,
+    "tail_step_pct": -0.5,
+    "first_last_after": {
+     "max": 219,
+     "mean": 0.66
+    },
+    "control_f0_f1_after": {
+     "max": 198,
+     "mean": 0.166
+    },
+    "first_last_before": {
+     "max": 60,
+     "mean": 0.405
+    }
    }
   },
   {
@@ -2609,6 +2955,40 @@
     "control_f0_f1": {
      "max": 64,
      "mean": 0.098
+    }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-10-pre62-edge-superseded.mp4",
+    "eaten_before": 7283,
+    "eaten_after": 130,
+    "rim_before": 6.63,
+    "rim_after": -13.2,
+    "interior_qualifying_before": 6593,
+    "interior_qualifying_after": 879,
+    "speck_hair_outline_clusters_ge3_after": 42,
+    "speck_hair_outline_max_cluster_after": 4,
+    "speck_outline_max_cluster_after": 9,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 430732,
+    "size_after": 1043985,
+    "head_step_pct": -0.3,
+    "tail_step_pct": -0.1,
+    "first_last_after": {
+     "max": 226,
+     "mean": 0.666
+    },
+    "control_f0_f1_after": {
+     "max": 184,
+     "mean": 0.153
+    },
+    "first_last_before": {
+     "max": 62,
+     "mean": 0.415
     }
    }
   },
@@ -2855,6 +3235,40 @@
      "max": 68,
      "mean": 0.104
     }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-11-pre62-edge-superseded.mp4",
+    "eaten_before": 6204,
+    "eaten_after": 116,
+    "rim_before": 7.47,
+    "rim_after": -12.81,
+    "interior_qualifying_before": 7155,
+    "interior_qualifying_after": 956,
+    "speck_hair_outline_clusters_ge3_after": 35,
+    "speck_hair_outline_max_cluster_after": 6,
+    "speck_outline_max_cluster_after": 13,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 401413,
+    "size_after": 964662,
+    "head_step_pct": 0.1,
+    "tail_step_pct": -0.1,
+    "first_last_after": {
+     "max": 225,
+     "mean": 0.637
+    },
+    "control_f0_f1_after": {
+     "max": 193,
+     "mean": 0.155
+    },
+    "first_last_before": {
+     "max": 52,
+     "mean": 0.425
+    }
    }
   },
   {
@@ -3099,6 +3513,40 @@
     "control_f0_f1": {
      "max": 70,
      "mean": 0.103
+    }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-12-pre62-edge-superseded.mp4",
+    "eaten_before": 7496,
+    "eaten_after": 180,
+    "rim_before": 6.92,
+    "rim_after": -13.01,
+    "interior_qualifying_before": 7294,
+    "interior_qualifying_after": 982,
+    "speck_hair_outline_clusters_ge3_after": 51,
+    "speck_hair_outline_max_cluster_after": 5,
+    "speck_outline_max_cluster_after": 15,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 518847,
+    "size_after": 1187699,
+    "head_step_pct": 0.0,
+    "tail_step_pct": 0.1,
+    "first_last_after": {
+     "max": 219,
+     "mean": 0.627
+    },
+    "control_f0_f1_after": {
+     "max": 188,
+     "mean": 0.172
+    },
+    "first_last_before": {
+     "max": 50,
+     "mean": 0.418
     }
    }
   },
@@ -3351,6 +3799,40 @@
      "max": 67,
      "mean": 0.109
     }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-13-pre62-edge-superseded.mp4",
+    "eaten_before": 9527,
+    "eaten_after": 148,
+    "rim_before": 9.66,
+    "rim_after": -12.09,
+    "interior_qualifying_before": 8075,
+    "interior_qualifying_after": 1053,
+    "speck_hair_outline_clusters_ge3_after": 56,
+    "speck_hair_outline_max_cluster_after": 5,
+    "speck_outline_max_cluster_after": 14,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 442511,
+    "size_after": 1158369,
+    "head_step_pct": -0.0,
+    "tail_step_pct": -0.1,
+    "first_last_after": {
+     "max": 222,
+     "mean": 0.624
+    },
+    "control_f0_f1_after": {
+     "max": 203,
+     "mean": 0.176
+    },
+    "first_last_before": {
+     "max": 47,
+     "mean": 0.404
+    }
    }
   },
   {
@@ -3595,6 +4077,40 @@
     "control_f0_f1": {
      "max": 97,
      "mean": 0.123
+    }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-14-pre62-edge-superseded.mp4",
+    "eaten_before": 7669,
+    "eaten_after": 181,
+    "rim_before": 7.31,
+    "rim_after": -12.47,
+    "interior_qualifying_before": 6280,
+    "interior_qualifying_after": 966,
+    "speck_hair_outline_clusters_ge3_after": 65,
+    "speck_hair_outline_max_cluster_after": 5,
+    "speck_outline_max_cluster_after": 19,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 506513,
+    "size_after": 1155651,
+    "head_step_pct": -1.2,
+    "tail_step_pct": -0.0,
+    "first_last_after": {
+     "max": 227,
+     "mean": 0.667
+    },
+    "control_f0_f1_after": {
+     "max": 188,
+     "mean": 0.184
+    },
+    "first_last_before": {
+     "max": 46,
+     "mean": 0.441
     }
    }
   },
@@ -3841,6 +4357,40 @@
      "max": 62,
      "mean": 0.109
     }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/fast-15-pre62-edge-superseded.mp4",
+    "eaten_before": 7463,
+    "eaten_after": 139,
+    "rim_before": 7.22,
+    "rim_after": -12.81,
+    "interior_qualifying_before": 7338,
+    "interior_qualifying_after": 970,
+    "speck_hair_outline_clusters_ge3_after": 50,
+    "speck_hair_outline_max_cluster_after": 4,
+    "speck_outline_max_cluster_after": 17,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 420219,
+    "size_after": 1026377,
+    "head_step_pct": 0.2,
+    "tail_step_pct": 0.2,
+    "first_last_after": {
+     "max": 212,
+     "mean": 0.68
+    },
+    "control_f0_f1_after": {
+     "max": 188,
+     "mean": 0.174
+    },
+    "first_last_before": {
+     "max": 56,
+     "mean": 0.47
+    }
    }
   },
   {
@@ -3919,7 +4469,27 @@
    "implied_bpm": 46.5,
    "duration_s": 10.0,
    "output_file": "amy-wide/pack2/idle.mp4",
-   "accent_file": "amy-wide/pack2/idle.accents.json"
+   "accent_file": "amy-wide/pack2/idle.accents.json",
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/idle-pre62-edge-superseded.mp4",
+    "eaten_before": 9910,
+    "eaten_after": 174,
+    "rim_before": 6.79,
+    "rim_after": -13.57,
+    "interior_qualifying_before": 8153,
+    "interior_qualifying_after": 1246,
+    "speck_hair_outline_clusters_ge3_after": 62,
+    "speck_hair_outline_max_cluster_after": 5,
+    "speck_outline_max_cluster_after": 11,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 417515,
+    "size_after": 1071165
+   }
   },
   {
    "clip": "invite",
@@ -3997,7 +4567,27 @@
    "implied_bpm": 110.9,
    "duration_s": 10.0,
    "output_file": "amy-wide/pack2/invite.mp4",
-   "accent_file": "amy-wide/pack2/invite.accents.json"
+   "accent_file": "amy-wide/pack2/invite.accents.json",
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/invite-pre62-edge-superseded.mp4",
+    "eaten_before": 8540,
+    "eaten_after": 175,
+    "rim_before": 7.83,
+    "rim_after": -12.81,
+    "interior_qualifying_before": 6519,
+    "interior_qualifying_after": 951,
+    "speck_hair_outline_clusters_ge3_after": 59,
+    "speck_hair_outline_max_cluster_after": 10,
+    "speck_outline_max_cluster_after": 13,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 416616,
+    "size_after": 852992
+   }
   },
   {
    "clip": "slow-01",
@@ -4232,6 +4822,40 @@
     "control_f0_f1": {
      "max": 84,
      "mean": 0.137
+    }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/slow-01-pre62-edge-superseded.mp4",
+    "eaten_before": 9658,
+    "eaten_after": 302,
+    "rim_before": 10.12,
+    "rim_after": -11.92,
+    "interior_qualifying_before": 8679,
+    "interior_qualifying_after": 1139,
+    "speck_hair_outline_clusters_ge3_after": 90,
+    "speck_hair_outline_max_cluster_after": 6,
+    "speck_outline_max_cluster_after": 14,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 444201,
+    "size_after": 1122298,
+    "head_step_pct": 1.7,
+    "tail_step_pct": 0.2,
+    "first_last_after": {
+     "max": 234,
+     "mean": 0.816
+    },
+    "control_f0_f1_after": {
+     "max": 201,
+     "mean": 0.206
+    },
+    "first_last_before": {
+     "max": 45,
+     "mean": 0.556
     }
    }
   },
@@ -4477,6 +5101,40 @@
      "max": 65,
      "mean": 0.125
     }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/slow-02-pre62-edge-superseded.mp4",
+    "eaten_before": 9773,
+    "eaten_after": 152,
+    "rim_before": 8.95,
+    "rim_after": -11.73,
+    "interior_qualifying_before": 8630,
+    "interior_qualifying_after": 1211,
+    "speck_hair_outline_clusters_ge3_after": 84,
+    "speck_hair_outline_max_cluster_after": 11,
+    "speck_outline_max_cluster_after": 17,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 514700,
+    "size_after": 1182215,
+    "head_step_pct": 0.9,
+    "tail_step_pct": -0.8,
+    "first_last_after": {
+     "max": 230,
+     "mean": 0.839
+    },
+    "control_f0_f1_after": {
+     "max": 190,
+     "mean": 0.191
+    },
+    "first_last_before": {
+     "max": 52,
+     "mean": 0.56
+    }
    }
   },
   {
@@ -4713,6 +5371,40 @@
      "max": 73,
      "mean": 0.129
     }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/slow-03-pre62-edge-superseded.mp4",
+    "eaten_before": 10304,
+    "eaten_after": 157,
+    "rim_before": 10.26,
+    "rim_after": -12.53,
+    "interior_qualifying_before": 9156,
+    "interior_qualifying_after": 1084,
+    "speck_hair_outline_clusters_ge3_after": 75,
+    "speck_hair_outline_max_cluster_after": 7,
+    "speck_outline_max_cluster_after": 13,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 519694,
+    "size_after": 1167117,
+    "head_step_pct": 0.8,
+    "tail_step_pct": 0.5,
+    "first_last_after": {
+     "max": 220,
+     "mean": 0.808
+    },
+    "control_f0_f1_after": {
+     "max": 185,
+     "mean": 0.202
+    },
+    "first_last_before": {
+     "max": 39,
+     "mean": 0.507
+    }
    }
   },
   {
@@ -4948,6 +5640,40 @@
     "control_f0_f1": {
      "max": 81,
      "mean": 0.131
+    }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/slow-04-pre62-edge-superseded.mp4",
+    "eaten_before": 11020,
+    "eaten_after": 186,
+    "rim_before": 11.49,
+    "rim_after": -11.0,
+    "interior_qualifying_before": 9300,
+    "interior_qualifying_after": 1320,
+    "speck_hair_outline_clusters_ge3_after": 97,
+    "speck_hair_outline_max_cluster_after": 9,
+    "speck_outline_max_cluster_after": 14,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 549611,
+    "size_after": 1386640,
+    "head_step_pct": 0.3,
+    "tail_step_pct": 0.6,
+    "first_last_after": {
+     "max": 228,
+     "mean": 0.793
+    },
+    "control_f0_f1_after": {
+     "max": 203,
+     "mean": 0.205
+    },
+    "first_last_before": {
+     "max": 61,
+     "mean": 0.507
     }
    }
   },
@@ -5193,10 +5919,44 @@
      "max": 77,
      "mean": 0.126
     }
+   },
+   "edge_repair": {
+    "wave": 62,
+    "date": "2026-11-27",
+    "ruling": "user 2026-11-27 13:34: full-set edge repair, five-step construction of waves 57-61 as sampled on fast-01, into v1.0.84",
+    "construction": "gen1: edge_decontam_r2 -> hair_fringe_solidify -> interior_decontam_r3 -> hair_tint_repaint_r4 -> encode crf18; gen2: decode -> outline_speck_repair_r5 -> encode crf14",
+    "backup": "superseded/slow-07-pre62-edge-superseded.mp4",
+    "eaten_before": 7970,
+    "eaten_after": 143,
+    "rim_before": 7.98,
+    "rim_after": -12.29,
+    "interior_qualifying_before": 8527,
+    "interior_qualifying_after": 1135,
+    "speck_hair_outline_clusters_ge3_after": 77,
+    "speck_hair_outline_max_cluster_after": 6,
+    "speck_outline_max_cluster_after": 15,
+    "skin_treated": 0,
+    "skin_qualifying_max_after": 0,
+    "size_before": 433667,
+    "size_after": 1042351,
+    "head_step_pct": 1.2,
+    "tail_step_pct": 0.4,
+    "first_last_after": {
+     "max": 245,
+     "mean": 0.835
+    },
+    "control_f0_f1_after": {
+     "max": 192,
+     "mean": 0.2
+    },
+    "first_last_before": {
+     "max": 48,
+     "mean": 0.57
+    }
    }
   }
  ],
  "clip_count": 24,
- "pack_mp4_bytes": 12396779,
+ "pack_mp4_bytes": 28893660,
  "bookend_note": "Splice canonical: canon6-short (short hair, canon6-short/C.npy, window 80-91, anchor 86) for all dance clips. Construction history: dissolve splice (canon5 era, then canon6 from wave 38) superseded at wave 54 by the HARD-CUT construction (user ruling 2026-11-26: [C86 C87 pure] + full body + [C85 C86 pure], no dissolves; first frame = last frame = C86; body frames keep their legacy timeline indices). The dissolve versions are archived in pack2/superseded/*-pre54-dissolve-superseded.*. Specials (idle/invite/clap/combo) carry no bookend splice and are unchanged at wave 54. Wave 55 (2026-11-27, user prescriptions 「将后面正常的头部移到前3帧，身体别动」 + 「连接处太长」): (1) STATIC TRIM first — body head/tail static runs (figure-region frame-diff < 25% of the clip's median body diff) trimmed to at most 1 stance frame before motion onset and at most 2 after motion end, moving frames never trimmed; accents shifted by -(head_trim/24)s, ZERO accents dropped on all 20 clips; frame counts 244 -> 205..244 (slow-02 220 -> 217), per-clip calibration in each entry's static_trim record. (2) HEAD TRANSPLANT on the trimmed files — the canon head on the four bookend frames (0, 1, N-2, N-1) is replaced by the clip's own first body frame's head (feathered mask, blend boundary at the neck/collar line, extended per column to the lower of the two heads' hair-strand bottoms; frames 0 and N-1 share one alpha so first=last identity is preserved). Measured on the final files: bookend->body hair step at clip start +11.8..+20.0% (fast-14 -17.9%) before, -1.6..+2.0% after on all 20; pixels below the mask bit-identical pre-encode; first=last max 34-48 / mean 0.32-0.41 (encode-noise class). Tail steps (body-end -> tail bookend) after: 17 clips >10% (fast-08 +40.3% highest; fast-09 +8.8%, slow-01 +8.0%, fast-14 +2.1% under), flagged per clip in head_transplant records. (3) CHAIN GATE (fast-01->02->03, keyed over the dark stage backdrop, static = the same 25%-of-median definition): perceptual static zone per join 4 frames (v1.0.82 files) -> 2 frames (new), target <=8. Pre-trim files archived in pack2/superseded/*-pre55-hardcut-superseded.*."
 }

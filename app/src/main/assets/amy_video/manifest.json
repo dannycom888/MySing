@@ -1,6 +1,6 @@
 {
  "pack": "amy-wide-pack2",
- "convention": "512x800 runtime; standing height composed to 0.635 of frame, feet baseline 0.95H; figure_scale relative to the fixed stage anchor 0.6338 (the original pack2 idle figure_height, frozen as a constant at wave 52); dance clips carry canonical bookend head/tail",
+ "convention": "512x800 runtime; standing height composed to 0.635 of frame (fast dance clips 0.56 wide composition, user ruling 2026-11-21), feet baseline 0.95H; figure_scale relative to the fixed stage anchor 0.6338 (frozen at wave 52); dance clips carry the canonical bookend head/tail in the wave-54 HARD-CUT construction (no dissolves)",
  "clips": [
   {
    "clip": "clap",
@@ -217,6 +217,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -304,6 +305,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -326,8 +328,8 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "244"
    },
-   "accent_count": 18,
-   "implied_bpm": 143.9,
+   "accent_count": 19,
+   "implied_bpm": 144.1,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/fast-02.mp4",
    "accent_file": "amy-wide/pack2/fast-02.accents.json"
@@ -397,6 +399,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -419,8 +422,8 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "244"
    },
-   "accent_count": 18,
-   "implied_bpm": 131.0,
+   "accent_count": 19,
+   "implied_bpm": 143.9,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/fast-03.mp4",
    "accent_file": "amy-wide/pack2/fast-03.accents.json"
@@ -490,10 +493,11 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
-   "margin_top_min": 0.375,
+   "margin_top_min": 0.3725,
    "margin_left_min": 0.1641,
    "margin_right_min": 0.1426,
    "edge_touches": {
@@ -512,7 +516,7 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "244"
    },
-   "accent_count": 16,
+   "accent_count": 18,
    "implied_bpm": 120.0,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/fast-04.mp4",
@@ -577,6 +581,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -664,6 +669,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -751,6 +757,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -838,6 +845,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -925,6 +933,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -1012,6 +1021,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -1099,6 +1109,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -1186,6 +1197,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -1279,6 +1291,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -1301,8 +1314,8 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "244"
    },
-   "accent_count": 16,
-   "implied_bpm": 130.7,
+   "accent_count": 17,
+   "implied_bpm": 125.1,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/fast-13.mp4",
    "accent_file": "amy-wide/pack2/fast-13.accents.json"
@@ -1366,10 +1379,11 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
-   "margin_top_min": 0.385,
+   "margin_top_min": 0.3825,
    "margin_left_min": 0.2266,
    "margin_right_min": 0.1621,
    "edge_touches": {
@@ -1388,8 +1402,8 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "244"
    },
-   "accent_count": 11,
-   "implied_bpm": 99.3,
+   "accent_count": 12,
+   "implied_bpm": 96.0,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/fast-14.mp4",
    "accent_file": "amy-wide/pack2/fast-14.accents.json"
@@ -1399,7 +1413,7 @@
    "group": "fast",
    "source_file": "raw2/fast-15-shorthair.mp4",
    "status": "ok",
-   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app v1.0.80: accent grid re-derived at 2x density (midpoints interleaved; finer scan confirms real ~0.5s peaks) -- implied_bpm 62.6 -> 125.3, restoring ratio eligibility at the clip's natural tempo.",
+   "notes": "wide packaging (user ruling 2026-11-21: big-move clips keep the big-background composition, stand target 0.56); figure_scale restores stage height in the app",
    "composition_mode": "wide",
    "src_frames": 240,
    "drift_before_pct": 2.7,
@@ -1453,6 +1467,7 @@
     "stand_target": 0.56
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.56,
    "feet_v": 0.05,
@@ -1475,8 +1490,8 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "244"
    },
-   "accent_count": 15,
-   "implied_bpm": 125.3,
+   "accent_count": 8,
+   "implied_bpm": 62.6,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/fast-15.mp4",
    "accent_file": "amy-wide/pack2/fast-15.accents.json"
@@ -1695,8 +1710,9 @@
     "stand_target": 0.635
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
-   "figure_height": 0.6362,
+   "figure_height": 0.6375,
    "feet_v": 0.05,
    "margin_top_min": 0.3075,
    "margin_left_min": 0.2773,
@@ -1718,7 +1734,7 @@
     "nb_read_frames": "244"
    },
    "accent_count": 15,
-   "implied_bpm": 102.9,
+   "implied_bpm": 106.7,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/slow-01.mp4",
    "accent_file": "amy-wide/pack2/slow-01.accents.json"
@@ -1781,6 +1797,7 @@
     "stand_target": 0.635
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 220,
    "figure_height": 0.635,
    "feet_v": 0.05,
@@ -1803,7 +1820,7 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "220"
    },
-   "accent_count": 20,
+   "accent_count": 21,
    "implied_bpm": 160.0,
    "duration_s": 9.167,
    "output_file": "amy-wide/pack2/slow-02.mp4",
@@ -1867,6 +1884,7 @@
     "stand_target": 0.635
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.635,
    "feet_v": 0.05,
@@ -1889,8 +1907,8 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "244"
    },
-   "accent_count": 9,
-   "implied_bpm": 72.0,
+   "accent_count": 10,
+   "implied_bpm": 68.6,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/slow-03.mp4",
    "accent_file": "amy-wide/pack2/slow-03.accents.json"
@@ -1953,6 +1971,7 @@
     "stand_target": 0.635
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.635,
    "feet_v": 0.05,
@@ -1975,8 +1994,8 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "244"
    },
-   "accent_count": 15,
-   "implied_bpm": 102.8,
+   "accent_count": 14,
+   "implied_bpm": 102.9,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/slow-04.mp4",
    "accent_file": "amy-wide/pack2/slow-04.accents.json"
@@ -2039,10 +2058,11 @@
     "stand_target": 0.635
    },
    "spliced": true,
+   "splice_mode": "hardcut",
    "frames": 244,
    "figure_height": 0.635,
    "feet_v": 0.05,
-   "margin_top_min": 0.3075,
+   "margin_top_min": 0.305,
    "margin_left_min": 0.2031,
    "margin_right_min": 0.2207,
    "edge_touches": {
@@ -2061,14 +2081,14 @@
     "avg_frame_rate": "24/1",
     "nb_read_frames": "244"
    },
-   "accent_count": 18,
-   "implied_bpm": 131.0,
+   "accent_count": 17,
+   "implied_bpm": 120.0,
    "duration_s": 10.167,
    "output_file": "amy-wide/pack2/slow-07.mp4",
    "accent_file": "amy-wide/pack2/slow-07.accents.json"
   }
  ],
  "clip_count": 24,
- "pack_mp4_bytes": 14264292,
- "bookend_note": "Splice canonical: canon5 (long hair) for clips packaged before wave 38; canon6-short (short hair, canon6-short/C.npy, window 80-91, anchor 86) for all splices from wave 38 on (user ruling 2026-11-21: whole set unified on short hair). First canon6 clip: fast-01. Wave 52: specials idle/invite re-shot on short hair (canon6 era, packaged via the specials path, no splice); clap/combo remain canon5-era long hair pending specials unification part 2."
+ "pack_mp4_bytes": 13923320,
+ "bookend_note": "Splice canonical: canon6-short (short hair, canon6-short/C.npy, window 80-91, anchor 86) for all dance clips. Construction history: dissolve splice (canon5 era, then canon6 from wave 38) superseded at wave 54 by the HARD-CUT construction (user ruling 2026-11-26: [C86 C87 pure] + full body + [C85 C86 pure], no dissolves; first frame = last frame = C86; body frames keep their legacy timeline indices). The dissolve versions are archived in pack2/superseded/*-pre54-dissolve-superseded.*. Specials (idle/invite/clap/combo) carry no bookend splice and are unchanged at wave 54."
 }

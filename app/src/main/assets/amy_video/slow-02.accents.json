@@ -5,6 +5,7 @@
  "frames": 220,
  "duration_s": 9.167,
  "accents": [
+  0.208,
   0.458,
   0.917,
   1.375,
@@ -24,12 +25,12 @@
   7.25,
   7.958,
   8.5,
-  8.917
+  8.958
  ],
- "accent_count": 20,
+ "accent_count": 21,
  "median_interval_s": 0.375,
  "implied_bpm": 160.0,
- "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s; pack2 refined: shared composition 0.635, canonical bookend splice (dance only), figure measured on final asset",
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s; pack2 refined: shared composition 0.635, canonical bookend splice (dance only), figure measured on final asset; wave-54 hard-cut splice (user ruling 2026-11-26): NO dissolves \u2014 [C86 C87 pure] + full body + [C85 C86 pure], first frame = last frame = C86; body frames keep their legacy timeline indices, accents re-measured on this final asset",
  "figure_height": 0.635,
  "figure_scale": 0.9981,
  "feet_v": 0.05

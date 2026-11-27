@@ -60,7 +60,10 @@ class AmyVideoSizingTest {
         // The widest spread in the pack, for the record:
         // fast-01 (drawn 1.1318× — pack2's fast set is
         // composed wide at 0.56 native height) and slow-01
-        // (0.9962×) land on the same stage height.
+        // (0.9942× since the wave-54 hard-cut re-splice — its pure
+        // body head frames measure 0.6375 native, was 0.9962×/0.6362
+        // under the dissolve construction) land on the same stage
+        // height.
         val fast01 = dance.first { it.name == "fast-01" }
         val slow01 = dance.first { it.name == "slow-01" }
         assertEquals(

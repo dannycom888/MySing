@@ -13,12 +13,13 @@
   5.417,
   6.167,
   7.167,
-  7.958
+  8.042,
+  9.958
  ],
- "accent_count": 9,
- "median_interval_s": 0.8334999999999999,
- "implied_bpm": 72.0,
- "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s; pack2 refined: shared composition 0.635, canonical bookend splice (dance only), figure measured on final asset",
+ "accent_count": 10,
+ "median_interval_s": 0.875,
+ "implied_bpm": 68.6,
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s; pack2 refined: shared composition 0.635, canonical bookend splice (dance only), figure measured on final asset; wave-54 hard-cut splice (user ruling 2026-11-26): NO dissolves \u2014 [C86 C87 pure] + full body + [C85 C86 pure], first frame = last frame = C86; body frames keep their legacy timeline indices, accents re-measured on this final asset",
  "figure_height": 0.635,
  "figure_scale": 0.9981,
  "feet_v": 0.05

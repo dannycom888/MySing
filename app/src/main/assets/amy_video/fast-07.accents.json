@@ -10,7 +10,7 @@
   1.625,
   2.125,
   2.625,
-  3.083,
+  3.0,
   3.708,
   4.125,
   4.625,
@@ -29,7 +29,7 @@
  "accent_count": 20,
  "median_interval_s": 0.45899999999999963,
  "implied_bpm": 130.7,
- "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s; pack2 wide packaging (big-move clip, user ruling 2026-11-21): composition kept at 0.56 big-background framing, canonical bookend splice at the same target, figure measured on final asset; figure_scale restores stage height in the app",
+ "method": "frame-difference energy over the figure mask, quarter-scale, 7-frame smoothing, threshold 0.35*p99, min peak distance 0.25s; pack2 wide packaging (big-move clip, user ruling 2026-11-21): composition kept at 0.56 big-background framing, canonical bookend splice at the same target, figure measured on final asset; figure_scale restores stage height in the app; wave-54 hard-cut splice (user ruling 2026-11-26): NO dissolves \u2014 [C86 C87 pure] + full body + [C85 C86 pure], first frame = last frame = C86; body frames keep their legacy timeline indices, accents re-measured on this final asset",
  "figure_height": 0.56,
  "figure_scale": 1.1318,
  "feet_v": 0.05

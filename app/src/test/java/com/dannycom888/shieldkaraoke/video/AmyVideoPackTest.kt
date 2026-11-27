@@ -121,7 +121,13 @@ class AmyVideoPackTest {
             // at 216 frames — exactly 9.0 s — after the
             // wave-53 tail-trim rescue cut its generator
             // end-fade, so the floor is inclusive now.
-            assertTrue("${clip.name} duration", clip.durationS >= 9.0 && clip.durationS <= 10.2)
+            // >= 8.5 since v1.0.83 (wave-55 static trim):
+            // dance bodies are trimmed of static head/tail
+            // frames (user: the joins felt too long), so
+            // dance durations now run 205–244 frames —
+            // slow-07 is the shortest at 205 frames =
+            // 8.542 s. Specials are untrimmed.
+            assertTrue("${clip.name} duration", clip.durationS >= 8.5 && clip.durationS <= 10.2)
             assertTrue(
                 "${clip.name} mp4 missing",
                 File(assetDir(), "${clip.name}.mp4").isFile,

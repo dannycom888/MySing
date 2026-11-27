@@ -53,9 +53,16 @@ class BeatSliceSchedulerTest {
         // next, leaving 18 segments; two of them (3.083–
         // 3.792 and the 9.0–tail close) take 2 beats, the
         // rest 1 — 20 beats in all.
+        // v1.0.83 (wave-55 static trim): fast-01's body
+        // was trimmed 7 frames at the head and 12 at the
+        // tail; the accents shifted -7 frames with it
+        // (first accent 0.75 -> 0.458) and the closing
+        // segment (last accent 8.708 -> tail 9.375) now
+        // spans 1 beat instead of 2 — still 18 segments,
+        // 19 beats in all.
         assertEquals(18, pass.segments.size)
-        assertEquals(20, pass.totalBeats)
-        assertEquals(20 * period, pass.durationS(period), 1e-9)
+        assertEquals(19, pass.totalBeats)
+        assertEquals(19 * period, pass.durationS(period), 1e-9)
         for (segment in pass.segments) {
             assertTrue(
                 "speed ${segment.speed} outside the clamp",
@@ -65,7 +72,14 @@ class BeatSliceSchedulerTest {
         }
         // The lead-in starts exactly one beat before the
         // first accent, so the first accent lands on beat 1.
-        assertEquals(clip.accentsS.first() - period, pass.segments.first().clipStartS, 1e-9)
+        // v1.0.83 (wave-55 static trim): the first accent
+        // moved to 0.458 s — less than one 127 BPM beat
+        // (0.472 s) before it remains in the trimmed clip,
+        // so the lead-in start clamps to the clip head
+        // (plan()'s documented clamp) instead of sitting
+        // a full beat ahead; the first accent still lands
+        // exactly on beat 1 (next assertion).
+        assertEquals(0.0, pass.segments.first().clipStartS, 1e-9)
         val atBeat1 = pass.locate(period, period)
         assertEquals(clip.accentsS.first(), atBeat1!!.clipPositionS, 1e-9)
         // Every segment starts exactly where the previous one

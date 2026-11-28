@@ -74,6 +74,52 @@ class AmyVideoSizingTest {
     }
 
     @Test
+    fun `the v1_0_88 dance enlargement lands every dance clip on 0_7606 and leaves the specials alone`() {
+        // User ruling 2026-11-28: dance figures +20%.
+        // The pack invariant figureHeight × figureScale
+        // = 0.6338 goes to 0.6338 × 1.2 = 0.76056 while
+        // dancing (the rendered height carries the box
+        // factor on top: 0.952 × 0.76056 = 0.72405 of the
+        // caller's height); the specials' law (invite
+        // step, idle stand) is untouched.
+        assertEquals(1.2f, AmyVideoSizing.DANCE_FIGURE_ENLARGEMENT, 1e-6f)
+        val clips = shippedClips()
+        val idle = clips.first { it.name == AmyVideoPack.SPECIAL_IDLE }
+        val danceAnchor = AmyVideoSizing.onStageDanceFigureHeight(idle)
+        assertEquals(0.72405, danceAnchor, 0.001)
+        val dance = clips.filter { it.group != AmyVideoPack.GROUP_SPECIAL }
+        assertEquals(20, dance.size)
+        for (clip in dance) {
+            val height = AmyVideoSizing.onStageDanceFigureHeight(clip)
+            assertTrue(
+                "${clip.name} dance height $height vs $danceAnchor (>1% off)",
+                abs(height - danceAnchor) <= 0.01 * danceAnchor,
+            )
+            assertEquals(
+                AmyVideoSizing.slotScale(clip) * 1.2f,
+                AmyVideoSizing.danceSlotScale(clip),
+                1e-6f,
+            )
+            // The named invariant itself: the clip's
+            // figureHeight × effective dance scale.
+            val invariant = clip.figureHeight *
+                AmyVideoSizing.danceSlotScale(clip).toDouble()
+            assertTrue(
+                "${clip.name} dance invariant $invariant vs 0.76056 (>1% off)",
+                abs(invariant - 0.76056) <= 0.01 * 0.76056,
+            )
+        }
+        // The specials still ride the unenlarged scale.
+        for (clip in clips.filter { it.group == AmyVideoPack.GROUP_SPECIAL }) {
+            assertEquals(
+                clip.figureScale.toFloat(),
+                AmyVideoSizing.slotScale(clip),
+                1e-6f,
+            )
+        }
+    }
+
+    @Test
     fun `every shipped clip carries its measured foot baseline`() {
         val clips = shippedClips()
         assertEquals(24, clips.size)

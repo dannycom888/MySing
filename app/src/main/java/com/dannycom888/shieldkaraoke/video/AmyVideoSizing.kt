@@ -47,6 +47,39 @@ object AmyVideoSizing {
     fun slotScale(clip: AmyClip): Float = clip.figureScale.toFloat()
 
     /**
+     * v1.0.88: the dance figure enlargement the user
+     * ordered on 2026-11-28 ("将跳舞时候的动作全部放大
+     * 20%"): while she DANCES, Amy renders 1.2× larger —
+     * the pack invariant figureHeight × figureScale
+     * goes from the anchor 0.6338 to ≈0.7606 (the
+     * rendered height carries the 0.952 box factor on
+     * top, 0.6034 → 0.7240 of the caller's height).
+     * The factor rides the existing GL slot scale (the
+     * renderer scales around the foot baseline, so the
+     * feet, the reflection and the pool's baseline never
+     * move), and it applies ONLY to the dance slots:
+     * the specials (invite / idle / clap / combo) keep
+     * [slotScale] untouched, as do the frame dancers.
+     * Geometry check at the ruling (wave 77): the widest
+     * dance figure in the pack (fast-03, scale × extent
+     * 0.7604 by the packaging figure mask) draws
+     * 0.556 × dancerH wide at 1.2× — inside the frame
+     * box (0.78 × dancerH) with ≈127dp of clearance to
+     * the lyrics band even at the invite step's peak
+     * height on a 16:9 stage; the GL quad's transparent
+     * margins keep 19% headroom inside the canvas.
+     */
+    const val DANCE_FIGURE_ENLARGEMENT = 1.2f
+
+    /**
+     * The GL draw scale for a DANCE slot: the clip's
+     * measured factor times [DANCE_FIGURE_ENLARGEMENT].
+     * Dance loads only — the specials never call this.
+     */
+    fun danceSlotScale(clip: AmyClip): Float =
+        slotScale(clip) * DANCE_FIGURE_ENLARGEMENT
+
+    /**
      * The texture v of [clip]'s foot baseline (the green
      * margin below the boots, as a fraction of the frame
      * height), for the renderer's feet anchoring: the
@@ -68,4 +101,14 @@ object AmyVideoSizing {
      */
     fun onStageFigureHeight(clip: AmyClip): Double =
         VIDEO_FIGURE_SCALE.toDouble() * clip.figureScale * clip.figureHeight
+
+    /**
+     * [clip]'s figure height on stage WHILE DANCING
+     * (v1.0.88): the [onStageFigureHeight] law times
+     * [DANCE_FIGURE_ENLARGEMENT] — every dance clip's
+     * rendered height lands 1.2× its unenlarged value,
+     * on the one shared anchor.
+     */
+    fun onStageDanceFigureHeight(clip: AmyClip): Double =
+        onStageFigureHeight(clip) * DANCE_FIGURE_ENLARGEMENT.toDouble()
 }

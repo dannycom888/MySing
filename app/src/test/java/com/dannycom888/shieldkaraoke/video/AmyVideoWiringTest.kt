@@ -295,9 +295,12 @@ class AmyVideoWiringTest {
         // reload, and the specials' slot. The renderer scales
         // the figure around the foot baseline by the slot's
         // factor, in the wider canvas.
-        assertTrue(src.contains("AmyVideoSizing.slotScale(start)"))
-        assertTrue(src.contains("AmyVideoSizing.slotScale(next)"))
-        assertTrue(src.contains("AmyVideoSizing.slotScale(following)"))
+        // v1.0.88: the three DANCE load sites take the
+        // dance scale (the user's +20% enlargement rides
+        // it); the specials' slot keeps the plain scale.
+        assertTrue(src.contains("AmyVideoSizing.danceSlotScale(start)"))
+        assertTrue(src.contains("AmyVideoSizing.danceSlotScale(next)"))
+        assertTrue(src.contains("AmyVideoSizing.danceSlotScale(following)"))
         assertTrue(src.contains("AmyVideoSizing.slotScale(clip)"))
         assertTrue(src.contains("VIDEO_CLIP_ASPECT / VIDEO_CANVAS_ASPECT"))
         assertTrue(src.contains("depthFraction / scale"))

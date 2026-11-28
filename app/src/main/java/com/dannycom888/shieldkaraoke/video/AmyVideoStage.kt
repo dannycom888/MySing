@@ -314,7 +314,7 @@ fun AmyVideoFigure(
         glView.showSingleSlot(0)
         status.mode = mode
         status.clipName = start.name
-        glView.setSlotScale(0, AmyVideoSizing.slotScale(start))
+        glView.setSlotScale(0, AmyVideoSizing.danceSlotScale(start))
         glView.setSlotFeet(0, AmyVideoSizing.slotFeetV(start))
         playerA.repeatMode = Player.REPEAT_MODE_OFF
         // v1.0.78: song start — slot 0's gate closes until
@@ -329,7 +329,7 @@ fun AmyVideoFigure(
             val plan = BeatSliceScheduler.plan(
                 next.accentsS, next.durationS, beatPeriodS,
             )
-            glView.setSlotScale(1, AmyVideoSizing.slotScale(next))
+            glView.setSlotScale(1, AmyVideoSizing.danceSlotScale(next))
             glView.setSlotFeet(1, AmyVideoSizing.slotFeetV(next))
             playerB.repeatMode = Player.REPEAT_MODE_OFF
             // v1.0.78: the preload's gate closes at the
@@ -412,7 +412,7 @@ fun AmyVideoFigure(
                             following.accentsS, following.durationS, beatPeriodS,
                         )
                         glView.setSlotScale(
-                            1 - frontSlot, AmyVideoSizing.slotScale(following),
+                            1 - frontSlot, AmyVideoSizing.danceSlotScale(following),
                         )
                         glView.setSlotFeet(
                             1 - frontSlot, AmyVideoSizing.slotFeetV(following),
